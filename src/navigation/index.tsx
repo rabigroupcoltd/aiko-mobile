@@ -17,7 +17,9 @@ import { WalletScreen } from '../screens/WalletScreen';
 import { NotificationScreen } from '../screens/NotificationScreen';
 import { AnnouncementScreen } from '../screens/AnnouncementScreen';
 import { AwaitingApprovalScreen } from '../screens/AwaitingApprovalScreen';
-import { MainTabs } from './MainTabs';
+import { MainDrawer } from './MainDrawer';
+import { HelpCenterScreen } from '../screens/HelpCenterScreen';
+import { SettingsScreen } from '../screens/SettingsScreen';
 
 const Stack = createStackNavigator();
 
@@ -38,10 +40,10 @@ export const AppNavigator = () => {
       <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
       <Stack.Screen name="DriverOnboarding" component={DriverOnboardingScreen} />
       <Stack.Screen name="Success" component={SuccessScreen} />
-      <Stack.Screen name="AwaitingApproval" component component={AwaitingApprovalScreen} />
+      <Stack.Screen name="AwaitingApproval" component={AwaitingApprovalScreen} />
 
       {/* Main app */}
-      <Stack.Screen name="Main" component={MainTabs} />
+      <Stack.Screen name="Main" component={MainDrawer} />
 
       {/* Standalone Screens */}
       <Stack.Screen name="Booking" component={BookingScreen} />
@@ -49,6 +51,8 @@ export const AppNavigator = () => {
       <Stack.Screen name="Wallet" component={WalletScreen} />
       <Stack.Screen name="Notifications" component={NotificationScreen} />
       <Stack.Screen name="Announcements" component={AnnouncementScreen} />
+      <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
       
       {/* Operational screens */}
       <Stack.Screen name="OrderAcceptance" component={OrderAcceptanceScreen} />

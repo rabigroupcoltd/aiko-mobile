@@ -4,7 +4,7 @@ import {
   ScrollView, Platform, Switch
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Power, MapPin, Package, ChevronRight, Star, Bell, RefreshCw } from 'lucide-react-native';
+import { Power, MapPin, Package, ChevronRight, Star, Bell, RefreshCw, Menu } from 'lucide-react-native';
 import { MapView } from '../components/MapView';
 import { COLORS, SPACING } from '../theme';
 
@@ -39,20 +39,12 @@ export const GoOnlineScreen = () => {
       <SafeAreaView style={styles.overlay}>
         {/* Top bar with Mode Toggle */}
         <View style={styles.topBar}>
-          <View style={styles.modeToggleContainer}>
-            <TouchableOpacity 
-              style={[styles.modeBtn, isDriverMode && styles.modeBtnActive]}
-              onPress={() => !isDriverMode && toggleMode()}
-            >
-              <Text style={[styles.modeBtnText, isDriverMode && styles.modeBtnTextActive]}>Driver</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.modeBtn, !isDriverMode && styles.modeBtnActive]}
-              onPress={() => isDriverMode && toggleMode()}
-            >
-              <Text style={[styles.modeBtnText, !isDriverMode && styles.modeBtnTextActive]}>Passenger</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity 
+            style={styles.iconBtn}
+            onPress={() => navigation.openDrawer()}
+          >
+            <Menu size={22} color={COLORS.black} />
+          </TouchableOpacity>
 
           <TouchableOpacity 
             style={styles.iconBtn}

@@ -6,7 +6,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import {
   Search, Clock, MapPin, Navigation, CreditCard, ChevronRight,
-  ChevronDown, Car, Bike, Truck, X, ArrowLeft
+  ChevronDown, Car, Bike, Truck, X, Menu
 } from 'lucide-react-native';
 import { MapView, Marker } from '../components/MapView';
 import { Button } from '../components/Button';
@@ -45,9 +45,9 @@ export const BookingScreen = () => {
         <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.roundBtn}
-            onPress={() => navigation.goBack()}
+            onPress={() => navigation.openDrawer()}
           >
-            <ArrowLeft size={24} color={COLORS.black} />
+            <Menu size={24} color={COLORS.black} />
           </TouchableOpacity>
           <View style={styles.searchBarContainer}>
             <TouchableOpacity
