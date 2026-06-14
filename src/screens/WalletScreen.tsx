@@ -1,14 +1,89 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
-import { Wallet, TrendingUp, ArrowUpRight, ArrowDownLeft, Gift, ChevronRight } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { TrendingUp, ArrowUpRight, ArrowDownLeft, Gift, ChevronRight, X } from 'lucide-react-native';
 import { COLORS } from '../theme';
+import { Button } from '../components/Button';
+
+type Transaction = {
+  id: string;
+  type: 'credit' | 'debit' | 'reward';
+  amount: number;
+  title: string;
+  date: string;
+  status: string;
+};
+
+const INITIAL_TRANSACTIONS: Transaction[] = [
+  { id: '1', type: 'credit', amount: 5000, title: 'Top Up', date: 'Oct 24, 2023', status: 'Completed' },
+  { id: '2', type: 'debit', amount: 1200, title: 'Ride Payment', date: 'Oct 23, 2023', status: 'Completed' },
+  { id: '3', type: 'reward', amount: 50, title: 'Referral Bonus', date: 'Oct 22, 2023', status: 'Earned' },
+];
+
+const OLDER_TRANSACTIONS: Transaction[] = [
+  { id: '4', type: 'debit', amount: 800, title: 'Ride Payment', date: 'Oct 20, 2023', status: 'Completed' },
+  { id: '5', type: 'credit', amount: 10000, title: 'Top Up', date: 'Oct 18, 2023', status: 'Completed' },
+  { id: '6', type: 'debit', amount: 1500, title: 'Ride Payment', date: 'Oct 15, 2023', status: 'Completed' },
+];
+
+const QUICK_AMOUNTS = [1000, 2000, 5000, 10000];
+
+const REFERRAL_CODE = 'RABI-2K4F9';
 
 export const WalletScreen = () => {
-  const transactions = [
-    { id: '1', type: 'credit', amount: 5000, title: 'Top Up', date: 'Oct 24, 2023', status: 'Completed' },
-    { id: '2', type: 'debit', amount: 1200, title: 'Ride Payment', date: 'Oct 23, 2023', status: 'Completed' },
-    { id: '3', type: 'reward', amount: 50, title: 'Referral Bonus', date: 'Oct 22, 2023', status: 'Earned' },
-  ];
+  const [balance, setBalance] = useState(24500);
+  const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
+  const [showAll, setShowAll] = useState(false);
+  const [modalType, setModalType] = useState<'add' | 'withdraw' | null>(null);
+  const [amountInput, setAmountInput] = useState('');
+  const [modalError, setModalError] = useState('');
+
+  const visibleTransactions = showAll ? [...transactions, ...OLDER_TRANSACTIONS] : transactions.slice(0, 3);
+
+  const openModal = (type: 'add' | 'withdraw') => {
+    setModalType(type);
+    setAmountInput('');
+    setModalError('');
+  };
+
+  const closeModal = () => {
+    setModalType(null);
+    setAmountInput('');
+    setModalError('');
+  };
+
+  const handleConfirmAmount = (value: number) => {
+    if (!value || value <= 0) {
+      setModalError('Enter a valid amount');
+      return;
+    }
+    if (modalType === 'withdraw' && value > balance) {
+      setModalError('Insufficient balance');
+      return;
+    }
+
+    const isAdd = modalType === 'add';
+    setBalance((prev) => (isAdd ? prev + value : prev - value));
+    setTransactions((prev) => [
+      {
+        id: Date.now().toString(),
+        type: isAdd ? 'credit' : 'debit',
+        amount: value,
+        title: isAdd ? 'Wallet Top Up' : 'Withdrawal',
+        date: 'Just now',
+        status: 'Completed',
+      },
+      ...prev,
+    ]);
+    closeModal();
+  };
+
+  const handleRefer = () => {
+    Alert.alert(
+      'Refer & Earn',
+      `Share your code ${REFERRAL_CODE} with friends. You both get 500 reward points when they complete their first ride!`
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -21,7 +96,9 @@ export const WalletScreen = () => {
         <View style={styles.balanceCard}>
           <View style={styles.balanceInfo}>
             <Text style={styles.balanceLabel}>Total Balance</Text>
-            <Text style={styles.balanceAmount}>₦24,500.00</Text>
+            <Text style={styles.balanceAmount}>
+              ₦{balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Text>
           </View>
           <View style={styles.rewardSection}>
             <View style={styles.rewardBadge}>
@@ -34,19 +111,19 @@ export const WalletScreen = () => {
 
         {/* Quick Actions */}
         <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => openModal('add')}>
             <View style={[styles.actionIcon, { backgroundColor: '#E8F5E9' }]}>
               <ArrowDownLeft size={24} color="#2E7D32" />
             </View>
             <Text style={styles.actionText}>Add Money</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => openModal('withdraw')}>
             <View style={[styles.actionIcon, { backgroundColor: '#FFEBEE' }]}>
               <ArrowUpRight size={24} color="#C62828" />
             </View>
             <Text style={styles.actionText}>Withdraw</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => setShowAll((v) => !v)}>
             <View style={[styles.actionIcon, { backgroundColor: '#E3F2FD' }]}>
               <TrendingUp size={24} color="#1565C0" />
             </View>
@@ -57,13 +134,13 @@ export const WalletScreen = () => {
         {/* Transactions List */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Transactions</Text>
-          <TouchableOpacity>
-            <Text style={styles.seeAll}>See All</Text>
+          <TouchableOpacity onPress={() => setShowAll((v) => !v)}>
+            <Text style={styles.seeAll}>{showAll ? 'Show Less' : 'See All'}</Text>
           </TouchableOpacity>
         </View>
 
-        {transactions.map((tx) => (
-          <TouchableOpacity key={tx.id} style={styles.transactionItem}>
+        {visibleTransactions.map((tx) => (
+          <View key={tx.id} style={styles.transactionItem}>
             <View style={[styles.txIconContainer, { backgroundColor: tx.type === 'credit' ? '#E8F5E9' : tx.type === 'debit' ? '#FFEBEE' : '#FFF8E1' }]}>
               {tx.type === 'credit' ? <ArrowDownLeft size={20} color="#2E7D32" /> : tx.type === 'debit' ? <ArrowUpRight size={20} color="#C62828" /> : <Gift size={20} color="#FFA000" />}
             </View>
@@ -77,11 +154,11 @@ export const WalletScreen = () => {
               </Text>
               <Text style={styles.txStatus}>{tx.status}</Text>
             </View>
-          </TouchableOpacity>
+          </View>
         ))}
 
         {/* Rewards Promotion */}
-        <TouchableOpacity style={styles.promoCard}>
+        <TouchableOpacity style={styles.promoCard} onPress={handleRefer}>
           <View style={styles.promoTextContainer}>
             <Text style={styles.promoTitle}>Earn more points!</Text>
             <Text style={styles.promoSubtitle}>Refer a friend and get 500 reward points instantly.</Text>
@@ -89,6 +166,48 @@ export const WalletScreen = () => {
           <ChevronRight size={24} color="#FFF" />
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Add Money / Withdraw Modal */}
+      <Modal visible={modalType !== null} transparent animationType="fade" onRequestClose={closeModal}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{modalType === 'add' ? 'Add Money' : 'Withdraw'}</Text>
+              <TouchableOpacity onPress={closeModal}>
+                <X size={22} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.amountInputWrapper}>
+              <Text style={styles.amountCurrency}>₦</Text>
+              <TextInput
+                style={styles.amountInput}
+                placeholder="0.00"
+                keyboardType="number-pad"
+                value={amountInput}
+                onChangeText={(v) => { setAmountInput(v.replace(/[^0-9]/g, '')); setModalError(''); }}
+                autoFocus
+              />
+            </View>
+
+            {modalError ? <Text style={styles.modalErrorText}>{modalError}</Text> : null}
+
+            <View style={styles.chipsRow}>
+              {QUICK_AMOUNTS.map((amt) => (
+                <TouchableOpacity key={amt} style={styles.chip} onPress={() => { setAmountInput(String(amt)); setModalError(''); }}>
+                  <Text style={styles.chipText}>₦{amt.toLocaleString()}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Button
+              title={modalType === 'add' ? 'Add to Wallet' : 'Withdraw Funds'}
+              onPress={() => handleConfirmAmount(parseInt(amountInput || '0', 10))}
+              style={styles.modalConfirmBtn}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -267,5 +386,79 @@ const styles = StyleSheet.create({
   promoSubtitle: {
     color: 'rgba(255,255,255,0.7)',
     fontSize: 13,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: COLORS.overlay,
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 24,
+    padding: 24,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+  amountInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  amountCurrency: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: COLORS.text,
+    marginRight: 8,
+  },
+  amountInput: {
+    flex: 1,
+    fontSize: 24,
+    fontWeight: '800',
+    color: COLORS.text,
+    height: 60,
+  },
+  modalErrorText: {
+    color: COLORS.error,
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginVertical: 16,
+  },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  modalConfirmBtn: {
+    height: 56,
+    marginTop: 8,
   },
 });

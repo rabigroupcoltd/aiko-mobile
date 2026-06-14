@@ -1,9 +1,10 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Bell, Package, Info, CheckCircle, ChevronLeft } from 'lucide-react-native';
 import { COLORS } from '../theme';
 
-const NOTIFICATIONS = [
+const INITIAL_NOTIFICATIONS = [
   {
     id: '1',
     title: 'Ride Completed',
@@ -31,12 +32,21 @@ const NOTIFICATIONS = [
 ];
 
 export const NotificationScreen = ({ navigation }: any) => {
-  const renderItem = ({ item }: { item: typeof NOTIFICATIONS[0] }) => {
+  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+
+  const handlePress = (item: typeof INITIAL_NOTIFICATIONS[0]) => {
+    setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, read: true } : n)));
+    if (item.type === 'ride' || item.type === 'wallet') {
+      navigation.navigate('Wallet');
+    }
+  };
+
+  const renderItem = ({ item }: { item: typeof INITIAL_NOTIFICATIONS[0] }) => {
     const Icon = item.type === 'ride' ? Package : item.type === 'wallet' ? CheckCircle : Info;
     const iconColor = item.type === 'ride' ? COLORS.primary : item.type === 'wallet' ? '#2E7D32' : '#1565C0';
 
     return (
-      <TouchableOpacity style={[styles.notificationItem, !item.read && styles.unreadItem]}>
+      <TouchableOpacity style={[styles.notificationItem, !item.read && styles.unreadItem]} onPress={() => handlePress(item)}>
         <View style={[styles.iconContainer, { backgroundColor: iconColor + '10' }]}>
           <Icon size={24} color={iconColor} />
         </View>
@@ -63,7 +73,7 @@ export const NotificationScreen = ({ navigation }: any) => {
       </View>
 
       <FlatList
-        data={NOTIFICATIONS}
+        data={notifications}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}

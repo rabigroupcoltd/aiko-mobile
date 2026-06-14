@@ -1,6 +1,7 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, SafeAreaView } from 'react-native';
-import { Megaphone, ChevronRight } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Megaphone, ChevronRight, ChevronDown } from 'lucide-react-native';
 import { COLORS } from '../theme';
 
 const ANNOUNCEMENTS = [
@@ -21,22 +22,36 @@ const ANNOUNCEMENTS = [
 ];
 
 export const AnnouncementScreen = () => {
-  const renderItem = ({ item }: { item: typeof ANNOUNCEMENTS[0] }) => (
-    <TouchableOpacity style={styles.card}>
-      <Image source={{ uri: item.image }} style={styles.image} />
-      <View style={styles.content}>
-        <View style={styles.dateBadge}>
-          <Text style={styles.dateText}>{item.date}</Text>
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const renderItem = ({ item }: { item: typeof ANNOUNCEMENTS[0] }) => {
+    const expanded = expandedIds.has(item.id);
+    return (
+      <TouchableOpacity style={styles.card} onPress={() => toggleExpanded(item.id)} activeOpacity={0.9}>
+        <Image source={{ uri: item.image }} style={styles.image} />
+        <View style={styles.content}>
+          <View style={styles.dateBadge}>
+            <Text style={styles.dateText}>{item.date}</Text>
+          </View>
+          <Text style={styles.title}>{item.title}</Text>
+          <Text style={styles.description} numberOfLines={expanded ? undefined : 2}>{item.content}</Text>
+          <View style={styles.footer}>
+            <Text style={styles.readMore}>{expanded ? 'Show Less' : 'Read More'}</Text>
+            {expanded ? <ChevronDown size={16} color={COLORS.primary} /> : <ChevronRight size={16} color={COLORS.primary} />}
+          </View>
         </View>
-        <Text style={styles.title}>{item.title}</Text>
-        <Text style={styles.description} numberOfLines={2}>{item.content}</Text>
-        <View style={styles.footer}>
-          <Text style={styles.readMore}>Read More</Text>
-          <ChevronRight size={16} color={COLORS.primary} />
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>

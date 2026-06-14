@@ -14,7 +14,7 @@ export const CustomDrawerContent = (props: any) => {
     // For now we assume we just navigate with params to force reload MainTabs
     navigation.reset({
       index: 0,
-      routes: [{ name: 'MainDrawer', params: { role: isDriver ? 'PASSENGER' : 'DRIVER' } }],
+      routes: [{ name: 'Main', params: { role: isDriver ? 'PASSENGER' : 'DRIVER' } }],
     });
   };
 

@@ -1,18 +1,38 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
+  View, Text, StyleSheet, TouchableOpacity,
   ScrollView, Dimensions, Platform, Modal, TextInput
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import {
-  Search, Clock, MapPin, Navigation, CreditCard, ChevronRight,
-  ChevronDown, Car, Bike, Truck, X, Menu
+  Search, Clock, MapPin, Navigation, CreditCard,
+  ChevronDown, Car, Bike, Truck, X, Menu, Phone, MessageCircle,
+  Star, CheckCircle
 } from 'lucide-react-native';
-import { MapView, Marker } from '../components/MapView';
+import { MapView, Marker, Polyline } from '../components/MapView';
 import { Button } from '../components/Button';
-import { COLORS, SPACING, SIZES } from '../theme';
+import { COLORS, getGreeting } from '../theme';
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
+
+type Step = 'search' | 'select' | 'finding' | 'matched' | 'ontrip' | 'completed';
+type Coordinate = { latitude: number; longitude: number };
+
+const PICKUP_COORD: Coordinate = { latitude: 6.5244, longitude: 3.3792 };
+
+const SHORTCUTS: { label: string; address: string; coordinate: Coordinate }[] = [
+  { label: 'Home', address: '24, Adeniyi Jones, Ikeja', coordinate: { latitude: 6.6059, longitude: 3.3491 } },
+  { label: 'Office', address: 'Standard Chartered Bank, VI', coordinate: { latitude: 6.4304, longitude: 3.4219 } },
+];
+
+const SEARCH_RESULTS: { label: string; coordinate: Coordinate }[] = [
+  { label: 'Victoria Island, Lagos', coordinate: { latitude: 6.4281, longitude: 3.4219 } },
+  { label: 'Ikeja City Mall', coordinate: { latitude: 6.6018, longitude: 3.3515 } },
+  { label: 'Murtala Muhammed Airport', coordinate: { latitude: 6.5774, longitude: 3.3211 } },
+  { label: 'Lekki Phase 1', coordinate: { latitude: 6.4474, longitude: 3.4731 } },
+  { label: 'Maryland Mall', coordinate: { latitude: 6.5703, longitude: 3.3654 } },
+];
 
 const VEHICLES = [
   { id: 'standard', name: 'Aiko Standard', icon: Car, price: '₦1,200', eta: '3 min', desc: '4 seats, AC' },
@@ -20,26 +40,101 @@ const VEHICLES = [
   { id: 'bike', name: 'Aiko Bike', icon: Bike, price: '₦600', eta: '1 min', desc: 'Fastest for traffic' },
 ];
 
+const DRIVER = {
+  name: 'Tunde Bakare',
+  rating: 4.9,
+  vehicle: 'Toyota Corolla · Silver',
+  plate: 'LND 234 XY',
+  arrivingIn: '4 min',
+};
+
+// Step durations (ms) for the simulated ride lifecycle
+const FINDING_DURATION = 2500;
+const MATCHED_DURATION = 3000;
+const ONTRIP_DURATION = 3500;
+
 export const BookingScreen = () => {
   const navigation = useNavigation<any>();
-  const [step, setStep] = useState<'search' | 'select' | 'confirm'>('search');
+  const [step, setStep] = useState<Step>('search');
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [pickup, setPickup] = useState('My Current Location');
   const [destination, setDestination] = useState('');
+  const [destinationCoord, setDestinationCoord] = useState<Coordinate | null>(null);
   const [selectedVehicle, setSelectedVehicle] = useState('standard');
+  const [rating, setRating] = useState(0);
 
-  const handleSelectDestination = (place: string) => {
-    setDestination(place);
+  const vehicle = VEHICLES.find(v => v.id === selectedVehicle) ?? VEHICLES[0];
+
+  // Drive the ride lifecycle forward automatically (simulated backend)
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    if (step === 'finding') timer = setTimeout(() => setStep('matched'), FINDING_DURATION);
+    if (step === 'matched') timer = setTimeout(() => setStep('ontrip'), MATCHED_DURATION);
+    if (step === 'ontrip') timer = setTimeout(() => setStep('completed'), ONTRIP_DURATION);
+    return () => { if (timer) clearTimeout(timer); };
+  }, [step]);
+
+  const handleSelectDestination = (place: { label: string; coordinate: Coordinate }) => {
+    setDestination(place.label);
+    setDestinationCoord(place.coordinate);
     setShowSearchModal(false);
     setStep('select');
   };
 
+  // Generates a plausible nearby coordinate for free-text destinations
+  // that aren't in SEARCH_RESULTS, so the route/map still renders.
+  const generateNearbyCoordinate = (): Coordinate => ({
+    latitude: PICKUP_COORD.latitude + (Math.random() - 0.5) * 0.08,
+    longitude: PICKUP_COORD.longitude + (Math.random() - 0.5) * 0.08,
+  });
+
+  const handleReset = () => {
+    setStep('search');
+    setDestination('');
+    setDestinationCoord(null);
+    setRating(0);
+  };
+
+  const mapRegion = destinationCoord
+    ? {
+        latitude: (PICKUP_COORD.latitude + destinationCoord.latitude) / 2,
+        longitude: (PICKUP_COORD.longitude + destinationCoord.longitude) / 2,
+        latitudeDelta: Math.abs(PICKUP_COORD.latitude - destinationCoord.latitude) * 1.8 + 0.03,
+        longitudeDelta: Math.abs(PICKUP_COORD.longitude - destinationCoord.longitude) * 1.8 + 0.03,
+      }
+    : { ...PICKUP_COORD, latitudeDelta: 0.05, longitudeDelta: 0.05 };
+
+  const trimmedDestination = destination.trim();
+  const filteredResults = trimmedDestination
+    ? SEARCH_RESULTS.filter((place) => place.label.toLowerCase().includes(trimmedDestination.toLowerCase()))
+    : SEARCH_RESULTS;
+  const showCustomDestination =
+    trimmedDestination.length > 2 &&
+    !SEARCH_RESULTS.some((place) => place.label.toLowerCase() === trimmedDestination.toLowerCase());
+
   return (
     <View style={styles.container}>
-      <MapView
-        style={styles.map}
-        initialRegion={{ latitude: 6.5244, longitude: 3.3792, latitudeDelta: 0.05, longitudeDelta: 0.05 }}
-      />
+      <MapView style={styles.map} region={mapRegion}>
+        {destinationCoord && step !== 'search' && (
+          <>
+            <Marker coordinate={PICKUP_COORD}>
+              <View style={styles.pickupMarker}>
+                <Navigation size={14} color={COLORS.white} fill={COLORS.white} />
+              </View>
+            </Marker>
+            <Marker coordinate={destinationCoord}>
+              <View style={styles.dropoffMarker}>
+                <MapPin size={16} color={COLORS.white} />
+              </View>
+            </Marker>
+            <Polyline
+              coordinates={[PICKUP_COORD, destinationCoord]}
+              strokeColor={COLORS.primary}
+              strokeWidth={4}
+            />
+          </>
+        )}
+      </MapView>
 
       <SafeAreaView style={styles.topOverlay}>
         <View style={styles.headerRow}>
@@ -52,13 +147,14 @@ export const BookingScreen = () => {
           <View style={styles.searchBarContainer}>
             <TouchableOpacity
               style={styles.searchBar}
-              onPress={() => setShowSearchModal(true)}
+              onPress={() => step === 'search' && setShowSearchModal(true)}
+              disabled={step !== 'search'}
             >
               <View style={styles.searchDot} />
               <Text style={styles.searchText} numberOfLines={1}>
                 {destination || 'Where are you going?'}
               </Text>
-              <Search size={20} color={COLORS.textMuted} />
+              {step === 'search' && <Search size={20} color={COLORS.textMuted} />}
             </TouchableOpacity>
           </View>
         </View>
@@ -68,8 +164,8 @@ export const BookingScreen = () => {
         <View style={styles.sheetHandle} />
 
         {step === 'search' && (
-          <View style={styles.initialSheet}>
-            <Text style={styles.welcomeText}>Good afternoon, Samuel</Text>
+          <View>
+            <Text style={styles.welcomeText}>{getGreeting()}</Text>
             <Text style={styles.subText}>Where can we take you today?</Text>
 
             <TouchableOpacity
@@ -81,20 +177,19 @@ export const BookingScreen = () => {
             </TouchableOpacity>
 
             <View style={styles.shortcuts}>
-              <TouchableOpacity style={styles.shortcutItem} onPress={() => handleSelectDestination('Home')}>
-                <View style={styles.shortcutIcon}><Clock size={20} color={COLORS.primary} /></View>
-                <View>
-                  <Text style={styles.shortcutTitle}>Home</Text>
-                  <Text style={styles.shortcutSubtitle}>24, Adeniyi Jones, Ikeja</Text>
-                </View>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.shortcutItem} onPress={() => handleSelectDestination('Office')}>
-                <View style={styles.shortcutIcon}><Clock size={20} color={COLORS.primary} /></View>
-                <View>
-                  <Text style={styles.shortcutTitle}>Office</Text>
-                  <Text style={styles.shortcutSubtitle}>Standard Chartered Bank, VI</Text>
-                </View>
-              </TouchableOpacity>
+              {SHORTCUTS.map((shortcut) => (
+                <TouchableOpacity
+                  key={shortcut.label}
+                  style={styles.shortcutItem}
+                  onPress={() => handleSelectDestination(shortcut)}
+                >
+                  <View style={styles.shortcutIcon}><Clock size={20} color={COLORS.primary} /></View>
+                  <View>
+                    <Text style={styles.shortcutTitle}>{shortcut.label}</Text>
+                    <Text style={styles.shortcutSubtitle}>{shortcut.address}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
         )}
@@ -103,7 +198,7 @@ export const BookingScreen = () => {
           <ScrollView showsVerticalScrollIndicator={false}>
             <View style={styles.selectionHeader}>
               <Text style={styles.sheetTitle}>Select Ride</Text>
-              <TouchableOpacity onPress={() => setStep('search')}>
+              <TouchableOpacity onPress={() => setShowSearchModal(true)}>
                 <Text style={styles.changeBtn}>Change</Text>
               </TouchableOpacity>
             </View>
@@ -137,14 +232,14 @@ export const BookingScreen = () => {
               </TouchableOpacity>
               <Button
                 title="Book Now"
-                onPress={() => setStep('confirm')}
+                onPress={() => setStep('finding')}
                 style={styles.bookButton}
               />
             </View>
           </ScrollView>
         )}
 
-        {step === 'confirm' && (
+        {step === 'finding' && (
           <View style={styles.confirmSection}>
             <View style={styles.loaderContainer}>
               <View style={styles.loaderRing} />
@@ -158,6 +253,87 @@ export const BookingScreen = () => {
             >
               <Text style={styles.cancelText}>Cancel Request</Text>
             </TouchableOpacity>
+          </View>
+        )}
+
+        {(step === 'matched' || step === 'ontrip') && (
+          <View style={styles.tripSection}>
+            <View style={styles.statusBanner}>
+              <View style={styles.statusDotPulse} />
+              <Text style={styles.statusText}>
+                {step === 'matched'
+                  ? `Your driver is arriving in ${DRIVER.arrivingIn}`
+                  : 'On the way to your destination'}
+              </Text>
+            </View>
+
+            <View style={styles.driverCard}>
+              <View style={styles.driverAvatar}>
+                <Text style={styles.driverAvatarText}>{DRIVER.name.charAt(0)}</Text>
+              </View>
+              <View style={styles.driverInfo}>
+                <Text style={styles.driverName}>{DRIVER.name}</Text>
+                <View style={styles.driverMetaRow}>
+                  <Star size={14} color="#FFD700" fill="#FFD700" />
+                  <Text style={styles.driverMetaText}>{DRIVER.rating}</Text>
+                  <Text style={styles.driverMetaDot}>·</Text>
+                  <Text style={styles.driverMetaText}>{DRIVER.vehicle}</Text>
+                </View>
+                <Text style={styles.driverPlate}>{DRIVER.plate}</Text>
+              </View>
+              <View style={styles.driverActions}>
+                <TouchableOpacity style={styles.driverActionBtn}>
+                  <Phone size={18} color={COLORS.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.driverActionBtn}>
+                  <MessageCircle size={18} color={COLORS.primary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.routeCard}>
+              <View style={styles.routeRow}>
+                <View style={[styles.routeDot, { backgroundColor: COLORS.pickup }]} />
+                <Text style={styles.routeText} numberOfLines={1}>{pickup}</Text>
+              </View>
+              <View style={styles.routeConnector} />
+              <View style={styles.routeRow}>
+                <View style={[styles.routeDot, { backgroundColor: COLORS.dropoff }]} />
+                <Text style={styles.routeText} numberOfLines={1}>{destination}</Text>
+              </View>
+            </View>
+
+            {step === 'matched' && (
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setStep('select')}>
+                <Text style={styles.cancelText}>Cancel Ride</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {step === 'completed' && (
+          <View style={styles.confirmSection}>
+            <View style={styles.completedIcon}>
+              <CheckCircle size={56} color={COLORS.primary} />
+            </View>
+            <Text style={styles.searchingTitle}>Trip Completed</Text>
+            <Text style={styles.searchingSub}>You've arrived at {destination}.</Text>
+
+            <View style={styles.fareCard}>
+              <Text style={styles.fareLabel}>Total Fare</Text>
+              <Text style={styles.fareValue}>{vehicle.price}</Text>
+            </View>
+
+            <Text style={styles.rateLabel}>Rate your trip with {DRIVER.name.split(' ')[0]}</Text>
+            <View style={styles.starsRow}>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <TouchableOpacity key={i} onPress={() => setRating(i)}>
+                  <Star size={32} color="#FFD700" fill={i <= rating ? '#FFD700' : 'transparent'} />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Button title="Done" onPress={handleReset} style={styles.bookButton} />
           </View>
         )}
       </View>
@@ -176,7 +352,7 @@ export const BookingScreen = () => {
           <View style={styles.modalSearchBox}>
             <View style={styles.locationInputs}>
               <View style={styles.inputWrapper}>
-                <View style={[styles.inputDot, { backgroundColor: '#2E7D32' }]} />
+                <View style={[styles.inputDot, { backgroundColor: COLORS.pickup }]} />
                 <TextInput
                   style={styles.textInput}
                   value={pickup}
@@ -200,16 +376,28 @@ export const BookingScreen = () => {
 
           <ScrollView style={styles.resultsList}>
             <Text style={styles.resultsLabel}>Recent Results</Text>
-            {['Victoria Island, Lagos', 'Ikeja City Mall', 'Murtala Muhammed Airport', 'Lekki Phase 1', 'Maryland Mall'].map((place) => (
+            {showCustomDestination && (
               <TouchableOpacity
-                key={place}
+                style={styles.resultItem}
+                onPress={() => handleSelectDestination({ label: trimmedDestination, coordinate: generateNearbyCoordinate() })}
+              >
+                <Search size={20} color={COLORS.primary} />
+                <Text style={styles.resultText}>Search for "{trimmedDestination}"</Text>
+              </TouchableOpacity>
+            )}
+            {filteredResults.map((place) => (
+              <TouchableOpacity
+                key={place.label}
                 style={styles.resultItem}
                 onPress={() => handleSelectDestination(place)}
               >
                 <MapPin size={20} color={COLORS.textMuted} />
-                <Text style={styles.resultText}>{place}</Text>
+                <Text style={styles.resultText}>{place.label}</Text>
               </TouchableOpacity>
             ))}
+            {filteredResults.length === 0 && !showCustomDestination && (
+              <Text style={styles.noResultsText}>No matches found</Text>
+            )}
           </ScrollView>
         </SafeAreaView>
       </Modal>
@@ -218,7 +406,7 @@ export const BookingScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#EEE' },
+  container: { flex: 1, backgroundColor: COLORS.surface },
   map: { ...StyleSheet.absoluteFillObject },
   topOverlay: {
     position: 'absolute',
@@ -237,11 +425,11 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#FFF',
+    backgroundColor: COLORS.white,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -253,12 +441,12 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
+    backgroundColor: COLORS.white,
     height: 52,
     borderRadius: 26,
     paddingHorizontal: 20,
     elevation: 4,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -281,14 +469,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFF',
+    backgroundColor: COLORS.white,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     paddingHorizontal: 25,
     paddingTop: 10,
     paddingBottom: Platform.OS === 'ios' ? 40 : 25,
     elevation: 20,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: -10 },
     shadowOpacity: 0.1,
     shadowRadius: 15,
@@ -297,7 +485,7 @@ const styles = StyleSheet.create({
   sheetHandle: {
     width: 40,
     height: 5,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: COLORS.border,
     borderRadius: 2.5,
     alignSelf: 'center',
     marginBottom: 20,
@@ -316,7 +504,7 @@ const styles = StyleSheet.create({
   destinationInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: COLORS.surface,
     padding: 18,
     borderRadius: 18,
     marginBottom: 25,
@@ -335,7 +523,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: COLORS.border,
   },
   shortcutIcon: {
     width: 40,
@@ -378,8 +566,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginBottom: 12,
     borderWidth: 1.5,
-    borderColor: '#F0F0F0',
-    backgroundColor: '#FAFAFA',
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
   },
   vehicleRowActive: {
     borderColor: COLORS.primary,
@@ -389,7 +577,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 15,
-    backgroundColor: '#FFF',
+    backgroundColor: COLORS.white,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
@@ -423,7 +611,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 15,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: COLORS.surface,
     borderRadius: 15,
     marginBottom: 15,
   },
@@ -478,11 +666,187 @@ const styles = StyleSheet.create({
   cancelText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FF3B30',
+    color: COLORS.error,
+  },
+  tripSection: {
+    paddingVertical: 10,
+  },
+  statusBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary + '10',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+    gap: 10,
+  },
+  statusDotPulse: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.primary,
+  },
+  statusText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  driverCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  driverAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 18,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  driverAvatarText: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: COLORS.white,
+  },
+  driverInfo: {
+    flex: 1,
+  },
+  driverName: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+  driverMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  driverMetaText: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    fontWeight: '600',
+  },
+  driverMetaDot: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+  },
+  driverPlate: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    fontWeight: '700',
+    marginTop: 2,
+    letterSpacing: 1,
+  },
+  driverActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  driverActionBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: COLORS.primary + '12',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  routeCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  routeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  routeDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  routeConnector: {
+    width: 2,
+    height: 16,
+    backgroundColor: COLORS.border,
+    marginLeft: 4,
+    marginVertical: 4,
+  },
+  routeText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  completedIcon: {
+    marginBottom: 16,
+  },
+  fareCard: {
+    width: '100%',
+    backgroundColor: COLORS.surface,
+    borderRadius: 18,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  fareLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  fareValue: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: COLORS.primary,
+  },
+  rateLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 12,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 24,
+  },
+  pickupMarker: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.pickup,
+    borderWidth: 3,
+    borderColor: COLORS.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dropoffMarker: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.dropoff,
+    borderWidth: 3,
+    borderColor: COLORS.white,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#FFF',
+    backgroundColor: COLORS.white,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -491,7 +855,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: COLORS.border,
   },
   closeBtn: {
     width: 40,
@@ -506,14 +870,14 @@ const styles = StyleSheet.create({
   },
   modalSearchBox: {
     padding: 20,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: COLORS.surface,
   },
   locationInputs: {
-    backgroundColor: '#FFF',
+    backgroundColor: COLORS.white,
     borderRadius: 20,
     padding: 15,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 5,
@@ -538,7 +902,7 @@ const styles = StyleSheet.create({
   inputLine: {
     width: 2,
     height: 25,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: COLORS.border,
     marginLeft: 4,
     marginVertical: 4,
   },
@@ -559,12 +923,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: COLORS.border,
   },
   resultText: {
     marginLeft: 15,
     fontSize: 15,
     fontWeight: '600',
     color: COLORS.text,
+  },
+  noResultsText: {
+    textAlign: 'center',
+    fontSize: 14,
+    color: COLORS.textMuted,
+    marginTop: 20,
   },
 });

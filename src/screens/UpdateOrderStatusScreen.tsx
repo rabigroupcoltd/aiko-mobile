@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
+  View, Text, StyleSheet, TouchableOpacity,
   ScrollView, Platform
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ChevronLeft, CheckCircle, Circle, Package, Navigation, Truck, Star } from 'lucide-react-native';
 import { Button } from '../components/Button';
@@ -32,9 +33,6 @@ export const UpdateOrderStatusScreen = () => {
     setTimeout(() => {
       setCurrentStatus(nextStep.key);
       setUpdating(false);
-      if (nextStep.key === 'DELIVERED') {
-        // Would navigate to a completion/rating screen
-      }
     }, 1000);
   };
 

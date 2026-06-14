@@ -3,17 +3,19 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  SafeAreaView, 
-  KeyboardAvoidingView, 
+  KeyboardAvoidingView,
   Platform,
   ScrollView,
   TouchableOpacity
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ChevronLeft, User, Mail, Calendar } from 'lucide-react-native';
 import { COLORS, SPACING } from '../theme';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
+import { UploadField } from '../components/UploadField';
+import { LivenessCheck } from '../components/LivenessCheck';
 
 export const ProfileSetupScreen = () => {
   const navigation = useNavigation<any>();
@@ -24,6 +26,7 @@ export const ProfileSetupScreen = () => {
     email: '',
     dob: ''
   });
+  const [livenessVerified, setLivenessVerified] = useState(false);
 
   const handleSave = () => {
     if (route.params?.role === 'DRIVER') {
@@ -82,13 +85,23 @@ export const ProfileSetupScreen = () => {
               icon={<Mail size={20} color={COLORS.textMuted} />}
             />
 
-            <Input 
-              label="Date of Birth" 
-              placeholder="DD / MM / YYYY" 
+            <Input
+              label="Date of Birth"
+              placeholder="DD / MM / YYYY"
               value={form.dob}
               onChangeText={(val) => setForm({...form, dob: val})}
               icon={<Calendar size={20} color={COLORS.textMuted} />}
             />
+          </View>
+
+          <View style={styles.titleSection}>
+            <Text style={styles.title}>Identity verification</Text>
+            <Text style={styles.subtitle}>Confirm it's really you and upload a valid ID</Text>
+          </View>
+
+          <View style={styles.form}>
+            <LivenessCheck verified={livenessVerified} onVerify={() => setLivenessVerified(true)} />
+            <UploadField label="Government ID" placeholder="ID Number" />
           </View>
         </ScrollView>
 
@@ -111,6 +124,9 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: SPACING.md,
+    width: '100%',
+    maxWidth: 500,
+    alignSelf: 'center',
   },
   backButton: {
     width: 44,

@@ -1,14 +1,14 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
-  SafeAreaView, 
-  TextInput, 
-  KeyboardAvoidingView, 
+  TextInput,
+  KeyboardAvoidingView,
   Platform,
   TouchableOpacity
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ChevronLeft } from 'lucide-react-native';
 import { COLORS, SPACING } from '../theme';
@@ -19,6 +19,22 @@ export const OTPScreen = () => {
   const route = useRoute<any>();
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const inputs = useRef<any>([]);
+  const [resendCooldown, setResendCooldown] = useState(30);
+  const [resent, setResent] = useState(false);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
+
+  const handleResend = () => {
+    if (resendCooldown > 0) return;
+    setOtp(['', '', '', '', '', '']);
+    inputs.current[0]?.focus();
+    setResent(true);
+    setResendCooldown(30);
+  };
 
   const handleOtpChange = (value: string, index: number) => {
     const newOtp = [...otp];
@@ -63,7 +79,7 @@ export const OTPScreen = () => {
             {otp.map((digit, index) => (
               <TextInput
                 key={index}
-                ref={(ref) => (inputs.current[index] = ref)}
+                ref={(ref) => { inputs.current[index] = ref; }}
                 style={[styles.otpInput, digit !== '' && styles.otpInputActive]}
                 maxLength={1}
                 keyboardType="number-pad"
@@ -74,8 +90,15 @@ export const OTPScreen = () => {
             ))}
           </View>
 
-          <TouchableOpacity style={styles.resendButton}>
-            <Text style={styles.resendText}>Didn't receive code? <Text style={styles.resendLink}>Resend</Text></Text>
+          <TouchableOpacity style={styles.resendButton} onPress={handleResend} disabled={resendCooldown > 0}>
+            <Text style={styles.resendText}>
+              {resent && resendCooldown > 0
+                ? `Code resent. Try again in ${resendCooldown}s`
+                : resendCooldown > 0
+                  ? `Didn't receive code? Resend in ${resendCooldown}s`
+                  : "Didn't receive code? "}
+              {resendCooldown === 0 && <Text style={styles.resendLink}>Resend</Text>}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -100,6 +123,9 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: SPACING.md,
+    width: '100%',
+    maxWidth: 500,
+    alignSelf: 'center',
   },
   backButton: {
     width: 44,
@@ -182,5 +208,8 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: SPACING.xl,
+    width: '100%',
+    maxWidth: 500,
+    alignSelf: 'center',
   },
 });

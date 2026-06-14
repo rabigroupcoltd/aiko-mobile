@@ -1,8 +1,9 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
+  View, Text, StyleSheet, TouchableOpacity,
   ScrollView, Platform
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ChevronLeft, MapPin, Navigation, Phone, MessageCircle, Clock, DollarSign } from 'lucide-react-native';
 import { MapView } from '../components/MapView';

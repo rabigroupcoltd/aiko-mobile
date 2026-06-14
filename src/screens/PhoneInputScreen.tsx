@@ -3,11 +3,11 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  SafeAreaView, 
-  KeyboardAvoidingView, 
+  KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ChevronLeft, Phone, Tag } from 'lucide-react-native';
 import { COLORS, SPACING } from '../theme';
@@ -78,6 +78,9 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: SPACING.md,
+    width: '100%',
+    maxWidth: 500,
+    alignSelf: 'center',
   },
   backButton: {
     width: 44,
@@ -117,5 +120,8 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: SPACING.xl,
+    width: '100%',
+    maxWidth: 500,
+    alignSelf: 'center',
   },
 });

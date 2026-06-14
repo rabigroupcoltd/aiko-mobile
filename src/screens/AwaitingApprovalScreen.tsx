@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Clock, CheckCircle, ShieldCheck, HelpCircle } from 'lucide-react-native';
 import { COLORS } from '../theme';
 
@@ -31,9 +32,9 @@ export const AwaitingApprovalScreen = ({ navigation }: any) => {
           </View>
         </View>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.supportButton}
-          onPress={() => {/* Support logic */}}
+          onPress={() => navigation.navigate('HelpCenter')}
         >
           <HelpCircle size={20} color={COLORS.text} />
           <Text style={styles.supportText}>Need Help? Contact Support</Text>

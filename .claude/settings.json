@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const lib = require\\('lucide-react-native'\\); console.log\\(['ScanFace','UserCheck','Camera','ShieldCheck','CircleCheck','CheckCircle','IdCard','CreditCard'].map\\(n => n + ': ' + \\(n in lib\\)\\).join\\('\\\\n'\\)\\)\")",
+      "Bash(timeout 120 bash -c 'until curl -sf http://localhost:19006 >/dev/null; do sleep 2; done')",
+      "PowerShell($paths = @\\(\"$env:ProgramFiles\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe\",\"$env:ProgramFiles\\(x86\\)\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe\",\"$env:ProgramFiles\\(x86\\)\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe\",\"$env:ProgramFiles\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe\"\\); foreach \\($p in $paths\\) { if \\(Test-Path $p\\) { Write-Output \"$p EXISTS\" } else { Write-Output \"$p missing\" } })",
+      "Bash(mkdir -p /tmp/shots)",
+      "Bash(\"/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless=new --disable-gpu --no-sandbox --window-size=412,915 --screenshot=/tmp/shots/initial.png http://localhost:19006)",
+      "Bash(cmd //c \"cd\")",
+      "Bash(node cdp.js)",
+      "Bash(node cdp2.js)",
+      "Bash(pkill -f \"expo start\")",
+      "Bash(pkill -f \"node.*expo\")"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\User\\AppData\\Local\\Temp\\shots"
+    ]
+  }
+}

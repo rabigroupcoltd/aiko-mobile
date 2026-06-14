@@ -11,6 +11,18 @@ export const COLORS = {
   error: '#DC3545',
   success: '#00A859',
   warning: '#FFC107',
+  // Map route markers
+  pickup: '#2E7D32',
+  dropoff: '#FF4B4B',
+  // Translucent overlays
+  overlay: 'rgba(0,0,0,0.45)',
+};
+
+export const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
 };
 
 export const SPACING = {

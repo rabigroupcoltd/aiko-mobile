@@ -3,17 +3,18 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  SafeAreaView, 
-  KeyboardAvoidingView, 
+  KeyboardAvoidingView,
   Platform,
   ScrollView,
   TouchableOpacity
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { ChevronLeft, Camera, Bike, User, Landmark, ShieldCheck } from 'lucide-react-native';
+import { ChevronLeft, Bike, User, Landmark, ShieldCheck } from 'lucide-react-native';
 import { COLORS, SPACING } from '../theme';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
+import { UploadField } from '../components/UploadField';
 
 const STEPS = [
   { id: 'DOCUMENTS', title: 'Verifications', subtitle: 'Upload your identity documents' },
@@ -43,7 +44,6 @@ export const DriverOnboardingScreen = () => {
         return (
           <View style={styles.form}>
             <UploadField label="Driver's License" placeholder="License Number" />
-            <UploadField label="Government ID" placeholder="ID Number" />
           </View>
         );
       case 'VEHICLE':
@@ -123,21 +123,6 @@ export const DriverOnboardingScreen = () => {
   );
 };
 
-const UploadField = ({ label, placeholder }: any) => (
-  <View style={{ marginBottom: SPACING.lg }}>
-    <Text style={styles.uploadLabel}>{label}</Text>
-    {placeholder && (
-      <View style={{ marginBottom: SPACING.sm }}>
-        <Input label="" placeholder={placeholder} containerStyle={{ marginBottom: 0 }} />
-      </View>
-    )}
-    <TouchableOpacity style={styles.uploadArea}>
-      <Camera size={24} color={COLORS.primary} />
-      <Text style={styles.uploadText}>Tap to upload image</Text>
-    </TouchableOpacity>
-  </View>
-);
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -148,6 +133,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: SPACING.md,
+    width: '100%',
+    maxWidth: 500,
+    alignSelf: 'center',
   },
   backButton: {
     width: 44,
@@ -197,36 +185,6 @@ const styles = StyleSheet.create({
   },
   form: {
     // Gap handled by Input component
-  },
-  uploadLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.textMuted,
-    marginBottom: SPACING.xs,
-    marginLeft: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  uploadArea: {
-    height: 140,
-    backgroundColor: COLORS.surface,
-    borderRadius: 24,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  uploadText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.primary,
   },
   footer: {
     padding: SPACING.xl,

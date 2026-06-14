@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
+  View, Text, StyleSheet, TouchableOpacity,
   ScrollView, Platform, Switch
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Power, MapPin, Package, ChevronRight, Star, Bell, RefreshCw, Menu } from 'lucide-react-native';
 import { MapView } from '../components/MapView';
@@ -17,17 +18,6 @@ const MOCK_ORDERS = [
 export const GoOnlineScreen = () => {
   const navigation = useNavigation<any>();
   const [isOnline, setIsOnline] = useState(false);
-  const [isDriverMode, setIsDriverMode] = useState(true);
-
-  const toggleMode = () => {
-    setIsDriverMode(!isDriverMode);
-    if (!isDriverMode) {
-      // Logic for switching to Driver
-    } else {
-      // Logic for switching to Passenger
-      navigation.navigate('Main', { screen: 'Home', params: { role: 'PASSENGER' } });
-    }
-  };
 
   return (
     <View style={styles.container}>
@@ -143,33 +133,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: Platform.OS === 'android' ? 30 : 0,
-  },
-  modeToggleContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#FFF',
-    padding: 4,
-    borderRadius: 15,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  modeBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  modeBtnActive: {
-    backgroundColor: COLORS.primary,
-  },
-  modeBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.textMuted,
-  },
-  modeBtnTextActive: {
-    color: '#FFF',
   },
   iconBtn: {
     width: 48,
