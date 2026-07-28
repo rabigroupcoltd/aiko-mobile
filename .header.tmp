@@ -1,0 +1,116 @@
+import { LIVENESS } from '../constants';
+import { initialState, start, step, type TickSignals } from '../machine';
+import { fuseEyes, median, Smoother } from '../signals';
+import type { FaceSnapshot, LivenessState } from '../types';
+
+/**
+ * Replays synthetic snapshot sequences through the pure reducer.
+ *
+ * Building the machine against these tests before touching a camera means the
+ * on-device session is spent tuning thresholds, not chasing logic bugs.
+ */
+
+const T0 = 1_000_000;
+
+/** A well-framed, frontal face. */
+function makeFace(overrides: Partial<FaceSnapshot> = {}): FaceSnapshot {
+  const frameW = 1000;
+  const frameH = 1000;
+  const w = 400; // widthRatio 0.4 — inside [MIN_FACE_RATIO, MAX_FACE_RATIO]
+  const h = 500;
+  return {
+    // centre at (0.5, 0.45), matching the framing targets
+    x: frameW * LIVENESS.TARGET_CENTER_X - w / 2,
+    y: frameH * LIVENESS.TARGET_CENTER_Y - h / 2,
+    w,
+    h,
+    frameW,
+    frameH,
+    yaw: 0,
+    roll: 0,
+    pitch: 0,
+    leftEye: 0.9,
+    rightEye: 0.9,
+    t: T0,
+    ...overrides,
+  };
+}
+
+interface Frame {
+  dt: number;
+  snapshot?: FaceSnapshot | null;
+  faceCount?: number;
+  eye?: number | null;
+  yaw?: number;
+  roll?: number;
+}
+
+/**
+ * Drives the machine while carrying the clock forward across calls.
+ *
+ * The clock has to be threaded through rather than restarted per call — the FSM
+ * compares absolute timestamps, so a driver that reset `now` between phases
+ * would push time backwards and stall every duration check.
+ */
+class Driver {
+  state: LivenessState;
+  private now = T0;
+
+  constructor(state: LivenessState = initialState(T0)) {
+    this.state = state;
+  }
+
+  static started(): Driver {
+    return new Driver(start(initialState(T0), T0));
+  }
+
+  /** Advance through one or more frames. */
+  run(frames: Frame[]): LivenessState {
+    for (const frame of frames) {
+      this.now += frame.dt;
+      const snapshot =
+        frame.snapshot === undefined ? makeFace({ t: this.now }) : frame.snapshot;
+
+      const signals: TickSignals = {
+        eye: frame.eye !== undefined ? frame.eye : snapshot ? 0.9 : null,
+        yaw: frame.yaw ?? snapshot?.yaw ?? 0,
+        roll: frame.roll ?? snapshot?.roll ?? 0,
+      };
+
+      this.state = step(
+        this.state,
+        {
+          now: this.now,
+          snapshot,
+          faceCount: frame.faceCount ?? (snapshot ? 1 : 0),
+          sinceLastFace: snapshot ? 0 : 10_000,
+        },
+        signals
+      );
+    }
+    return this.state;
+  }
+
+  /** Repeat a single frame n times. */
+  tick(n: number, frame: Frame): LivenessState {
+    return this.run(repeat(n, frame));
+  }
+
+  /** Restart after a failure, keeping the clock monotonic. */
+  restart(): LivenessState {
+    this.now += 1000;
+    this.state = start(this.state, this.now);
+    return this.state;
+  }
+}
+
+/** Repeat a frame n times. */
+const repeat = (n: number, frame: Frame): Frame[] => Array.from({ length: n }, () => frame);
+
+const TICK = LIVENESS.TICK_MS;
+
+// Enough ticks to satisfy FRAMING_HOLD_MS with margin.
+const FRAMING_TICKS = Math.ceil(LIVENESS.FRAMING_HOLD_MS / TICK) + 2;
+// Enough ticks to satisfy EYE_OPEN_BASELINE_MS.
+const OPEN_TICKS = Math.ceil(LIVENESS.EYE_OPEN_BASELINE_MS / TICK) + 2;
+

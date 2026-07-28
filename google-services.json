@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "113661454849",
+    "project_id": "aiko-7874b",
+    "storage_bucket": "aiko-7874b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:113661454849:android:d71c9a16f5d94a692a6e00",
+        "android_client_info": {
+          "package_name": "com.aiko.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "113661454849-lq6eu8ntutu60uev8ohvq6ssam0oq7a6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDdA1szqHRIMEHDi-SPnsO2E2av-EAZZ0E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "113661454849-lq6eu8ntutu60uev8ohvq6ssam0oq7a6.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "113661454849-i6s26ap7323ut9es91iv8j3dpvum2sqh.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.aiko.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
