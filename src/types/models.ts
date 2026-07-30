@@ -19,7 +19,8 @@ export interface UserProfile {
   email: string;
   firstName: string;
   lastName: string;
-  age: number;
+  /** ISO 8601 date string (YYYY-MM-DD). */
+  dob: string;
   createdAt: string;
 }
 

@@ -18,21 +18,51 @@ export const LIVENESS = {
   FACE_LOST_MS: 700,
   /** Head-turn tolerates longer loss — extreme angles legitimately drop tracking. */
   FACE_LOST_MS_TURN_MULT: 2,
-  /** More than one face for this long fails the attempt. */
+  /**
+   * How long a second face must persist before we coach about it.
+   *
+   * Extra faces are COACHING, never a failure: nothing about the face itself
+   * ends an attempt any more, only the phase timers do. The grace exists because
+   * ML Kit reports a phantom second face for a frame or two often enough that
+   * reacting instantly would keep resetting the framing hold for no reason.
+   */
   MULTI_FACE_GRACE_MS: 600,
 
   // ── framing (normalised against face.frameWidth / frameHeight) ─────────────
   TARGET_CENTER_X: 0.5,
   /** Slightly above centre — phones are held below eye level. */
   TARGET_CENTER_Y: 0.45,
-  CENTER_TOL_X: 0.16,
-  CENTER_TOL_Y: 0.18,
+  /**
+   * Centring tolerance. Tight on purpose: the capture has to happen with the
+   * face genuinely in the middle of the oval, not merely somewhere inside it.
+   */
+  CENTER_TOL_X: 0.14,
+  CENTER_TOL_Y: 0.16,
   /** Face width as a fraction of frame width. Below this: "move closer". */
-  MIN_FACE_RATIO: 0.22,
+  MIN_FACE_RATIO: 0.26,
   /** Above this: "move back". */
-  MAX_FACE_RATIO: 0.78,
-  /** How long all framing conditions must hold before advancing. */
-  FRAMING_HOLD_MS: 700,
+  MAX_FACE_RATIO: 0.68,
+  /**
+   * Maximum head tilt and up/down angle still considered "facing the camera".
+   * Framing previously gated on yaw alone, so a head tilted or tipped well back
+   * counted as frontal and became the pose baseline.
+   */
+  MAX_FRAMING_ROLL_DEG: 15,
+  MAX_FRAMING_PITCH_DEG: 15,
+  /**
+   * Maximum movement of the face centre between two ticks (normalised, ~100ms
+   * apart) for the face to count as settled.
+   *
+   * This is the "truly focused" half of the gate: framing that is momentarily
+   * correct while the head is still moving would otherwise satisfy the hold, and
+   * the capture landed mid-movement — off-centre and motion-blurred.
+   */
+  CENTER_DRIFT_TOL: 0.035,
+  /**
+   * How long every framing condition — including steadiness — must hold before
+   * advancing. Longer than a reflex, so this cannot be satisfied in passing.
+   */
+  FRAMING_HOLD_MS: 900,
 
   // ── blink ─────────────────────────────────────────────────────────────────
   /** Fused eye probability at or below this counts as closed. */
@@ -60,7 +90,7 @@ export const LIVENESS = {
   // ── head turn ─────────────────────────────────────────────────────────────
   YAW_BASELINE_SAMPLES: 8,
   /** Baseline is only accepted from a near-frontal pose. */
-  YAW_BASELINE_MAX_DEG: 14,
+  YAW_BASELINE_MAX_DEG: 18,
   /** Required yaw excursion from baseline. */
   YAW_DELTA_DEG: 20,
   /** How long the excursion must hold. */
@@ -86,7 +116,12 @@ export const LIVENESS = {
   YAW_SIGN: 1,
 
   // ── timeouts / retries ────────────────────────────────────────────────────
-  TIMEOUT_FACE_SEARCH_MS: 25_000,
+  /**
+   * The ONLY thing that ends an attempt. Raised alongside the stricter framing
+   * gate above: a tighter gate takes longer to satisfy, and the retry button
+   * should appear because time ran out, not because the face wobbled.
+   */
+  TIMEOUT_FACE_SEARCH_MS: 35_000,
   TIMEOUT_BLINK_MS: 15_000,
   TIMEOUT_HEAD_TURN_MS: 18_000,
   MAX_ATTEMPTS: 3,

@@ -24,6 +24,7 @@ const RootStack = createNativeStackNavigator<RootStackParamList>();
  */
 function MainSwitch() {
   const hasHydrated = useAppStore((s) => s._hasHydrated);
+  const phoneProvided = useAppStore((s) => s.phoneProvided);
   const phoneVerified = useAppStore((s) => s.phoneVerified);
   // Subscribing to the whole store here is intentional: the two selectors below
   // read across many fields, and onboarding completion must re-evaluate
@@ -31,7 +32,11 @@ function MainSwitch() {
   const state = useAppStore();
 
   if (!hasHydrated) return <BrandSplash />;
-  if (!phoneVerified) return <AuthStack />;
+  // Having a number on file is what gets you in — verified or not, since the
+  // launch flow never sends a code. `phoneVerified` is still honoured on its own
+  // so anyone who completed OTP before `phoneProvided` existed stays signed in
+  // instead of being thrown back to the welcome screen by the rehydrate.
+  if (!phoneProvided && !phoneVerified) return <AuthStack />;
   if (!isOnboardingComplete(state)) {
     return <OnboardingStack initialRouteName={resolveOnboardingRoute(state)} />;
   }

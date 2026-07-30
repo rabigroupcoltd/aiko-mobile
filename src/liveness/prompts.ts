@@ -26,6 +26,8 @@ export function promptFor(state: LivenessState): Prompt {
           return { id: 'offCentre', ...p.offCentre };
         case 'not-frontal':
           return { id: 'notFrontal', ...p.notFrontal };
+        case 'multiple-faces':
+          return { id: 'multipleFaces', ...p.multipleFaces };
         case 'none':
           return { id: 'holdStill', ...p.holdStill };
         default:
@@ -46,7 +48,9 @@ export function promptFor(state: LivenessState): Prompt {
       return { id: 'passed', ...p.passed };
 
     case 'FAILED': {
-      const reason = state.failReason ?? 'FACE_LOST';
+      // Every failure is a timeout now, so TIMEOUT_FACE is the only sensible
+      // fallback for a FAILED state that somehow arrived without a reason.
+      const reason = state.failReason ?? 'TIMEOUT_FACE';
       const copy = LIVENESS_COPY.failures[reason];
       return { id: `fail-${reason}`, ...copy };
     }

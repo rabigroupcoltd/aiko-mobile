@@ -18,16 +18,34 @@ export function RiderFoundScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
   const { pickup, dropoff } = route.params;
   const rider = useBookingStore((s) => s.matchedRider);
+  const matchState = useBookingStore((s) => s.matchState);
+  const confirmBooking = useBookingStore((s) => s.confirmBooking);
   const reset = useBookingStore((s) => s.reset);
+
+  /**
+   * A found rider is a proposal until the passenger confirms it. Before that
+   * this screen is a quote to review — rider, fare and route — and nothing has
+   * been booked.
+   *
+   * The real flow continues from `confirmBooking()`: push the request to the
+   * rider's device, wait for them to accept, then update the passenger. None of
+   * that exists here (no backend, one device), so confirming goes straight to
+   * the trip being under way rather than faking an acceptance round-trip.
+   */
+  const confirmed = matchState === 'confirmed';
 
   const km = distanceKm(pickup, dropoff);
   const fare = rider ? estimateFare(km, getVehicle(rider.vehicle).fareMultiplier) : null;
 
   const handleCancel = () => {
-    Alert.alert('Cancel this trip?', 'Your rider is already on the way.', [
-      { text: 'Keep trip', style: 'cancel' },
+    const [title, body, confirmLabel] = confirmed
+      ? ['Cancel this trip?', 'Your rider is already on the way.', 'Cancel trip']
+      : ['Discard this booking?', 'Nothing has been booked yet.', 'Discard'];
+
+    Alert.alert(title, body, [
+      { text: 'Keep', style: 'cancel' },
       {
-        text: 'Cancel trip',
+        text: confirmLabel,
         style: 'destructive',
         onPress: () => {
           reset();
@@ -53,21 +71,40 @@ export function RiderFoundScreen({ navigation, route }: Props) {
       scroll
       footer={
         <View style={styles.actions}>
-          <Button
-            label="Call rider"
-            variant="secondary"
-            onPress={() => Alert.alert('Demo', 'Calling is not available in this demo.')}
-            leading={<Text>📞</Text>}
-          />
-          <Button label="Cancel trip" variant="ghost" onPress={handleCancel} />
+          {confirmed ? (
+            <>
+              <Button
+                label="Call rider"
+                variant="secondary"
+                onPress={() => Alert.alert('Demo', 'Calling is not available in this demo.')}
+                leading={<Text>📞</Text>}
+              />
+              <Button label="Cancel trip" variant="ghost" onPress={handleCancel} />
+            </>
+          ) : (
+            <>
+              <Button
+                label={fare != null ? `Confirm booking · ₦${fare.toLocaleString()}` : 'Confirm booking'}
+                onPress={confirmBooking}
+                testID="confirm-booking"
+              />
+              <Button label="Cancel" variant="ghost" onPress={handleCancel} />
+            </>
+          )}
         </View>
       }>
-      <View style={styles.banner}>
-        <Text style={styles.bannerIcon}>✓</Text>
+      <View style={[styles.banner, !confirmed && styles.bannerPending]}>
+        <Text style={[styles.bannerIcon, !confirmed && styles.bannerIconPending]}>
+          {confirmed ? '✓' : '🏍️'}
+        </Text>
         <View style={styles.bannerText}>
-          <Text style={styles.bannerTitle}>Rider found</Text>
-          <Text style={styles.bannerBody}>
-            {rider.name.split(' ')[0]} is on the way to your pickup point.
+          <Text style={[styles.bannerTitle, !confirmed && styles.bannerTitlePending]}>
+            {confirmed ? 'Rider found' : 'We found you a rider'}
+          </Text>
+          <Text style={[styles.bannerBody, !confirmed && styles.bannerBodyPending]}>
+            {confirmed
+              ? `${rider.name.split(' ')[0]} is on the way to your pickup point.`
+              : 'Check the fare and route, then confirm to book.'}
           </Text>
         </View>
       </View>
@@ -134,6 +171,13 @@ const useStyles = makeStyles(({ colors, type }) => ({
   bannerText: { flex: 1, gap: 1 },
   bannerTitle: { ...type.subheading, color: colors.primaryDarker },
   bannerBody: { ...type.caption, color: colors.primaryDark },
+
+  // Before confirming, the banner is informational rather than a success state —
+  // green with a tick would read as "booked" when nothing has been booked.
+  bannerPending: { backgroundColor: colors.infoBg },
+  bannerIconPending: { backgroundColor: 'transparent', color: colors.info, fontSize: 20 },
+  bannerTitlePending: { color: colors.text },
+  bannerBodyPending: { color: colors.textMuted },
 
   map: { height: 180, marginBottom: spacing.base },
 

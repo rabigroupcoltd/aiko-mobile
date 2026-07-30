@@ -43,7 +43,35 @@ function ensureConfigured() {
 
 export type GoogleSignInResult =
   | { ok: true; account: GoogleAccount }
-  | { ok: false; reason: 'cancelled' | 'in-progress' | 'no-play-services' | 'not-configured' | 'error'; message?: string };
+  | {
+      ok: false;
+      reason:
+        | 'cancelled'
+        | 'in-progress'
+        | 'no-play-services'
+        | 'not-configured'
+        | 'developer-error'
+        | 'error';
+      message?: string;
+    };
+
+/**
+ * Android's DEVELOPER_ERROR. Not in `statusCodes` — the library only exposes
+ * SIGN_IN_CANCELLED, IN_PROGRESS, PLAY_SERVICES_NOT_AVAILABLE, SIGN_IN_REQUIRED
+ * and NULL_PRESENTER, so this one arrives as the bare Play Services code and has
+ * to be matched by hand.
+ *
+ * It means the signing certificate presented by this build is not registered
+ * against an Android OAuth client for this package name. Retrying can never
+ * help, so it must not be reported as a transient error — see
+ * `describeFailure`.
+ */
+const DEVELOPER_ERROR_CODE = '10';
+
+function isDeveloperError(error: unknown): boolean {
+  if (isErrorWithCode(error) && String(error.code) === DEVELOPER_ERROR_CODE) return true;
+  return error instanceof Error && error.message.includes('DEVELOPER_ERROR');
+}
 
 export async function signInWithGoogle(): Promise<GoogleSignInResult> {
   if (!isGoogleSignInConfigured) {
@@ -84,6 +112,21 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
           return { ok: false, reason: 'no-play-services' };
       }
     }
+
+    if (isDeveloperError(error)) {
+      // Logged loudly and separately: this is a project-configuration fault, not
+      // a runtime one, and it presents identically to a network blip unless
+      // called out.
+      log.error(
+        'DEVELOPER_ERROR — the SHA-1 of this build is not registered as an ' +
+          'Android OAuth client for this package. Add the signing certificate ' +
+          "fingerprint to the Firebase project's Android app, download the new " +
+          'google-services.json, and rebuild. Retrying will not help.',
+        error
+      );
+      return { ok: false, reason: 'developer-error' };
+    }
+
     log.error('sign-in failed', error);
     return {
       ok: false,
@@ -116,6 +159,9 @@ export function describeFailure(reason: Exclude<GoogleSignInResult, { ok: true }
       return 'Google Play Services is not available on this device.';
     case 'not-configured':
       return 'Google sign-in is not configured for this build.';
+    case 'developer-error':
+      // Deliberately not "try again" — this build can never succeed.
+      return 'Google sign-in is not set up for this build of the app.';
     default:
       return "Couldn't sign in with Google. Please try again.";
   }

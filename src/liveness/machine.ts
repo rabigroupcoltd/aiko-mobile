@@ -28,6 +28,9 @@ export function initialState(now: number, attempt = 1): LivenessState {
     failReason: null,
     framingIssue: 'no-face',
     framingHeldSince: null,
+    lastCenterX: null,
+    lastCenterY: null,
+    multiFaceSince: null,
     yawBaseline: null,
     rollBaseline: null,
     blinkStage: 'AWAIT_OPEN_BASELINE',
@@ -65,7 +68,7 @@ function fail(state: LivenessState, now: number, reason: FailReason): LivenessSt
 }
 
 /** Which framing condition is currently unmet. */
-function assessFraming(s: FaceSnapshot, yaw: number): FramingIssue {
+function assessFraming(s: FaceSnapshot, signals: TickSignals): FramingIssue {
   const { centerX, centerY, widthRatio } = normaliseFace(s);
 
   if (widthRatio < LIVENESS.MIN_FACE_RATIO) return 'too-far';
@@ -79,7 +82,12 @@ function assessFraming(s: FaceSnapshot, yaw: number): FramingIssue {
   if (Math.abs(centerY - LIVENESS.TARGET_CENTER_Y) > LIVENESS.CENTER_TOL_Y)
     return 'off-centre';
 
-  if (Math.abs(yaw) > LIVENESS.YAW_BASELINE_MAX_DEG) return 'not-frontal';
+  // All three axes, not just yaw. Pitch comes straight off the snapshot because
+  // only yaw and roll are smoothed, and this is a gate rather than something a
+  // hold duration is measured against.
+  if (Math.abs(signals.yaw) > LIVENESS.YAW_BASELINE_MAX_DEG) return 'not-frontal';
+  if (Math.abs(signals.roll) > LIVENESS.MAX_FRAMING_ROLL_DEG) return 'not-frontal';
+  if (Math.abs(s.pitch) > LIVENESS.MAX_FRAMING_PITCH_DEG) return 'not-frontal';
 
   return 'none';
 }
@@ -100,10 +108,10 @@ export function step(
   const elapsed = now - state.phaseEnteredAt;
 
   // ── global guards ────────────────────────────────────────────────────────
-  if (faceCount > 1 && elapsed > LIVENESS.MULTI_FACE_GRACE_MS) {
-    return fail(state, now, 'MULTIPLE_FACES');
-  }
-
+  // NOTE: nothing about the face ends an attempt. A second face used to fail
+  // outright here; it is now a framing issue handled in FACE_SEARCH, so the user
+  // can just step out of shot and carry on. The phase timers are the only path
+  // to FAILED, which is what puts the retry button on screen.
   const lossAllowance =
     state.phase === 'HEAD_TURN'
       ? LIVENESS.FACE_LOST_MS * LIVENESS.FACE_LOST_MS_TURN_MULT
@@ -115,11 +123,22 @@ export function step(
     if (state.phase === 'FACE_SEARCH') {
       if (elapsed > LIVENESS.TIMEOUT_FACE_SEARCH_MS)
         return fail(state, now, 'TIMEOUT_FACE');
-      return { ...state, framingIssue: 'no-face', framingHeldSince: null, progress: 0 };
+      return {
+        ...state,
+        framingIssue: 'no-face',
+        framingHeldSince: null,
+        lastCenterX: null,
+        lastCenterY: null,
+        multiFaceSince: null,
+        progress: 0,
+      };
     }
     return enter(state, 'FACE_SEARCH', now, {
       framingIssue: 'no-face',
       framingHeldSince: null,
+      lastCenterX: null,
+      lastCenterY: null,
+      multiFaceSince: null,
       // Baselines were captured for a face we can no longer see.
       yawBaseline: null,
       rollBaseline: null,
@@ -136,7 +155,7 @@ export function step(
 
   switch (state.phase) {
     case 'FACE_SEARCH':
-      return stepFaceSearch(state, now, elapsed, snapshot, signals);
+      return stepFaceSearch(state, now, elapsed, snapshot, signals, faceCount);
     case 'BLINK':
       return stepBlink(state, now, elapsed, signals);
     case 'HEAD_TURN':
@@ -146,29 +165,62 @@ export function step(
   }
 }
 
+/**
+ * Framing gate. Advances only on a face that is well-sized, properly centred,
+ * frontal on all three axes AND holding still — every condition continuously
+ * satisfied for FRAMING_HOLD_MS. Failing any of them only resets the hold; the
+ * phase timeout above is the sole way out to FAILED.
+ */
 function stepFaceSearch(
   state: LivenessState,
   now: number,
   elapsed: number,
   snapshot: FaceSnapshot,
-  signals: TickSignals
+  signals: TickSignals,
+  faceCount: number
 ): LivenessState {
   if (elapsed > LIVENESS.TIMEOUT_FACE_SEARCH_MS) {
     return fail(state, now, 'TIMEOUT_FACE');
   }
 
-  const issue = assessFraming(snapshot, signals.yaw);
+  const multiFaceSince = faceCount > 1 ? (state.multiFaceSince ?? now) : null;
+  const multiFaceConfirmed =
+    multiFaceSince != null && now - multiFaceSince >= LIVENESS.MULTI_FACE_GRACE_MS;
 
-  if (issue !== 'none') {
-    return { ...state, framingIssue: issue, framingHeldSince: null, progress: 0 };
+  const { centerX, centerY } = normaliseFace(snapshot);
+
+  // Steadiness. Compared against the previous tick (~TICK_MS ago), so this is a
+  // velocity gate: correct framing reached while the head is still travelling
+  // does not count, which is what stops the capture landing mid-movement.
+  const settled =
+    state.lastCenterX == null ||
+    state.lastCenterY == null ||
+    Math.hypot(centerX - state.lastCenterX, centerY - state.lastCenterY) <=
+      LIVENESS.CENTER_DRIFT_TOL;
+
+  const issue = multiFaceConfirmed ? 'multiple-faces' : assessFraming(snapshot, signals);
+
+  // Carried on every return path — dropping it would leave the steadiness check
+  // comparing against a stale centre.
+  const tracked = {
+    ...state,
+    lastCenterX: centerX,
+    lastCenterY: centerY,
+    multiFaceSince,
+  };
+
+  if (issue !== 'none' || !settled) {
+    // A face that is framed but still moving keeps the 'none' issue, so the
+    // prompt stays "hold still" rather than accusing the user of bad framing.
+    return { ...tracked, framingIssue: issue, framingHeldSince: null, progress: 0 };
   }
 
   const heldSince = state.framingHeldSince ?? now;
   const held = now - heldSince;
 
   if (held >= LIVENESS.FRAMING_HOLD_MS) {
-    // Capture the pose baseline from a confirmed-frontal face and advance.
-    return enter(state, 'BLINK', now, {
+    // Capture the pose baseline from a confirmed-frontal, settled face.
+    return enter(tracked, 'BLINK', now, {
       framingIssue: 'none',
       framingHeldSince: null,
       yawBaseline: signals.yaw,
@@ -181,7 +233,7 @@ function stepFaceSearch(
   }
 
   return {
-    ...state,
+    ...tracked,
     framingIssue: 'none',
     framingHeldSince: heldSince,
     progress: clamp01(held / LIVENESS.FRAMING_HOLD_MS),

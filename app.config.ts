@@ -132,6 +132,10 @@ const config: ExpoConfig = {
       },
     ],
     '@react-native-google-signin/google-signin',
+    // Required: `npx expo install` could not add this itself because this config
+    // is a dynamic .ts file. The plugin pins the Android Material dependency the
+    // date dialog is built on.
+    '@react-native-community/datetimepicker',
     // NOTE: there is deliberately NO 'react-native-vision-camera' plugin entry.
     // VisionCamera v5 dropped its Expo config plugin; adding one fails prebuild
     // with "does not contain a valid config plugin". Its native permissions come

@@ -178,11 +178,84 @@ describe('liveness machine — framing', () => {
     expect(s.failReason).toBe('TIMEOUT_FACE');
   });
 
-  it('fails with MULTIPLE_FACES when two people are in frame', () => {
+  it('coaches about a second face instead of failing the attempt', () => {
     const ticks = Math.ceil(LIVENESS.MULTI_FACE_GRACE_MS / TICK) + 3;
     const s = Driver.started().tick(ticks, { dt: TICK, faceCount: 2 });
-    expect(s.phase).toBe('FAILED');
-    expect(s.failReason).toBe('MULTIPLE_FACES');
+
+    // Used to fail with MULTIPLE_FACES. Nothing about the face ends an attempt
+    // any more — the user can step out of shot and carry on.
+    expect(s.phase).toBe('FACE_SEARCH');
+    expect(s.framingIssue).toBe('multiple-faces');
+  });
+
+  it('ignores a momentary phantom second face', () => {
+    // ML Kit reports a spurious extra face for a frame or two; reacting inside
+    // MULTI_FACE_GRACE_MS would keep resetting the framing hold.
+    const d = Driver.started();
+    d.tick(1, { dt: TICK, faceCount: 2 });
+    expect(d.state.framingIssue).not.toBe('multiple-faces');
+  });
+
+  it('does not advance while the head is tilted', () => {
+    const tilted = makeFace({ roll: LIVENESS.MAX_FRAMING_ROLL_DEG + 10 });
+    const s = Driver.started().tick(FRAMING_TICKS, {
+      dt: TICK,
+      snapshot: tilted,
+      roll: LIVENESS.MAX_FRAMING_ROLL_DEG + 10,
+    });
+    expect(s.phase).toBe('FACE_SEARCH');
+    expect(s.framingIssue).toBe('not-frontal');
+  });
+
+  it('does not advance while the head is tipped up or down', () => {
+    const tipped = makeFace({ pitch: LIVENESS.MAX_FRAMING_PITCH_DEG + 10 });
+    const s = Driver.started().tick(FRAMING_TICKS, { dt: TICK, snapshot: tipped });
+    expect(s.phase).toBe('FACE_SEARCH');
+    expect(s.framingIssue).toBe('not-frontal');
+  });
+
+  it('does not advance while a correctly-framed face is still moving', () => {
+    // The "truly centred and settled" gate: every frame here is inside the
+    // framing tolerances, but the face is travelling faster than
+    // CENTER_DRIFT_TOL per tick, so the hold must never accumulate.
+    const d = Driver.started();
+    const frameW = 1000;
+    const w = 400;
+    const step = LIVENESS.CENTER_DRIFT_TOL * 2 * frameW;
+
+    for (let i = 0; i < FRAMING_TICKS + 4; i++) {
+      // Oscillate either side of dead centre, staying within CENTER_TOL_X.
+      const offset = i % 2 === 0 ? step / 2 : -step / 2;
+      d.run([
+        {
+          dt: TICK,
+          snapshot: makeFace({ x: frameW * LIVENESS.TARGET_CENTER_X - w / 2 + offset }),
+        },
+      ]);
+    }
+
+    expect(d.state.phase).toBe('FACE_SEARCH');
+    expect(d.state.progress).toBe(0);
+  });
+
+  it('advances once a moving face settles', () => {
+    const d = Driver.started();
+    const frameW = 1000;
+    const w = 400;
+
+    // Moving: no progress.
+    d.run([
+      { dt: TICK, snapshot: makeFace({ x: 0 }) },
+      { dt: TICK, snapshot: makeFace({ x: frameW * 0.3 }) },
+    ]);
+    expect(d.state.phase).toBe('FACE_SEARCH');
+
+    // Now parked dead centre and steady.
+    d.tick(FRAMING_TICKS + 1, {
+      dt: TICK,
+      snapshot: makeFace({ x: frameW * LIVENESS.TARGET_CENTER_X - w / 2 }),
+    });
+    expect(d.state.phase).toBe('BLINK');
   });
 });
 

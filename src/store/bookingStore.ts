@@ -5,7 +5,19 @@ import type { MockRider, Place } from '@/types/models';
 /** Where an address result came from — surfaced in the UI as a "Cached" badge. */
 export type SearchSource = 'idle' | 'cache' | 'remote';
 
-export type MatchState = 'idle' | 'searching' | 'matched' | 'cancelled';
+/**
+ * Booking lifecycle.
+ *
+ * `matched` means a rider has been found and shown to the passenger — it is a
+ * proposal, not a booking. `confirmed` means the passenger accepted it.
+ *
+ * In the real product `confirmed` is where the request gets pushed to the
+ * rider's device, and a further state would follow for the rider accepting it
+ * before the passenger is updated. This demo has no backend and no second
+ * device, so confirming moves straight to the trip being under way — there is
+ * deliberately no fabricated "waiting for the rider to accept" step.
+ */
+export type MatchState = 'idle' | 'searching' | 'matched' | 'confirmed' | 'cancelled';
 
 interface BookingState {
   pickup: Place | null;
@@ -25,6 +37,8 @@ interface BookingState {
   setSearching: (v: boolean) => void;
   setMatchState: (s: MatchState) => void;
   setMatchedRider: (r: BookingState['matchedRider']) => void;
+  /** The passenger accepted the proposed rider. */
+  confirmBooking: () => void;
   reset: () => void;
 }
 
@@ -52,6 +66,7 @@ export const useBookingStore = create<BookingState>()((set) => ({
   setSearching: (searching) => set({ searching }),
   setMatchState: (matchState) => set({ matchState }),
   setMatchedRider: (matchedRider) => set({ matchedRider }),
+  confirmBooking: () => set({ matchState: 'confirmed' }),
 
   reset: () =>
     set({

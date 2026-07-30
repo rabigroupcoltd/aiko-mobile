@@ -14,12 +14,12 @@ export type BlinkStage = 'AWAIT_OPEN_BASELINE' | 'AWAIT_CLOSE' | 'AWAIT_REOPEN';
 /** Sub-states of the head-turn check. */
 export type TurnStage = 'AWAIT_TURN' | 'AWAIT_RECENTER';
 
-export type FailReason =
-  | 'TIMEOUT_FACE'
-  | 'TIMEOUT_BLINK'
-  | 'TIMEOUT_TURN'
-  | 'MULTIPLE_FACES'
-  | 'FACE_LOST';
+/**
+ * Why an attempt ended. Every member is a timer — nothing about the face itself
+ * ends an attempt: a lost face, a second face or a bad pose are all coaching
+ * states that the user can simply correct while the clock runs.
+ */
+export type FailReason = 'TIMEOUT_FACE' | 'TIMEOUT_BLINK' | 'TIMEOUT_TURN';
 
 /** Why framing isn't yet acceptable — drives the on-screen coaching prompt. */
 export type FramingIssue =
@@ -28,7 +28,8 @@ export type FramingIssue =
   | 'too-far'
   | 'too-close'
   | 'off-centre'
-  | 'not-frontal';
+  | 'not-frontal'
+  | 'multiple-faces';
 
 /**
  * A plain-object copy of a detected face.
@@ -72,6 +73,11 @@ export interface LivenessState {
 
   // framing
   framingHeldSince: number | null;
+  /** Previous tick's normalised face centre, for the steadiness check. */
+  lastCenterX: number | null;
+  lastCenterY: number | null;
+  /** When a second face first appeared, for MULTI_FACE_GRACE_MS. */
+  multiFaceSince: number | null;
   yawBaseline: number | null;
   rollBaseline: number | null;
 

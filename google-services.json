@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "113661454849-r76lo6hr54f75f5mkufkeg0o7arnn9ns.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aiko.app",
+            "certificate_hash": "376ab0d592fbce5a6e65403ce52c11960d77fa20"
+          }
+        },
+        {
           "client_id": "113661454849-lq6eu8ntutu60uev8ohvq6ssam0oq7a6.apps.googleusercontent.com",
           "client_type": 3
         }

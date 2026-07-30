@@ -82,6 +82,10 @@ export const LIVENESS_COPY = {
       title: 'Look straight ahead',
       subtitle: 'Face the camera directly to begin.',
     },
+    multipleFaces: {
+      title: 'More than one face',
+      subtitle: 'Make sure you are the only person in the frame.',
+    },
     holdStill: {
       title: 'Hold still',
       subtitle: 'Almost there…',
@@ -108,10 +112,13 @@ export const LIVENESS_COPY = {
     },
   },
 
+  // Only timeouts reach this state. Face conditions — no face, several faces, a
+  // bad pose — are coached via `prompts` while the clock runs, never failed on.
   failures: {
     TIMEOUT_FACE: {
-      title: "We couldn't find your face",
-      subtitle: 'Move somewhere brighter and make sure nothing is covering your face.',
+      title: 'That took too long',
+      subtitle:
+        'Hold the phone steady at eye level, centre your face in the oval, and try again.',
     },
     TIMEOUT_BLINK: {
       title: "We didn't detect a blink",
@@ -120,14 +127,6 @@ export const LIVENESS_COPY = {
     TIMEOUT_TURN: {
       title: "We didn't detect a head turn",
       subtitle: 'Turn your head a little further to one side, then face forward again.',
-    },
-    MULTIPLE_FACES: {
-      title: 'More than one face detected',
-      subtitle: 'Make sure you are alone in the frame and try again.',
-    },
-    FACE_LOST: {
-      title: 'We lost sight of your face',
-      subtitle: 'Hold your phone steady at eye level and try again.',
     },
   },
 } as const;

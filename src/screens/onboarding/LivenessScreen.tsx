@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
@@ -20,6 +20,27 @@ import { useAppStore } from '@/store/appStore';
 import { colors, radius, screenGutter, spacing, typography } from '@/theme';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, typeof ROUTES.LIVENESS>;
+
+/**
+ * Memoised, and that memo is load-bearing — it is what keeps the detector alive.
+ *
+ * `useFaceDetectorOutput` builds its native detector inside
+ * `useMemo(..., [options])`, where `options` is an object-rest binding — a fresh
+ * identity on every render. So the memo never hits and the detector output is
+ * rebuilt on EVERY render of this camera.
+ *
+ * This screen re-renders roughly ten times a second while the framing ring
+ * fills, so the detector was being torn down and rebuilt at that rate. It
+ * stopped delivering frames within a second or two — the debug overlay read
+ * `0 fps` with a stale snapshot still on screen, which looked exactly like the
+ * check "freezing" as the face approached the centre. FACE_SEARCH then sat there
+ * until it timed out.
+ *
+ * Every prop below is referentially stable (`detectorOptions` is a `useMemo`
+ * with stable deps, `device` comes from `useCameraDevice`), so this shallow
+ * compare blocks those renders outright and the detector is built once.
+ */
+const DetectorCamera = memo(FaceCamera);
 
 export function LivenessScreen({ navigation }: Props) {
   const setLivenessPassed = useAppStore((s) => s.setLivenessPassed);
@@ -105,7 +126,7 @@ export function LivenessScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <FaceCamera
+      <DetectorCamera
         style={StyleSheet.absoluteFill}
         device={device}
         isActive={isActive && started && !passed}

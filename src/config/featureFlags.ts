@@ -7,6 +7,20 @@
  */
 export const featureFlags = {
   /**
+   * NOT a demo switch — a product decision, and the one flag here that is
+   * deliberately not gated on __DEV__.
+   *
+   * The first launch goes out with Google as the way in: the user types their
+   * phone number so we can reach them about trips, and we do not send an SMS
+   * code. Flip this to true to put the OTP step back in front of the profile
+   * form; `OtpScreen` and the whole OTP path stay wired up for that.
+   *
+   * An unverified number is recorded as `phoneProvided`, never `phoneVerified` —
+   * see the store. Nothing may treat a typed-in number as a verified one.
+   */
+  REQUIRE_OTP: false,
+
+  /**
    * Shows a "Skip liveness" button on the liveness screen, and enables the
    * five-tap-on-title gesture that force-passes it.
    *

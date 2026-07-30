@@ -4,6 +4,7 @@
   "main": "index.ts",
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/datetimepicker": "9.1.0",
     "@react-native-google-signin/google-signin": "^16.1.2",
     "@react-navigation/drawer": "^7.13.5",
     "@react-navigation/native": "^7.3.14",
@@ -38,19 +39,22 @@
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/react": "~19.2.2",
+    "babel-preset-expo": "^57.0.5",
     "jest": "^29.7.0",
     "jest-expo": "^57.0.2",
     "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start --dev-client",
+    "start:clear": "expo start --dev-client --clear",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "prebuild": "expo prebuild --clean",
+    "sha1": "keytool -list -v -keystore android/app/debug.keystore -alias androiddebugkey -storepass android",
     "test": "jest",
     "test:watch": "jest --watch",
     "typecheck": "tsc --noEmit",
-    "build": "eas build --platform android --profile preview"
+    "build": "eas build --platform android --profile production"
   },
   "private": true
 }

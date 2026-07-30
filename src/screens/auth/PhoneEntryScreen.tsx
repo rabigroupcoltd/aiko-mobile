@@ -16,10 +16,15 @@ type Props = NativeStackScreenProps<AuthStackParamList, typeof ROUTES.PHONE_ENTR
 export function PhoneEntryScreen({ navigation }: Props) {
   const styles = useStyles();
   const setPendingPhone = useAppStore((s) => s.setPendingPhone);
+  const acceptPhoneUnverified = useAppStore((s) => s.acceptPhoneUnverified);
 
   const [phone, setPhone] = useState('');
   const [error, setError] = useState<string>();
   const [sending, setSending] = useState(false);
+
+  // The flag lives here rather than in the store: the store records facts, and
+  // "do we verify numbers this release" is a product decision about this screen.
+  const requireOtp = featureFlags.REQUIRE_OTP;
 
   const handleContinue = async () => {
     if (!isValidNigerianPhone(phone)) {
@@ -27,8 +32,17 @@ export function PhoneEntryScreen({ navigation }: Props) {
       return;
     }
     setError(undefined);
-    setSending(true);
 
+    if (!requireOtp) {
+      // No SMS to wait for, so no fake latency either — pretending to send a
+      // code we never send is the kind of thing that outlives the demo.
+      acceptPhoneUnverified(phone);
+      // No navigation call: this flips `phoneProvided`, and the root switch
+      // swaps the auth stack for onboarding on the next render.
+      return;
+    }
+
+    setSending(true);
     // Stands in for requesting an SMS code.
     await jitteredSleep(featureFlags.FAKE_DELAY_MS);
 
@@ -42,7 +56,7 @@ export function PhoneEntryScreen({ navigation }: Props) {
       keyboardAvoiding
       footer={
         <Button
-          label="Send code"
+          label={requireOtp ? 'Send code' : 'Continue'}
           onPress={handleContinue}
           disabled={!isValidNigerianPhone(phone)}
           testID="phone-continue"
@@ -51,7 +65,11 @@ export function PhoneEntryScreen({ navigation }: Props) {
       <AppHeader
         onBack={() => navigation.goBack()}
         title="What's your number?"
-        subtitle="We'll send you a code to confirm it's really you."
+        subtitle={
+          requireOtp
+            ? "We'll send you a code to confirm it's really you."
+            : "Your rider will use this to reach you about your trip."
+        }
       />
 
       <View style={styles.form}>
@@ -68,7 +86,9 @@ export function PhoneEntryScreen({ navigation }: Props) {
         <View style={styles.note}>
           <Text style={styles.noteIcon}>💬</Text>
           <Text style={styles.noteText}>
-            Standard SMS rates may apply. We never share your number with other users.
+            {requireOtp
+              ? 'Standard SMS rates may apply. We never share your number with other users.'
+              : 'We only share your number with the rider handling your trip.'}
           </Text>
         </View>
       </View>

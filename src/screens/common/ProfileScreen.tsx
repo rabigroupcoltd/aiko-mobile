@@ -56,7 +56,7 @@ export function ProfileScreen() {
         <Text style={styles.sectionTitle}>Account details</Text>
         <Row label="Phone number" value={user ? formatE164ForDisplay(user.phone) : '—'} />
         <Row label="Email address" value={user?.email ?? '—'} />
-        <Row label="Age" value={user ? String(user.age) : '—'} />
+        <Row label="Date of birth" value={user?.dob ?? '—'} />
         <Row
           label="Member since"
           value={

@@ -2,11 +2,19 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { AppHeader, Button, Screen, StepDots, TextField } from '@/components/ui';
+import {
+  AppHeader,
+  Button,
+  DateField,
+  Screen,
+  StepDots,
+  TextField,
+} from '@/components/ui';
 import { ROUTES } from '@/navigation/routes';
 import type { OnboardingStackParamList } from '@/navigation/types';
 import { useAppStore } from '@/store/appStore';
 import { ONBOARDING_TOTAL_STEPS } from '@/store/selectors';
+import { latestDobForAge, parseIsoDate, toIsoDate } from '@/utils/date';
 
 type Props = NativeStackScreenProps<
   OnboardingStackParamList,
@@ -17,8 +25,17 @@ interface Errors {
   email?: string;
   firstName?: string;
   lastName?: string;
-  age?: string;
+  dob?: string;
 }
+
+const MIN_AGE = 18;
+
+/**
+ * Held as a stable value rather than recomputed per render: it is the picker's
+ * `maximumDate`, and a fresh object every render would remount the dialog's
+ * bounds while the user is mid-scroll.
+ */
+const LATEST_ALLOWED_DOB = latestDobForAge(MIN_AGE);
 
 export function ProfileFormScreen({ navigation }: Props) {
   const user = useAppStore((s) => s.user);
@@ -33,7 +50,9 @@ export function ProfileFormScreen({ navigation }: Props) {
     user?.lastName ?? googleAccount?.familyName ?? ''
   );
   const [email, setEmail] = useState(user?.email ?? googleAccount?.email ?? '');
-  const [age, setAge] = useState(user?.age ? String(user.age) : '');
+  const [dob, setDob] = useState<Date | null>(
+    user?.dob ? parseIsoDate(user.dob) : null
+  );
   const [errors, setErrors] = useState<Errors>({});
 
   const validate = (): Errors => {
@@ -46,11 +65,15 @@ export function ProfileFormScreen({ navigation }: Props) {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
       next.email = "That doesn't look like a valid email.";
 
-    const ageNum = Number(age);
-    if (!age.trim()) next.age = 'Enter your age.';
-    else if (!Number.isFinite(ageNum) || ageNum < 18)
-      next.age = 'You must be at least 18 to use Aiko.';
-    else if (ageNum > 100) next.age = 'Enter a valid age.';
+    // The picker can only ever hand back a real date on or before
+    // LATEST_ALLOWED_DOB, so "did you pick one" is the only case left to check
+    // here. The age check stays as a backstop for a value restored from the
+    // store, which was written by some earlier version of this screen.
+    if (!dob) {
+      next.dob = 'Select your date of birth.';
+    } else if (dob > LATEST_ALLOWED_DOB) {
+      next.dob = `You must be at least ${MIN_AGE} to use Aiko.`;
+    }
 
     return next;
   };
@@ -58,13 +81,13 @@ export function ProfileFormScreen({ navigation }: Props) {
   const handleContinue = () => {
     const found = validate();
     setErrors(found);
-    if (Object.keys(found).length > 0) return;
+    if (Object.keys(found).length > 0 || !dob) return;
 
     saveProfile({
       email: email.trim(),
       firstName: firstName.trim(),
       lastName: lastName.trim(),
-      age: Number(age),
+      dob: toIsoDate(dob),
     });
     navigation.navigate(ROUTES.PROFILE_PHOTO);
   };
@@ -110,15 +133,19 @@ export function ProfileFormScreen({ navigation }: Props) {
           autoCorrect={false}
           textContentType="emailAddress"
         />
-        <TextField
-          label="Age"
-          value={age}
-          onChangeText={(t) => setAge(t.replace(/\D+/g, '').slice(0, 3))}
-          error={errors.age}
-          helper="You must be 18 or older."
-          placeholder="24"
-          keyboardType="number-pad"
-          maxLength={3}
+        <DateField
+          label="Date of birth"
+          value={dob}
+          onChange={(next) => {
+            setDob(next);
+            // Clear the error as soon as it stops being true, rather than
+            // leaving it up until the next Continue press.
+            setErrors((prev) => ({ ...prev, dob: undefined }));
+          }}
+          error={errors.dob}
+          helper={`Tap to select. You must be ${MIN_AGE} or older.`}
+          maximumDate={LATEST_ALLOWED_DOB}
+          testID="profile-dob"
         />
       </View>
     </Screen>

@@ -1,8 +1,9 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { AppHeader, Button, LoadingOverlay, OtpInput, Screen } from '@/components/ui';
+import type { OtpInputHandle } from '@/components/ui';
 import { OTP_COPY } from '@/data/copy';
 import { featureFlags } from '@/config/featureFlags';
 import { useCountdown } from '@/hooks/useCountdown';
@@ -25,6 +26,16 @@ export function OtpScreen({ navigation }: Props) {
   const [code, setCode] = useState('');
   const [verifying, setVerifying] = useState(false);
   const { remaining, restart, isDone } = useCountdown(30);
+  const otpRef = useRef<OtpInputHandle>(null);
+
+  // The input's own `autoFocus` fires while this screen is still animating in,
+  // and Android quietly ignores a keyboard request made mid-transition — you
+  // land on the screen with the field focused but no keypad. Ask again once the
+  // push animation has actually finished; native-stack tells us exactly when.
+  useEffect(
+    () => navigation.addListener('transitionEnd', () => otpRef.current?.focus()),
+    [navigation]
+  );
 
   const verify = async () => {
     setVerifying(true);
@@ -63,7 +74,7 @@ export function OtpScreen({ navigation }: Props) {
       </Text>
 
       <View style={styles.inputWrap}>
-        <OtpInput value={code} onChange={setCode} length={CODE_LENGTH} />
+        <OtpInput ref={otpRef} value={code} onChange={setCode} length={CODE_LENGTH} />
       </View>
 
       <View style={styles.resendRow}>

@@ -46,6 +46,17 @@ interface AppState {
   user: UserProfile | null;
   /** The number entered on the phone screen, held until OTP confirms it. */
   pendingPhone: string | null;
+  /**
+   * A number the user typed. True as soon as one is on file, however it got
+   * there — this is what lets someone past the auth stack.
+   */
+  phoneProvided: boolean;
+  /**
+   * A number confirmed by an SMS code. Strictly stronger than `phoneProvided`
+   * and never set without a real OTP round-trip, so anything that actually
+   * depends on reachability (rider payouts, a verified badge) must read THIS.
+   * With featureFlags.REQUIRE_OTP off it stays false for everyone.
+   */
   phoneVerified: boolean;
   /** Set when the user came in via Google; pre-fills the profile form. */
   googleAccount: GoogleAccount | null;
@@ -62,14 +73,15 @@ interface AppState {
   // ── actions ──────────────────────────────────────────────────────────────
   setHasHydrated: (v: boolean) => void;
   setPendingPhone: (phone: string) => void;
+  acceptPhoneUnverified: (phone: string) => void;
   confirmOtp: () => void;
   setGoogleAccount: (account: GoogleAccount) => void;
   clearGoogleAccount: () => void;
-  saveProfile: (p: {
+      saveProfile: (p: {
     email: string;
     firstName: string;
     lastName: string;
-    age: number;
+    dob: string;
   }) => void;
   setAsset: (
     target: CaptureTarget,
@@ -90,6 +102,7 @@ const initialState = {
   _hasHydrated: false,
   user: null,
   pendingPhone: null,
+  phoneProvided: false,
   phoneVerified: false,
   googleAccount: null,
   authMethod: 'phone' as AuthMethod,
@@ -113,7 +126,23 @@ export const useAppStore = create<AppState>()(
       setPendingPhone: (phone) =>
         set({ pendingPhone: toE164(phone), onboardingStep: 'otp' }),
 
-      confirmOtp: () => set({ phoneVerified: true, onboardingStep: 'profile' }),
+      /**
+       * Records a number we never sent a code to — the launch flow, where Google
+       * establishes identity and the number is only a way to reach the user.
+       *
+       * Deliberately does NOT touch `phoneVerified`. Setting it here would be
+       * one line shorter and would quietly make every future reader of that flag
+       * wrong.
+       */
+      acceptPhoneUnverified: (phone) =>
+        set({
+          pendingPhone: toE164(phone),
+          phoneProvided: true,
+          onboardingStep: 'profile',
+        }),
+
+      confirmOtp: () =>
+        set({ phoneProvided: true, phoneVerified: true, onboardingStep: 'profile' }),
 
       /**
        * Google identity is accepted for the account, but the user still has to
@@ -125,7 +154,7 @@ export const useAppStore = create<AppState>()(
 
       clearGoogleAccount: () => set({ googleAccount: null, authMethod: 'phone' }),
 
-      saveProfile: ({ email, firstName, lastName, age }) => {
+      saveProfile: ({ email, firstName, lastName, dob }) => {
         const existing = get().user;
         set({
           user: {
@@ -135,7 +164,7 @@ export const useAppStore = create<AppState>()(
             email,
             firstName,
             lastName,
-            age,
+            dob,
           },
           onboardingStep: 'photo',
         });
@@ -223,6 +252,7 @@ export const useAppStore = create<AppState>()(
       partialize: (s) => ({
         user: s.user,
         pendingPhone: s.pendingPhone,
+        phoneProvided: s.phoneProvided,
         phoneVerified: s.phoneVerified,
         googleAccount: s.googleAccount,
         authMethod: s.authMethod,

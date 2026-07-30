@@ -17,13 +17,17 @@ export function MatchingScreen({ navigation, route }: Props) {
   const styles = useStyles();
   const { pickup, dropoff } = route.params;
   const setMatchedRider = useBookingStore((s) => s.setMatchedRider);
+  const setMatchState = useBookingStore((s) => s.setMatchState);
 
   const handleMatched = useCallback(
     (rider: Omit<MockRider, 'avatar'>) => {
       setMatchedRider(rider);
+      // 'matched', not 'confirmed' — the next screen shows this rider as a
+      // proposal for the passenger to accept.
+      setMatchState('matched');
       navigation.replace(ROUTES.RIDER_FOUND, { pickup, dropoff, riderId: rider.id });
     },
-    [navigation, pickup, dropoff, setMatchedRider]
+    [navigation, pickup, dropoff, setMatchedRider, setMatchState]
   );
 
   const { stageIndex, stages } = useFakeMatching(true, undefined, handleMatched);

@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AddressSearchSheet } from '@/components/booking/AddressSearchSheet';
@@ -36,6 +36,26 @@ export function HomeScreen({ navigation }: Props) {
   const setDropoff = useBookingStore((s) => s.setDropoff);
 
   const [sheet, setSheet] = useState<SheetTarget>(null);
+
+  // TEMPORARY DIAGNOSTIC — remove once the "no screen named 'Matching'" report
+  // is resolved. Logs which navigator actually owns this screen and what route
+  // names it knows about, walking up the parent chain.
+  useEffect(() => {
+    type NavNode = {
+      getState: () => { type?: string; routeNames?: string[] };
+      getParent: () => NavNode | undefined;
+    };
+
+    const chain: string[] = [];
+    let nav: NavNode | undefined = navigation as unknown as NavNode;
+    while (nav) {
+      const s = nav.getState();
+      chain.push(`${s.type ?? '?'}[${(s.routeNames ?? []).join(',')}]`);
+      nav = nav.getParent();
+    }
+    // eslint-disable-next-line no-console
+    console.log('[nav-diag] HomeScreen owner chain:', chain.join('  ->  '));
+  }, [navigation]);
 
   const ready = Boolean(pickup && dropoff);
   const km = pickup && dropoff ? distanceKm(pickup, dropoff) : null;
