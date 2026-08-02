@@ -2,7 +2,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { Chip } from '@/components/ui';
 import { makeStyles, radius, spacing } from '@/theme';
-import type { Place } from '@/types/models';
+import type { Place, PlaceCategory } from '@/types/models';
 
 interface PlaceRowProps {
   place: Place;
@@ -11,7 +11,7 @@ interface PlaceRowProps {
   cached?: boolean;
 }
 
-const CATEGORY_ICON: Record<Place['category'], string> = {
+const CATEGORY_ICON: Record<PlaceCategory, string> = {
   landmark: '📍',
   market: '🛒',
   campus: '🎓',
@@ -20,6 +20,15 @@ const CATEGORY_ICON: Record<Place['category'], string> = {
   government: '🏛️',
   residential: '🏘️',
 };
+
+/** Saved addresses and Google results carry no category. */
+const DEFAULT_ICON = '📍';
+const SAVED_ICON = '⭐';
+
+function iconFor(place: Place): string {
+  if (place.category) return CATEGORY_ICON[place.category];
+  return place.source === 'SAVED' ? SAVED_ICON : DEFAULT_ICON;
+}
 
 export function PlaceRow({ place, onPress, cached }: PlaceRowProps) {
   const styles = useStyles();
@@ -30,7 +39,7 @@ export function PlaceRow({ place, onPress, cached }: PlaceRowProps) {
       accessibilityRole="button"
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
       <View style={styles.icon}>
-        <Text style={styles.iconText}>{CATEGORY_ICON[place.category]}</Text>
+        <Text style={styles.iconText}>{iconFor(place)}</Text>
       </View>
 
       <View style={styles.body}>
@@ -38,7 +47,7 @@ export function PlaceRow({ place, onPress, cached }: PlaceRowProps) {
           {place.name}
         </Text>
         <Text style={styles.area} numberOfLines={1}>
-          {place.area}, Minna
+          {place.address}
         </Text>
       </View>
 

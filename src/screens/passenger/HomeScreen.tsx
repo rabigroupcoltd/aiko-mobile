@@ -13,7 +13,7 @@ import { useAppStore } from '@/store/appStore';
 import { useBookingStore } from '@/store/bookingStore';
 import { makeStyles, spacing, useTheme } from '@/theme';
 import type { Place } from '@/types/models';
-import { distanceKm, estimateFare } from '@/utils/search';
+import { distanceKm, estimateFare } from '@/utils/geo';
 
 type Props = NativeStackScreenProps<
   PassengerStackParamList,

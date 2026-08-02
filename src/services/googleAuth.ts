@@ -42,7 +42,15 @@ function ensureConfigured() {
 }
 
 export type GoogleSignInResult =
-  | { ok: true; account: GoogleAccount }
+  | {
+      ok: true;
+      account: GoogleAccount;
+      /**
+       * Google's own ID token. Not what the API accepts — it has to be
+       * exchanged for a Firebase one first, see `services/firebaseAuth`.
+       */
+      idToken: string | null;
+    }
   | {
       ok: false;
       reason:
@@ -90,9 +98,10 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
       return { ok: false, reason: 'cancelled' };
     }
 
-    const { user } = response.data;
+    const { user, idToken } = response.data;
     return {
       ok: true,
+      idToken: idToken ?? null,
       account: {
         id: user.id,
         email: user.email,

@@ -9,7 +9,7 @@ import { ROUTES } from '@/navigation/routes';
 import type { PassengerStackParamList } from '@/navigation/types';
 import { useBookingStore } from '@/store/bookingStore';
 import { makeStyles, spacing, useTheme } from '@/theme';
-import { distanceKm, estimateFare } from '@/utils/search';
+import { distanceKm, estimateFare } from '@/utils/geo';
 
 type Props = NativeStackScreenProps<PassengerStackParamList, typeof ROUTES.RIDER_FOUND>;
 
@@ -115,9 +115,9 @@ export function RiderFoundScreen({ navigation, route }: Props) {
 
       <Card style={styles.trip}>
         <Text style={styles.tripTitle}>Your trip</Text>
-        <TripLeg dotColor={colors.primary} label="Pickup" value={pickup.name} area={pickup.area} />
+        <TripLeg dotColor={colors.primary} label="Pickup" value={pickup.name} area={pickup.address} />
         <View style={styles.legConnector} />
-        <TripLeg dotColor={colors.danger} label="Drop-off" value={dropoff.name} area={dropoff.area} />
+        <TripLeg dotColor={colors.danger} label="Drop-off" value={dropoff.name} area={dropoff.address} />
       </Card>
     </Screen>
   );

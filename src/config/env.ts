@@ -14,6 +14,23 @@ const androidConfig = Constants.expoConfig?.android?.config as
 
 export const HAS_MAPS_KEY = Boolean(androidConfig?.googleMaps?.apiKey);
 
+/**
+ * Where the API lives.
+ *
+ * The default targets the Android emulator: `10.0.2.2` is the host machine as
+ * seen from inside it, and `localhost` there would resolve to the emulator
+ * itself. On a physical device set EXPO_PUBLIC_API_BASE_URL to your machine's
+ * LAN address — the phone cannot reach the host any other way.
+ */
+export const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://10.0.2.2:3000/api';
+
+/** Long enough for a cold start on the API, short enough to fail visibly. */
+export const API_TIMEOUT_MS = 30000;
+
+/** The Socket.IO namespace, derived so it always follows the API host. */
+export const WEBSOCKET_URL = `${API_BASE_URL.replace(/\/api\/?$/, '')}/ride`;
+
 /** Minna city centre — the default map camera. */
 export const MINNA_CENTER = {
   latitude: 9.6139,

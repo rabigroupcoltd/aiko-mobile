@@ -64,6 +64,34 @@ To enable it:
 **It must be the *web* client ID (type 3), not the Android one.** Using the
 Android client ID is the single most common cause of `DEVELOPER_ERROR` here.
 
+### Push notifications
+
+Ride events — a new job for a driver, a bid for a passenger, arrival, trip
+completion, KYC approval — arrive over FCM as well as the socket. Nothing needs
+configuring on this side: the same `google-services.json` above is what the
+native SDK initialises from, and the server sends with its own service account.
+
+Two things are worth knowing:
+
+- **This half is `@react-native-firebase/*`, not the `firebase` JS package used
+  for sign-in.** FCM has no JS-only path on React Native, so these are native
+  modules and **a new dev build is required** — `npx expo prebuild` then
+  `npx expo run:android`. A cached dev client will not pick them up.
+- **Notifications are a fallback, never the source of truth.** Everything they
+  carry is also a WebSocket broadcast; push exists for a client that is
+  backgrounded or off the socket. A device that never gets permission still
+  works, it just stops finding out about trips while in the background.
+
+Verify a device end to end with `POST /api/notifications/test` once signed in —
+`sent: 0` without an error means the *server* has no Firebase credentials, or
+this device never registered.
+
+There is deliberately **no custom Android notification channel**. Creating one
+needs notifee (react-native-firebase dropped its display API), and naming a
+channel the app has not created makes Android fall back to the manifest default
+— which loses the heads-up banner rather than gaining it. The server leaves
+`FCM_RIDE_CHANNEL_ID` unset to match.
+
 ### Maps key
 
 Google Cloud Console → project `aiko-7874b` → enable **Maps SDK for Android** →
@@ -151,7 +179,8 @@ src/
 ├── hooks/        useLivenessCheck binds the FSM to the camera
 ├── store/        appStore (persisted) · bookingStore (ephemeral) · devActions
 ├── navigation/   Declarative root switch driven entirely by store state
-├── services/     googleAuth — degrades to hiding the button when unconfigured
+├── services/     googleAuth · firebaseAuth (JS SDK) · pushNotifications (native FCM)
+├── modules/      One API controller + types per backend resource
 ├── theme/        Light + dark palettes, ThemeProvider, makeStyles
 ├── components/   ui · camera · liveness · booking · drawer
 ├── screens/      auth · onboarding · rider · passenger · common

@@ -51,16 +51,37 @@ export interface DocumentAsset {
   height: number;
 }
 
-/** A searchable Minna landmark from the local "cache". */
+export type PlaceCategory =
+  | 'landmark'
+  | 'market'
+  | 'campus'
+  | 'hospital'
+  | 'transport'
+  | 'government'
+  | 'residential';
+
+/**
+ * A place the user can pick, as the API returns it.
+ *
+ * The aliases and area that the bundled landmark list carried now live
+ * server-side: aliases are folded into the row's search text, and the area is
+ * already part of `address`. Neither is needed on the client.
+ */
 export interface Place {
+  /** Stable list key. The saved-address id, the place id, or the address. */
   id: string;
   name: string;
-  /** Alternative spellings/nicknames locals actually type. */
-  aliases: string[];
-  area: string;
+  /** Full label, e.g. "Minna Central Market, Minna City Centre, Minna". */
+  address: string;
   lat: number;
   lng: number;
-  category: 'landmark' | 'market' | 'campus' | 'hospital' | 'transport' | 'government' | 'residential';
+  /** Google place id, when the row came from a remote lookup. */
+  placeId: string | null;
+  /** Only seeded places have one — fall back to a generic icon. */
+  category: PlaceCategory | null;
+  /** Which tier it came from: the user's own list, the shared cache, or Google. */
+  source: 'SAVED' | 'CACHED' | 'REMOTE';
+  isDefault: boolean;
 }
 
 export interface MockRider {

@@ -47,7 +47,24 @@ const config: ExpoConfig = {
       backgroundImage: './assets/android-icon-background.png',
       monochromeImage: './assets/android-icon-monochrome.png',
     },
-    permissions: ['android.permission.CAMERA'],
+    // POST_NOTIFICATIONS is the Android 13+ runtime permission for showing a
+    // notification at all. `requestPermission()` in pushNotifications.ts is what
+    // prompts for it; declaring it here is what makes that prompt possible.
+    //
+    // The location pair is for the driver heartbeat: COARSE is declared
+    // alongside FINE because Android 12+ lets the user grant only the
+    // approximate one, and a request that names FINE alone is rejected outright
+    // on those devices rather than downgraded.
+    //
+    // Deliberately NO background location. A driver publishes a position only
+    // while the app is open and they are online; ACCESS_BACKGROUND_LOCATION
+    // triggers a Play Store review process and is not needed for that.
+    permissions: [
+      'android.permission.CAMERA',
+      'android.permission.POST_NOTIFICATIONS',
+      'android.permission.ACCESS_FINE_LOCATION',
+      'android.permission.ACCESS_COARSE_LOCATION',
+    ],
     // VisionCamera's manifest can merge RECORD_AUDIO in, which would show a
     // microphone prompt on a delivery app. We never use audio, so block it.
     // The media/storage permissions are blocked to structurally enforce the
@@ -132,6 +149,30 @@ const config: ExpoConfig = {
       },
     ],
     '@react-native-google-signin/google-signin',
+    // Push notifications. The `app` plugin wires the Google Services Gradle
+    // plugin to the googleServicesFile above; `messaging` registers the
+    // FirebaseMessagingService that receives the payload.
+    //
+    // These ARE native modules, unlike the `firebase` JS SDK used for sign-in —
+    // FCM has no JS-only path on React Native. A rebuild is required after
+    // adding them; `npx expo run:android` will not pick them up from a cached
+    // dev client.
+    //
+    // iOS note: react-native-firebase requires
+    // `expo-build-properties.ios.useFrameworks: 'static'`. Deliberately not set,
+    // because it changes how every pod in the graph links and this project only
+    // builds for Android. Add it when an iOS build is actually attempted.
+    '@react-native-firebase/app',
+    '@react-native-firebase/messaging',
+    [
+      'expo-location',
+      {
+        locationAlwaysAndWhenInUsePermission:
+          'Aiko uses your location to match you with trips nearby and to show your driver where you are.',
+        // The background service is not shipped — see the permissions note above.
+        isAndroidBackgroundLocationEnabled: false,
+      },
+    ],
     // Required: `npx expo install` could not add this itself because this config
     // is a dynamic .ts file. The plugin pins the Android Material dependency the
     // date dialog is built on.

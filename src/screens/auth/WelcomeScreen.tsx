@@ -4,8 +4,10 @@ import { Alert, Image, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, GoogleSignInButton } from '@/components/ui';
+import { FirebaseSignInManager } from '@/modules/auth/authController';
 import { ROUTES } from '@/navigation/routes';
 import type { AuthStackParamList } from '@/navigation/types';
+import { exchangeGoogleToken } from '@/services/firebaseAuth';
 import {
   describeFailure,
   isGoogleSignInConfigured,
@@ -25,25 +27,57 @@ const HIGHLIGHTS = [
 export function WelcomeScreen({ navigation }: Props) {
   const styles = useStyles();
   const setGoogleAccount = useAppStore((s) => s.setGoogleAccount);
+  const { signInWithFirebase } = FirebaseSignInManager();
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  /**
+   * Google → Firebase → our API, in that order.
+   *
+   * Three hops because each one only produces what the next needs: Google
+   * proves who they are, Firebase turns that into a token our backend trusts,
+   * and the backend turns that into a session plus the onboarding state.
+   */
   const handleGoogle = async () => {
     setGoogleLoading(true);
-    const result = await signInWithGoogle();
-    setGoogleLoading(false);
 
-    if (!result.ok) {
-      // A cancellation is a deliberate user action, not an error worth a dialog.
-      if (result.reason !== 'cancelled') {
-        Alert.alert('Google sign-in', describeFailure(result.reason));
+    try {
+      const result = await signInWithGoogle();
+
+      if (!result.ok) {
+        // A cancellation is a deliberate user action, not an error worth a dialog.
+        if (result.reason !== 'cancelled') {
+          Alert.alert('Google sign-in', describeFailure(result.reason));
+        }
+        return;
       }
-      return;
-    }
 
-    setGoogleAccount(result.account);
-    // Google gives us an identity but not a phone number, and a dispatch app
-    // needs a reachable number — so the phone step still runs.
-    navigation.navigate(ROUTES.PHONE_ENTRY);
+      // Kept for the profile form's pre-fill, whatever happens below.
+      setGoogleAccount(result.account);
+
+      if (!result.idToken) {
+        // Means the web client ID is missing from the Google Sign-In config —
+        // sign-in "succeeds" but yields nothing we can exchange.
+        Alert.alert('Google sign-in', 'Sign-in did not return a token. Please try again.');
+        return;
+      }
+
+      const exchanged = await exchangeGoogleToken(result.idToken);
+      if (!exchanged.ok) {
+        Alert.alert('Google sign-in', exchanged.message);
+        return;
+      }
+
+      // Stores the session, so every later request is authenticated. The
+      // navigator picks the branch from state on the next render — the phone
+      // step still runs, because Google gives no number and a dispatch app
+      // needs a reachable one.
+      await signInWithFirebase({ idToken: exchanged.idToken });
+      navigation.navigate(ROUTES.PHONE_ENTRY);
+    } catch {
+      // useApiManager has already shown the reason.
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   return (

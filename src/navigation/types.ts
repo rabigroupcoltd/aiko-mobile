@@ -23,8 +23,13 @@ export type OnboardingStackParamList = {
 
 export type PassengerStackParamList = {
   [ROUTES.PASSENGER_HOME]: undefined;
-  [ROUTES.MATCHING]: { pickup: Place; dropoff: Place };
-  [ROUTES.RIDER_FOUND]: { pickup: Place; dropoff: Place; riderId: string };
+  [ROUTES.MATCHING]: { pickup: Place; dropoff: Place; vehicleType: VehicleType };
+  /**
+   * The trip itself. Only the order id is passed — everything shown comes from
+   * `GET /api/orders/{id}` and the socket, so a screen restored from a
+   * notification tap needs no other params to render correctly.
+   */
+  [ROUTES.RIDER_FOUND]: { orderId: string };
 };
 
 export type RiderStackParamList = {

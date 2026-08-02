@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState, TextField } from '@/components/ui';
 import { BOOKING_COPY } from '@/data/copy';
-import { ALL_PLACES, usePlaceSearch } from '@/hooks/usePlaceSearch';
+import { useDefaultPlaces, usePlaceSearch } from '@/hooks/usePlaceSearch';
 import { makeStyles, screenGutter, spacing, useTheme } from '@/theme';
 import type { Place } from '@/types/models';
 import { PlaceRow } from './PlaceRow';
@@ -42,11 +42,14 @@ export function AddressSearchSheet({
   const styles = useStyles();
   const { colors } = useTheme();
   const [query, setQuery] = useState('');
-  const { results, state, loading } = usePlaceSearch(query);
+  const { results, state, loading, error } = usePlaceSearch(query);
+  const { places: savedPlaces, loading: savedLoading } = useDefaultPlaces();
 
-  // With no query we show the full list, which doubles as a "popular places"
-  // browser and keeps the screen from ever looking empty.
-  const showing = query.trim() ? results : ALL_PLACES;
+  // With no query we show the caller's saved addresses. The old "browse every
+  // landmark" list went with the bundled JSON — those places are on the server
+  // now and reached by typing.
+  const searching = query.trim().length > 0;
+  const showing = searching ? results : savedPlaces;
   const isCacheHit = state === 'cache-hit';
 
   const handleSelect = (place: Place) => {
@@ -80,16 +83,22 @@ export function AddressSearchSheet({
           />
 
           <View style={styles.statusRow}>
-            {query.trim() === '' ? (
-              <Text style={styles.status}>All saved Minna locations</Text>
+            {error ? (
+              <Text style={styles.statusMiss}>{error}</Text>
+            ) : !searching ? (
+              <Text style={styles.status}>
+                {savedLoading ? 'Loading your places…' : 'Your saved places'}
+              </Text>
+            ) : loading ? (
+              <Text style={styles.status}>{BOOKING_COPY.remoteSearching}</Text>
             ) : isCacheHit ? (
               <Text style={styles.statusCache}>
                 ✓ {results.length} match{results.length === 1 ? '' : 'es'} from local cache
               </Text>
-            ) : loading ? (
-              <Text style={styles.status}>{BOOKING_COPY.remoteSearching}</Text>
+            ) : results.length > 0 ? (
+              <Text style={styles.status}>{results.length} found</Text>
             ) : (
-              <Text style={styles.statusMiss}>Cache miss — no wider results</Text>
+              <Text style={styles.statusMiss}>No matches</Text>
             )}
           </View>
         </View>
@@ -104,11 +113,15 @@ export function AddressSearchSheet({
           )}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListEmptyComponent={
-            loading ? null : (
+            loading || savedLoading ? null : (
               <EmptyState
                 icon="🔍"
-                title={BOOKING_COPY.noResults}
-                body={BOOKING_COPY.noResultsHint}
+                title={searching ? BOOKING_COPY.noResults : 'No saved places yet'}
+                body={
+                  searching
+                    ? BOOKING_COPY.noResultsHint
+                    : 'Search for a landmark, market or area to get started.'
+                }
               />
             )
           }
