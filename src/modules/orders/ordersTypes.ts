@@ -25,6 +25,9 @@ export interface Order extends TripRoute {
   userId: string;
   driverId: string | null;
   vehicleType: VehicleType;
+  /** Who to call at each end. Often not the account holder on either side. */
+  pickupPhone: string | null;
+  dropoffPhone: string | null;
   distanceKm: number;
   durationMins: number;
   fare: number;
@@ -38,14 +41,35 @@ export interface Order extends TripRoute {
   driverEarnings: number;
   cancellationReason: string | null;
   acceptedAt: string | null;
+  /** Stamped when a driver claims it — the RESERVED half of reserved-vs-picked-up. */
+  reservedAt: string | null;
   arrivedAt: string | null;
   startedAt: string | null;
+  /** Stamped when the driver physically collects it. */
+  pickedUpAt: string | null;
+  deliveredAt: string | null;
   completedAt: string | null;
   cancelledAt: string | null;
+  /** How wide the driver search has reached. Null on non-marketplace orders. */
+  searchRadiusKm: number | null;
+  dispatchAttempts: number;
   createdAt: string;
   updatedAt: string;
   user: ContactUser;
   driver: OrderDriver | null;
+}
+
+/**
+ * When the customer's own order lands.
+ *
+ * `driverHandlingOtherOrders` is deliberately a boolean and nothing more — §20:
+ * the customer learns their driver has other work and how long it costs them,
+ * never what that work is or whose it is.
+ */
+export interface OrderEta {
+  pickupMinutes: number | null;
+  deliveryMinutes: number | null;
+  driverHandlingOtherOrders: boolean;
 }
 
 export interface RideMessage {
@@ -76,6 +100,14 @@ export interface RideRating {
 export interface CreateOrderPayload extends TripRoute {
   vehicleType: VehicleType;
   paymentMethod: PaymentMethod;
+  pickupPhone?: string;
+  dropoffPhone?: string;
+  /**
+   * True opens the order at SEARCHING_FOR_DRIVER and announces it to nearby
+   * drivers, who claim it themselves. This is what the Confirm Order button
+   * sends. Omitted, the order is a direct PENDING booking as before.
+   */
+  dispatch?: boolean;
   /** Set when the order comes out of an accepted bid, so the quote is reused. */
   rideRequestId?: string;
 }

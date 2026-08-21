@@ -147,6 +147,33 @@ export const useGetRideRequestManager = ({
 // ============================================
 
 /**
+ * The caller's still-open request, if they have one.
+ *
+ * The server allows exactly one per passenger, so creating a second is a 409.
+ * This is how a screen recovers from that: the open request is the same search
+ * the passenger is trying to start, so it is adopted rather than reported as an
+ * error. Not a hook — it runs inside a failed mutation's catch.
+ */
+export async function findOpenRequest(): Promise<RideRequestWithBids | null> {
+  try {
+    const response =
+      await AxiosWithToken.get<ApiResponse<RideRequestWithBids[]>>('/ride-requests');
+
+    return (
+      response.data.data.find(
+        (request) =>
+          (request.status === 'PENDING' || request.status === 'MATCHED') &&
+          new Date(request.expiresAt).getTime() > Date.now(),
+      ) ?? null
+    );
+  } catch {
+    // Only ever called on a path that has already failed — reporting a second
+    // failure here would replace a useful message with a less useful one.
+    return null;
+  }
+}
+
+/**
  * Asks for a driver. One open request per passenger — a second returns 409.
  */
 export const CreateRideRequestManager = () => {

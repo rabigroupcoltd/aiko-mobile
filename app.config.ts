@@ -9,6 +9,26 @@ import type { ExpoConfig } from 'expo/config';
  */
 const googleMapsApiKey = process.env.GOOGLE_MAPS_ANDROID_API_KEY;
 
+/**
+ * Notifee ships its `app.notifee:core` AAR in a local Maven repo inside its own
+ * package rather than publishing to a public one. It registers that repo from
+ * *inside* its own `android/build.gradle`, via `rootProject.allprojects {}`.
+ *
+ * `expo run:android` passes `--configure-on-demand`, under which Gradle resolves
+ * `:app:debugRuntimeClasspath` without guaranteeing `:notifee_react-native` has
+ * been configured first — so the repo is never registered and the build dies
+ * with "Could not find any matches for app.notifee:core:+". Declaring the repo
+ * here puts it on `:app` from the start, independent of configuration order.
+ *
+ * Resolved from the package itself rather than hardcoded so it stays correct on
+ * other machines and in CI; forward slashes because Gradle parses this value out
+ * of gradle.properties, where a backslash is an escape character.
+ */
+const notifeeMavenRepo = require
+  .resolve('@notifee/react-native/package.json')
+  .replace(/[\\/]package\.json$/, '/android/libs')
+  .replace(/\\/g, '/');
+
 const config: ExpoConfig = {
   name: 'Aiko',
   slug: 'Aiko',
@@ -51,19 +71,30 @@ const config: ExpoConfig = {
     // notification at all. `requestPermission()` in pushNotifications.ts is what
     // prompts for it; declaring it here is what makes that prompt possible.
     //
-    // The location pair is for the driver heartbeat: COARSE is declared
-    // alongside FINE because Android 12+ lets the user grant only the
-    // approximate one, and a request that names FINE alone is rejected outright
-    // on those devices rather than downgraded.
+    // The location pair: COARSE is declared alongside FINE because Android 12+
+    // lets the user grant only the approximate one, and a request that names
+    // FINE alone is rejected outright on those devices rather than downgraded.
     //
-    // Deliberately NO background location. A driver publishes a position only
-    // while the app is open and they are online; ACCESS_BACKGROUND_LOCATION
-    // triggers a Play Store review process and is not needed for that.
+    // ACCESS_BACKGROUND_LOCATION and the two FOREGROUND_SERVICE permissions are
+    // what let an online driver keep receiving orders with the app closed. The
+    // dispatcher only considers drivers with a live position, so without these
+    // a driver who locks their phone silently drops out of the pool while the
+    // app still says "online".
+    //
+    // This does mean a Play Store background-location review. That is a real
+    // submission cost and it is unavoidable for a dispatch app: the declaration
+    // form wants a screen recording of the in-app disclosure, the runtime
+    // prompt, and the foreground-service notification the driver sees while
+    // it runs. All three exist — see useDriverLocation and backgroundLocation.
     permissions: [
       'android.permission.CAMERA',
       'android.permission.POST_NOTIFICATIONS',
       'android.permission.ACCESS_FINE_LOCATION',
       'android.permission.ACCESS_COARSE_LOCATION',
+      'android.permission.ACCESS_BACKGROUND_LOCATION',
+      'android.permission.FOREGROUND_SERVICE',
+      // Required from Android 14 for a location-typed foreground service.
+      'android.permission.FOREGROUND_SERVICE_LOCATION',
     ],
     // VisionCamera's manifest can merge RECORD_AUDIO in, which would show a
     // microphone prompt on a delivery app. We never use audio, so block it.
@@ -124,6 +155,11 @@ const config: ExpoConfig = {
           kotlinVersion: '2.2.21',
           // ndkVersion deliberately NOT pinned — we use RN 0.86's default,
           // which is already installed locally. Only pin if the build fails.
+          //
+          // See the notifeeMavenRepo note at the top of this file: without this
+          // the build fails under `--configure-on-demand`, which `expo
+          // run:android` always passes.
+          extraMavenRepos: [notifeeMavenRepo],
         },
         // iOS values are here for completeness; this demo is built on Windows
         // and therefore Android-only. 16.4 is SDK 57's minimum.
@@ -168,9 +204,14 @@ const config: ExpoConfig = {
       'expo-location',
       {
         locationAlwaysAndWhenInUsePermission:
-          'Aiko uses your location to match you with trips nearby and to show your driver where you are.',
-        // The background service is not shipped — see the permissions note above.
-        isAndroidBackgroundLocationEnabled: false,
+          'Aiko sends your location to the dispatcher while you are online so orders near you can reach you, even when the app is in the background.',
+        // Both true: the background permission is what keeps an online driver
+        // in the dispatch pool with the app closed, and the foreground service
+        // is what makes Android actually deliver those fixes rather than
+        // deferring them for tens of minutes under Doze. Turning the first on
+        // without the second gives a permission that does almost nothing.
+        isAndroidBackgroundLocationEnabled: true,
+        isAndroidForegroundServiceEnabled: true,
       },
     ],
     // Required: `npx expo install` could not add this itself because this config

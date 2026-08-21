@@ -84,26 +84,11 @@ export interface Place {
   isDefault: boolean;
 }
 
-export interface MockRider {
-  id: string;
-  name: string;
-  /** require()'d local image. */
-  avatar: number;
-  vehicle: VehicleType;
-  plate: string;
-  rating: number;
-  trips: number;
-  etaMinutes: number;
-}
-
-/** An inbound job shown on the rider dashboard. */
-export interface RideRequest {
-  id: string;
-  passengerName: string;
-  pickup: string;
-  dropoff: string;
-  distanceKm: number;
-  fare: number;
-  /** Seconds remaining to accept before it auto-expires. */
-  expiresInSeconds: number;
-}
+/*
+ * Riders and ride requests deliberately have no type here.
+ *
+ * Both are server records now, and their shapes live beside the endpoints that
+ * return them — `RideBidWithDriver` and `NearbyRideRequest` in
+ * `modules/rideRequests`, `Order` in `modules/orders`. A second definition in
+ * this file would be a copy that drifts.
+ */

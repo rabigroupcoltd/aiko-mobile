@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@notifee/react-native": "^9.1.8",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "9.1.0",
     "@react-native-firebase/app": "^26.0.0",
@@ -23,6 +24,7 @@
     "expo-splash-screen": "~57.0.5",
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.1",
+    "expo-task-manager": "~57.0.8",
     "firebase": "^12.17.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -61,7 +63,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "typecheck": "tsc --noEmit",
-    "build": "eas build --platform android --profile production"
+    "build": "eas build --platform android --profile preview"
   },
   "private": true
 }

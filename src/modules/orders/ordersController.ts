@@ -13,6 +13,7 @@ import type {
   CreateOrderPayload,
   ListOrdersParams,
   Order,
+  OrderEta,
   RateOrderVariables,
   RideMessage,
   RideRating,
@@ -40,7 +41,8 @@ export const useGetOrdersManager = ({
   limit = 20,
   offset = 0,
   enabled = true,
-}: ListOrdersParams & QueryOptions = {}) => {
+  refetchInterval,
+}: ListOrdersParams & QueryOptions & { refetchInterval?: number | false } = {}) => {
   return useQuery({
     queryKey: [ORDERS_QUERY_KEY, 'list', status, userId, driverId, vehicleType, limit, offset],
     queryFn: async () => {
@@ -61,6 +63,9 @@ export const useGetOrdersManager = ({
       }
     },
     enabled,
+    // Off by default. The driver dashboard sets one as a fallback for a socket
+    // that dropped mid-trip; a list screen has no reason to poll.
+    refetchInterval,
   });
 };
 
@@ -81,6 +86,33 @@ export const useGetOrderManager = ({
     queryFn: async () => {
       try {
         const response = await AxiosWithToken.get<ApiResponse<Order>>(`/orders/${id}`);
+        return response.data.data;
+      } catch (error) {
+        throw new Error(parseApiError(error));
+      }
+    },
+    enabled: enabled && Boolean(id),
+    refetchInterval,
+  });
+};
+
+/**
+ * When the driver will reach this order.
+ *
+ * Computed server-side from the driver's whole planned route — a driver carrying
+ * two other orders reaches this pickup after whatever the route puts in front of
+ * it, and the straight line would promise a time they cannot keep.
+ */
+export const useGetOrderEtaManager = ({
+  id,
+  enabled = true,
+  refetchInterval,
+}: QueryOptions & { id: string | null | undefined; refetchInterval?: number | false }) => {
+  return useQuery({
+    queryKey: [ORDERS_QUERY_KEY, id, 'eta'],
+    queryFn: async () => {
+      try {
+        const response = await AxiosWithToken.get<ApiResponse<OrderEta>>(`/orders/${id}/eta`);
         return response.data.data;
       } catch (error) {
         throw new Error(parseApiError(error));

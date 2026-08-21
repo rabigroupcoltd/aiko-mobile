@@ -25,6 +25,15 @@ export const DEFAULT_VEHICLE_TYPE: VehicleType = 'TRICYCLE';
 interface BookingState {
   pickup: Place | null;
   dropoff: Place | null;
+  /**
+   * Who to call at each end.
+   *
+   * Separate from the account phone because they usually are: the person
+   * sending a parcel is rarely the person receiving it, and the driver needs
+   * both numbers.
+   */
+  pickupPhone: string;
+  dropoffPhone: string;
   vehicleType: VehicleType;
   query: string;
   results: Place[];
@@ -39,6 +48,8 @@ interface BookingState {
 
   setPickup: (p: Place | null) => void;
   setDropoff: (p: Place | null) => void;
+  setPickupPhone: (v: string) => void;
+  setDropoffPhone: (v: string) => void;
   setVehicleType: (v: VehicleType) => void;
   setQuery: (q: string) => void;
   setResults: (r: Place[], source: SearchSource) => void;
@@ -53,6 +64,8 @@ interface BookingState {
 const initial = {
   pickup: null,
   dropoff: null,
+  pickupPhone: '',
+  dropoffPhone: '',
   vehicleType: DEFAULT_VEHICLE_TYPE,
   query: '',
   results: [],
@@ -77,6 +90,8 @@ export const useBookingStore = create<BookingState>()((set) => ({
 
   setPickup: (pickup) => set({ pickup }),
   setDropoff: (dropoff) => set({ dropoff }),
+  setPickupPhone: (pickupPhone) => set({ pickupPhone }),
+  setDropoffPhone: (dropoffPhone) => set({ dropoffPhone }),
   setVehicleType: (vehicleType) => set({ vehicleType }),
   setQuery: (query) => set({ query }),
   setResults: (results, searchSource) => set({ results, searchSource }),

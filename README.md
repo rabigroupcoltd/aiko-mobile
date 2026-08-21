@@ -136,16 +136,28 @@ A full walkthrough, about three minutes:
 7. **User type** → **Passenger**
 8. **Home** → tap Drop-off, type `tunga` → note the **"Cached"** badge and
    *"N matches from local cache"*. Now type something absent like `lagos` → watch
-   it fall through to a simulated remote lookup and miss.
-9. **Find a rider** → radar animation → rider card with ETA and fare
+   it fall through to a remote lookup.
+9. Pick a vehicle — each tile shows a **real fare** for this exact route, quoted
+   by the server from the active pricing rule
+10. **Find a rider** → radar animation while the request is open, then live bids
+    as drivers offer → choose one → the trip screen, with the driver's marker
+    moving on the map
 
-Then demonstrate the other side:
+Then demonstrate the other side — **this needs a second device or a second
+account**, since it is now a real request going to a real driver:
 
-10. **Drawer → DEV: Switch to Rider** → lands in the document chain
-11. Licence → National ID → vehicle type → plate → Review → Submit
-12. **Pending approval** → **DEV: Simulate admin approval**
-13. **Rider dashboard** → toggle Online → a request arrives with a countdown →
-    Accept → Complete trip → earnings update
+11. **Drawer → DEV: Switch to Rider** → lands in the document chain
+12. Licence → National ID → vehicle type → plate → Review → Submit
+13. **Pending approval** — cleared by an admin calling
+    `PATCH /api/drivers/{id}/kyc/approve`. The driver gets a push notification
+    and the dashboard unlocks by itself.
+14. **Rider dashboard** → toggle Online (grants location, starts the heartbeat)
+    → open requests nearby appear → **Offer to take it** → the passenger picks
+    you → drive the trip through *Arrived → Start → Complete* → earnings update
+
+> **The two halves are one system now.** Step 10 and step 14 are the same ride
+> request seen from both ends. Running only one side shows a passenger who never
+> gets a bid, or a driver with nothing to accept.
 
 Worth showing too:
 
@@ -180,11 +192,12 @@ src/
 ├── store/        appStore (persisted) · bookingStore (ephemeral) · devActions
 ├── navigation/   Declarative root switch driven entirely by store state
 ├── services/     googleAuth · firebaseAuth (JS SDK) · pushNotifications (native FCM)
+│                 · rideSocket (one Socket.IO connection for the whole app)
 ├── modules/      One API controller + types per backend resource
 ├── theme/        Light + dark palettes, ThemeProvider, makeStyles
 ├── components/   ui · camera · liveness · booking · drawer
 ├── screens/      auth · onboarding · rider · passenger · common
-└── data/         Minna landmarks, mock riders, all user-facing copy
+└── data/         Vehicle presentation, all user-facing copy
 ```
 
 ### Theming
@@ -223,6 +236,14 @@ the `Face` object is native-backed and cannot be stored). A fixed interval then
 drives the reducer, and React state is committed only when a compact UI key
 changes: roughly 6–12 renders per session instead of ~900.
 
+**The ride flow holds no state of its own.** Booking, matching, bidding and the
+trip itself are server records read through react-query; `bookingStore` keeps
+only what has not been sent yet (pickup, drop-off, vehicle) plus the id of the
+open request. Two delivery paths run at once and converge on the same cache —
+the socket pushes each change as it happens, and a slow poll covers a socket
+that dropped. Nothing is simulated: there is no client-side fare arithmetic, no
+fake matching delay, and no invented driver.
+
 **Navigation is derived, never imperative.** `RootNavigator` picks a branch from
 store state, and `resolveOnboardingRoute` finds the resume point by inspecting
 *data presence* rather than a stored step counter — which would go stale the
@@ -240,7 +261,9 @@ before anything resembling a real release:
   the title. Harsh backlight or a projector-lit room can defeat the eye
   classifier, and a demo that dead-ends at identity verification is a bad demo.
 - **Switch role**, **Simulate admin approval**, **Reset demo** — drawer and
-  Settings.
+  Settings. Note that *Simulate admin approval* now only flips the **local**
+  flag; the rider dashboard reads `kycStatus` from `GET /api/drivers/me`, so a
+  real approval still has to come from the API.
 - **Debug overlay** — live yaw/roll/pitch and eye probabilities over the camera.
   This is the calibration instrument: use it to confirm eye probabilities arrive,
   and to read real ranges before tuning `EYE_LOW` / `EYE_HIGH`.

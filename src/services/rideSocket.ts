@@ -34,6 +34,46 @@ export interface ServerEvents {
   'trip-cancelled': unknown;
   'new-message': unknown;
   'driver-location-update': DriverPosition;
+
+  // ---------------------------------------------------------- marketplace
+  'order-available': MarketplaceOffer;
+  'order-reserved': OrderReserved;
+  'order-removed': OrderRemoved;
+  'order-no-driver': unknown;
+}
+
+/**
+ * A marketplace order announced to a driver.
+ *
+ * Carries no compatibility score on purpose: that is per-driver, and one
+ * broadcast goes to everyone in the ring. The screen refetches the grid on
+ * receipt, which is where the scoring happens.
+ */
+export interface MarketplaceOffer {
+  id: string;
+  vehicleType: string;
+  pickupLocation: string;
+  pickupLat: number;
+  pickupLng: number;
+  dropoffLocation: string;
+  dropoffLat: number;
+  dropoffLng: number;
+  distanceKm: number;
+  earnings: number;
+  fare: number;
+  currency: string;
+  createdAt: string;
+}
+
+export interface OrderReserved {
+  order: { id: string; [key: string]: unknown };
+  eta: { pickupMinutes: number | null; deliveryMinutes: number | null } | null;
+}
+
+/** Drop this card — somebody else took it, or it closed. */
+export interface OrderRemoved {
+  orderId: string;
+  reason: 'RESERVED' | 'CANCELLED' | 'NO_DRIVER_FOUND';
 }
 
 /** What a driver receives when a job is offered to them. */
@@ -104,37 +144,15 @@ export function disconnectRideSocket(): void {
 }
 
 /**
- * Emits and unwraps the ack.
+ * Note on writes: this module is receive-mostly on purpose.
  *
- * Throws on a `code >= 400` envelope so a caller can `try`/`catch` exactly as
- * it would around an axios call — the whole point of the server using one
- * envelope for both transports.
+ * Every mutation the gateway accepts has a REST mirror, and the REST path is
+ * what the app uses — it already carries retries, error toasts and react-query
+ * invalidation through the controllers. Emitting the same thing over the socket
+ * would need all of that rebuilt to gain nothing.
+ *
+ * The exceptions are the two that have no useful REST equivalent: the location
+ * heartbeat, which must also fan out to whoever is watching this driver on a
+ * map, and the driver-watch subscribe/unsubscribe pair, which is purely a room
+ * membership change.
  */
-export async function emitWithAck<TData>(
-  event: string,
-  payload: unknown,
-  timeoutMs = 10_000,
-): Promise<TData> {
-  const active = getRideSocket();
-  if (!active) throw new Error('Not connected');
-
-  const response = await active
-    .timeout(timeoutMs)
-    .emitWithAck(event, payload)
-    .catch(() => {
-      // A timeout here means the server never acked. The REST mirror is always
-      // available, so callers are expected to fall back rather than retry.
-      throw new Error('The server did not respond, please try again');
-    });
-
-  const envelope = response as ApiResponse<TData> & { error?: string | string[] };
-
-  if (envelope?.code >= 400) {
-    const message = Array.isArray(envelope.error)
-      ? envelope.error.join(', ')
-      : envelope.error;
-    throw new Error(message || envelope.message || 'Request failed');
-  }
-
-  return envelope.data;
-}

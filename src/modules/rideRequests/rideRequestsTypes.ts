@@ -1,5 +1,5 @@
-import type { NearbyDriver } from '@/modules/drivers/driversTypes';
-import type { Order } from '@/modules/orders/ordersTypes';
+import type { DriverProfile, NearbyDriver } from '@/modules/drivers/driversTypes';
+import type { ContactUser, Order } from '@/modules/orders/ordersTypes';
 import type { FareQuote } from '@/modules/pricing/pricingTypes';
 import type {
   BidStatus,
@@ -20,6 +20,16 @@ export interface RideBid {
   updatedAt: string;
 }
 
+/**
+ * A bid as the request endpoints return it — with the driver attached.
+ *
+ * This is the shape the passenger chooses from, so it has to carry everything
+ * that decision needs: who they are, what they drive, and how they rate.
+ */
+export interface RideBidWithDriver extends RideBid {
+  driver: DriverProfile & { user: ContactUser };
+}
+
 export interface RideRequest extends TripRoute {
   id: string;
   userId: string;
@@ -38,7 +48,9 @@ export interface RideRequest extends TripRoute {
 }
 
 export interface RideRequestWithBids extends RideRequest {
-  bids: RideBid[];
+  bids: RideBidWithDriver[];
+  /** The passenger. `phone` is null on the browse endpoint — see `NearbyRideRequest`. */
+  user: ContactUser;
 }
 
 /**

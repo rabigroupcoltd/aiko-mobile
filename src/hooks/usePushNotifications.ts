@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 
 import { AUTH_QUERY_KEY } from '@/modules/auth/authController';
 import { DRIVERS_QUERY_KEY } from '@/modules/drivers/driversController';
+import { MARKETPLACE_QUERY_KEY } from '@/modules/marketplace/marketplaceController';
 import type { PushData, PushType } from '@/modules/notifications/notificationsTypes';
 import { ONBOARDING_QUERY_KEY } from '@/modules/onboarding/onboardingController';
 import { ORDERS_QUERY_KEY } from '@/modules/orders/ordersController';
@@ -42,6 +43,15 @@ const INVALIDATES: Record<PushType, string[]> = {
   // Approval is what unlocks going online, so the profile and the onboarding
   // step both have to be re-read before the driver's next screen renders.
   KYC_STATUS: [AUTH_QUERY_KEY, DRIVERS_QUERY_KEY, ONBOARDING_QUERY_KEY],
+
+  // Marketplace. ORDER_AVAILABLE only touches the grid; the rest move an order
+  // the driver or customer already holds, so the order queries go too.
+  ORDER_AVAILABLE: [MARKETPLACE_QUERY_KEY],
+  ORDER_RESERVED: [MARKETPLACE_QUERY_KEY, ORDERS_QUERY_KEY],
+  ORDER_PICKED_UP: [MARKETPLACE_QUERY_KEY, ORDERS_QUERY_KEY],
+  // A delivery settles money as well as freeing a slot.
+  ORDER_DELIVERED: [MARKETPLACE_QUERY_KEY, ORDERS_QUERY_KEY, DRIVERS_QUERY_KEY],
+  ORDER_NO_DRIVER: [ORDERS_QUERY_KEY],
 };
 
 /** Notifications worth interrupting a foreground user for. */
@@ -52,6 +62,11 @@ const TOAST_IN_FOREGROUND: PushType[] = [
   'TRIP_STATUS',
   'TRIP_CANCELLED',
   'KYC_STATUS',
+  'ORDER_AVAILABLE',
+  'ORDER_RESERVED',
+  'ORDER_PICKED_UP',
+  'ORDER_DELIVERED',
+  'ORDER_NO_DRIVER',
 ];
 
 export interface UsePushNotificationsOptions {

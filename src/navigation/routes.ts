@@ -20,16 +20,24 @@ export const ROUTES = {
 
   // post-login
   PASSENGER_HOME: 'PassengerHome',
+  /** Order summary. Nothing is dispatched until the customer confirms here. */
+  ORDER_REVIEW: 'OrderReview',
   MATCHING: 'Matching',
   RIDER_FOUND: 'RiderFound',
   PENDING_APPROVAL: 'PendingApproval',
   RIDER_HOME: 'RiderHome',
+  /** The driver's route across every order they are holding. */
+  DRIVER_ROUTE: 'DriverRoute',
 
   // drawer + common
   HOME_TAB: 'HomeTab',
   PROFILE: 'Profile',
   MY_DOCUMENTS: 'MyDocuments',
   SETTINGS: 'Settings',
+  /** Per-order chat. Reachable from either side of an order. */
+  ORDER_CHAT: 'OrderChat',
+  DRIVER_EARNINGS: 'DriverEarnings',
+  ORDER_HISTORY: 'OrderHistory',
 
   // modals
   CAMERA_CAPTURE: 'CameraCapture',

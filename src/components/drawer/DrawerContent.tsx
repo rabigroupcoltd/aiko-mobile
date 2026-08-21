@@ -90,14 +90,30 @@ export function DrawerContent(props: DrawerContentComponentProps) {
               openCamera('profile');
             }}
           />
+          <ListRow
+            icon="🗂️"
+            title={role === 'rider' ? 'My orders' : 'Order history'}
+            subtitle={role === 'rider' ? 'Active, completed and skipped' : 'Past and active orders'}
+            onPress={go(ROUTES.ORDER_HISTORY)}
+            style={activeRoute === ROUTES.ORDER_HISTORY ? styles.activeRow : undefined}
+          />
           {role === 'rider' ? (
-            <ListRow
-              icon="📄"
-              title="My documents"
-              subtitle="Licence, ID and vehicle"
-              onPress={go(ROUTES.MY_DOCUMENTS)}
-              style={activeRoute === ROUTES.MY_DOCUMENTS ? styles.activeRow : undefined}
-            />
+            <>
+              <ListRow
+                icon="💰"
+                title="Earnings"
+                subtitle="What you made, order by order"
+                onPress={go(ROUTES.DRIVER_EARNINGS)}
+                style={activeRoute === ROUTES.DRIVER_EARNINGS ? styles.activeRow : undefined}
+              />
+              <ListRow
+                icon="📄"
+                title="My documents"
+                subtitle="Licence, ID and vehicle"
+                onPress={go(ROUTES.MY_DOCUMENTS)}
+                style={activeRoute === ROUTES.MY_DOCUMENTS ? styles.activeRow : undefined}
+              />
+            </>
           ) : null}
           <ListRow
             icon="⚙️"

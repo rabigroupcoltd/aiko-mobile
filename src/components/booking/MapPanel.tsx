@@ -13,6 +13,12 @@ interface MapPanelProps {
   style?: ViewStyle;
   /** Draw a straight line between the two points. */
   showRoute?: boolean;
+  /**
+   * The assigned driver's live position, streamed over the socket. When set,
+   * the camera follows it instead of framing the route — during a trip, where
+   * the driver is now is the only thing anyone is watching.
+   */
+  driver?: { lat: number; lng: number; heading?: number } | null;
 }
 
 /**
@@ -22,14 +28,32 @@ interface MapPanelProps {
  * of the demo stays usable rather than showing a blank grey tile with an
  * "Authorization failure" in logcat.
  */
-export function MapPanel({ pickup, dropoff, style, showRoute = true }: MapPanelProps) {
+export function MapPanel({
+  pickup,
+  dropoff,
+  style,
+  showRoute = true,
+  driver,
+}: MapPanelProps) {
   const styles = useStyles();
   const { colors } = useTheme();
   const mapRef = useRef<MapView>(null);
 
+  // Follow the driver once there is one. Re-framing the whole route on every
+  // position update would zoom out and lose them.
+  useEffect(() => {
+    if (!HAS_MAPS_KEY || !mapRef.current || !driver) return;
+
+    mapRef.current.animateCamera({ center: { latitude: driver.lat, longitude: driver.lng } }, {
+      duration: 500,
+    });
+  }, [driver]);
+
   // Keep both markers in view whenever the selection changes.
   useEffect(() => {
     if (!HAS_MAPS_KEY || !mapRef.current) return;
+    // The driver camera above owns the viewport once a trip is under way.
+    if (driver) return;
 
     const points = [pickup, dropoff].filter(Boolean) as Place[];
     if (points.length === 0) return;
@@ -51,7 +75,7 @@ export function MapPanel({ pickup, dropoff, style, showRoute = true }: MapPanelP
       points.map((p) => ({ latitude: p.lat, longitude: p.lng })),
       { edgePadding: { top: 70, right: 70, bottom: 70, left: 70 }, animated: true }
     );
-  }, [pickup, dropoff]);
+  }, [pickup, dropoff, driver]);
 
   if (!HAS_MAPS_KEY) {
     return <MapFallback pickup={pickup} dropoff={dropoff} style={style} />;
@@ -87,6 +111,19 @@ export function MapPanel({ pickup, dropoff, style, showRoute = true }: MapPanelP
             title={dropoff.name}
             description="Drop-off"
           />
+        ) : null}
+
+        {driver ? (
+          <Marker
+            coordinate={{ latitude: driver.lat, longitude: driver.lng }}
+            title="Your driver"
+            // Rotating the marker to the reported heading is what makes the
+            // vehicle read as travelling rather than sliding sideways.
+            rotation={driver.heading ?? 0}
+            flat
+            anchor={{ x: 0.5, y: 0.5 }}>
+            <Text style={styles.driverMarker}>🛺</Text>
+          </Marker>
         ) : null}
 
         {showRoute && pickup && dropoff ? (
@@ -144,6 +181,7 @@ const useStyles = makeStyles(({ colors, type }) => ({
     backgroundColor: colors.primarySubtle,
   },
   pin: { fontSize: 36 },
+  driverMarker: { fontSize: 28 },
   fallbackTitle: { ...type.subheading, textAlign: 'center' },
   fallbackHint: {
     ...type.caption,

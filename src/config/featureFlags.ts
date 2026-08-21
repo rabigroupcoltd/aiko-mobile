@@ -36,11 +36,13 @@ export const featureFlags = {
   /** Dev panel in the drawer: reset demo, switch role, approve rider. */
   SHOW_DEV_PANEL: __DEV__,
 
-  /** Simulated network latency for mocked "server" calls, in ms. */
+  /**
+   * Simulated network latency for the onboarding steps that are still local.
+   *
+   * The booking and driver flows no longer use this — they wait on real
+   * requests, which supply their own latency.
+   */
   FAKE_DELAY_MS: 1500,
-
-  /** How long the "searching for a rider" animation runs. */
-  MATCHING_DURATION_MS: 2800,
 
   /** Simulated latency for an address that misses the local cache. */
   REMOTE_LOOKUP_MS: 900,

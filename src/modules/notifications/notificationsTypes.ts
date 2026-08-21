@@ -19,6 +19,14 @@ export const PUSH_TYPES = [
   'TRIP_CANCELLED',
   'TRIP_MESSAGE',
   'KYC_STATUS',
+
+  // Marketplace. No ORDER_REMOVED — an order somebody else took is dropped
+  // from the grid by the `order-removed` socket event, not by a notification.
+  'ORDER_AVAILABLE',
+  'ORDER_RESERVED',
+  'ORDER_PICKED_UP',
+  'ORDER_DELIVERED',
+  'ORDER_NO_DRIVER',
 ] as const;
 export type PushType = (typeof PUSH_TYPES)[number];
 

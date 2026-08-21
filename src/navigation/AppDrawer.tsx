@@ -2,8 +2,10 @@ import { createDrawerNavigator } from '@react-navigation/drawer';
 
 import { DrawerContent } from '@/components/drawer/DrawerContent';
 import { MyDocumentsScreen } from '@/screens/common/MyDocumentsScreen';
+import { OrderHistoryScreen } from '@/screens/common/OrderHistoryScreen';
 import { ProfileScreen } from '@/screens/common/ProfileScreen';
 import { SettingsScreen } from '@/screens/common/SettingsScreen';
+import { DriverEarningsScreen } from '@/screens/rider/DriverEarningsScreen';
 import { useAppStore } from '@/store/appStore';
 import { useTheme } from '@/theme';
 import { PassengerStack } from './PassengerStack';
@@ -39,8 +41,13 @@ export function AppDrawer() {
         component={isRider ? RiderStack : PassengerStack}
       />
       <Drawer.Screen name={ROUTES.PROFILE} component={ProfileScreen} />
+      {/* Shared: a customer reads what they paid, a driver what they kept. */}
+      <Drawer.Screen name={ROUTES.ORDER_HISTORY} component={OrderHistoryScreen} />
       {isRider ? (
-        <Drawer.Screen name={ROUTES.MY_DOCUMENTS} component={MyDocumentsScreen} />
+        <>
+          <Drawer.Screen name={ROUTES.DRIVER_EARNINGS} component={DriverEarningsScreen} />
+          <Drawer.Screen name={ROUTES.MY_DOCUMENTS} component={MyDocumentsScreen} />
+        </>
       ) : null}
       <Drawer.Screen name={ROUTES.SETTINGS} component={SettingsScreen} />
     </Drawer.Navigator>
