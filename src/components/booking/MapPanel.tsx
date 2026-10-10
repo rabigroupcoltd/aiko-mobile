@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Platform, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 
-import { HAS_MAPS_KEY, MINNA_CENTER } from '@/config/env';
+import { HAS_MAPS_KEY, IOS_USES_GOOGLE_MAPS, MINNA_CENTER } from '@/config/env';
 import { makeStyles, radius, spacing, useTheme } from '@/theme';
 import type { Place } from '@/types/models';
 import { DARK_MAP_STYLE } from './mapStyle';
@@ -86,9 +86,9 @@ export function MapPanel({
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
-        // PROVIDER_GOOGLE is required on iOS to use Google tiles; on Android it
-        // is the only provider anyway.
-        provider={Platform.OS === 'ios' ? PROVIDER_GOOGLE : undefined}
+        // Android only has Google. iOS uses Google tiles when the build carries
+        // an iOS Maps key, and Apple Maps (no key needed) otherwise.
+        provider={Platform.OS === 'ios' && IOS_USES_GOOGLE_MAPS ? PROVIDER_GOOGLE : undefined}
         initialRegion={MINNA_CENTER}
         // A default light map inside a dark screen is jarring, so the tiles
         // follow the app's scheme too.

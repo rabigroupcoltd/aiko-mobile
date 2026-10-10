@@ -1,15 +1,19 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useState } from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
 
-import { AppHeader, Card, Chip, Screen } from '@/components/ui';
+import { AppHeader, Button, Card, Chip, Screen, TextField } from '@/components/ui';
 import { CAPTURE_CONFIG } from '@/data/copy';
-import { getVehicle } from '@/data/vehicleTypes';
+import { getVehicle, toApiVehicleType } from '@/data/vehicleTypes';
+import { RegisterDriverManager } from '@/modules/drivers/driversController';
+import type { UploadFile } from '@/modules/drivers/driversTypes';
+import { useOnboardingState } from '@/modules/onboarding/onboardingController';
 import { ROUTES } from '@/navigation/routes';
 import { useOpenCamera } from '@/navigation/useAppNavigation';
 import type { RiderStackParamList } from '@/navigation/types';
 import { useAppStore } from '@/store/appStore';
 import { makeStyles, radius, spacing } from '@/theme';
-import type { RiderDocumentTarget } from '@/types/models';
+import type { DocumentAsset, RiderDocumentTarget } from '@/types/models';
 
 type Props = NativeStackScreenProps<
   RiderStackParamList,
@@ -18,41 +22,107 @@ type Props = NativeStackScreenProps<
 
 const DOCS: RiderDocumentTarget[] = ['license', 'nationalId', 'plate'];
 
+/** How each capture is labelled on the server, so the admin sees what is what. */
+const PHOTO_TYPE: Record<RiderDocumentTarget, string> = {
+  license: 'DRIVER_LICENSE',
+  nationalId: 'NATIONAL_ID',
+  plate: 'PLATE_NUMBER',
+};
+
+const MIME_BY_EXT: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  heic: 'image/heic',
+  heif: 'image/heif',
+};
+
+function toUpload(target: RiderDocumentTarget, asset: DocumentAsset): UploadFile {
+  const ext = asset.uri.split('.').pop()?.split('?')[0]?.toLowerCase() ?? '';
+  const known = ext in MIME_BY_EXT;
+  return {
+    uri: asset.uri,
+    name: `${target}-${Date.now()}.${known ? ext : 'jpg'}`,
+    type: known ? MIME_BY_EXT[ext] : 'image/jpeg',
+  };
+}
+
 /**
- * Review only — there is no working "submit" here yet.
+ * The last rider step: check the captures, type the plate and model, submit.
  *
- * `RiderStack` correctly reads real backend driver status
- * (`onboarding.driver.status`) to decide what to show, but this screen has
- * nothing real to hand it: the backend contract and this UI don't line up.
- *
- * - `POST /drivers/register` wants `vehiclePlate`/`vehicleModel` as typed
- *   text, plus `vehicleColor`/`vehicleYear`. Nothing in this flow captures
- *   any of those — only a photo of the plate, never the number itself.
- * - `VehiclePhotoType` (FRONT/BACK/SIDE/INTERIOR/PLATE_NUMBER/OTHER) has no
- *   category for a driver's licence or a national ID. There is nowhere on
- *   the server to correctly store either, and mislabelling them as vehicle
- *   photos would put identity documents in the wrong place unreviewed.
- *
- * Wiring this for real needs both a product decision on where/how license
- * and ID documents are stored for KYC, and new fields on this screen for
- * the plate/model/color/year text — not something to guess at here. Until
- * then this screen is honest about not being submittable rather than
- * pretending a tap here reaches an admin's KYC queue.
+ * Submitting registers the vehicle (`POST /drivers/register`), which is what
+ * creates the driver profile an admin approves — the account moves to PENDING
+ * and RiderStack swaps this screen for the waiting screen on its own. A
+ * rejected rider lands back here and the same call resubmits.
  */
 export function DocumentsReviewScreen({ navigation }: Props) {
   const styles = useStyles();
   const documents = useAppStore((s) => s.documents);
   const openCamera = useOpenCamera();
+  const onboarding = useOnboardingState();
+  const rejectionReason =
+    onboarding?.driver.status === 'REJECTED' ? onboarding.driver.rejectionReason : null;
+
+  const { registerDriver, isLoading } = RegisterDriverManager();
+
+  const [plate, setPlate] = useState('');
+  const [model, setModel] = useState('');
+  const [color, setColor] = useState('');
+  const [touched, setTouched] = useState(false);
 
   const vehicle = documents.vehicleType ? getVehicle(documents.vehicleType) : null;
+  const missingDocs = DOCS.filter((target) => !documents[target]);
+
+  const plateError = plate.trim().length < 3 ? 'Enter the number on your plate' : undefined;
+  const modelError = model.trim().length < 2 ? 'Enter your vehicle make and model' : undefined;
+  const ready = missingDocs.length === 0 && Boolean(vehicle) && !plateError && !modelError;
+
+  const handleSubmit = async () => {
+    setTouched(true);
+    if (!ready || !documents.vehicleType) return;
+
+    const captured = DOCS.map((target) => [target, documents[target]!] as const);
+
+    try {
+      await registerDriver({
+        vehicleType: toApiVehicleType(documents.vehicleType),
+        vehiclePlate: plate.trim().toUpperCase(),
+        vehicleModel: model.trim(),
+        ...(color.trim() ? { vehicleColor: color.trim() } : {}),
+        photoTypes: captured.map(([target]) => PHOTO_TYPE[target]).join(','),
+        photos: captured.map(([target, asset]) => toUpload(target, asset)),
+      });
+      // No navigation: the onboarding refetch flips RiderStack to the
+      // waiting screen.
+    } catch {
+      // useApiManager has already shown the reason.
+    }
+  };
 
   return (
-    <Screen scroll>
+    <Screen
+      scroll
+      footer={
+        <Button
+          label={rejectionReason ? 'Resubmit for review' : 'Submit for review'}
+          onPress={handleSubmit}
+          loading={isLoading}
+          disabled={isLoading}
+        />
+      }>
       <AppHeader
         onBack={() => navigation.goBack()}
-        title="Review your details"
-        subtitle="What you've captured so far."
+        title="Review and submit"
+        subtitle="Check your documents and tell us about your vehicle."
       />
+
+      {rejectionReason ? (
+        <View style={styles.rejected}>
+          <Text style={styles.rejectedTitle}>Your last submission was not approved</Text>
+          <Text style={styles.rejectedText}>{rejectionReason}</Text>
+        </View>
+      ) : null}
 
       <View style={styles.list}>
         {DOCS.map((target) => {
@@ -102,13 +172,49 @@ export function DocumentsReviewScreen({ navigation }: Props) {
         </Card>
       </View>
 
-      <View style={styles.notice}>
-        <Text style={styles.noticeIcon}>ℹ️</Text>
-        <Text style={styles.noticeText}>
-          Rider verification isn't open yet — there's nothing to submit to just yet.
-          Check back once it's live.
-        </Text>
+      <Text style={styles.section}>Vehicle details</Text>
+      <View style={styles.form}>
+        <TextField
+          label="Plate number"
+          value={plate}
+          onChangeText={setPlate}
+          placeholder="e.g. MNA-123-XY"
+          autoCapitalize="characters"
+          autoCorrect={false}
+          maxLength={20}
+          error={touched ? plateError : undefined}
+        />
+        <TextField
+          label="Make and model"
+          value={model}
+          onChangeText={setModel}
+          placeholder="e.g. Bajaj Boxer"
+          autoCapitalize="words"
+          maxLength={100}
+          error={touched ? modelError : undefined}
+        />
+        <TextField
+          label="Colour (optional)"
+          value={color}
+          onChangeText={setColor}
+          placeholder="e.g. Red"
+          autoCapitalize="words"
+          maxLength={40}
+        />
       </View>
+
+      {touched && (missingDocs.length > 0 || !vehicle) ? (
+        <Text style={styles.missing}>
+          {missingDocs.length > 0
+            ? `Add your ${missingDocs.map((t) => CAPTURE_CONFIG[t].shortLabel.toLowerCase()).join(', ')} before submitting.`
+            : 'Choose your vehicle type before submitting.'}
+        </Text>
+      ) : null}
+
+      <Text style={styles.note}>
+        An admin reviews your documents, usually within a day. You can book trips as a passenger
+        while you wait.
+      </Text>
     </Screen>
   );
 }
@@ -127,14 +233,17 @@ const useStyles = makeStyles(({ colors, type }) => ({
   rowBody: { flex: 1, gap: spacing.xs, alignItems: 'flex-start' },
   rowTitle: { ...type.subheading, fontSize: 15 },
   retake: { ...type.subheading, fontSize: 14, color: colors.primary },
-  notice: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    backgroundColor: colors.infoBg,
+  section: { ...type.heading, marginTop: spacing.xl, marginBottom: spacing.md },
+  form: { gap: spacing.xs },
+  rejected: {
+    backgroundColor: colors.dangerBg,
     borderRadius: radius.base,
+    padding: spacing.md,
+    marginBottom: spacing.base,
+    gap: spacing.xs,
   },
-  noticeIcon: { fontSize: 14 },
-  noticeText: { ...type.caption, flex: 1, lineHeight: 18 },
+  rejectedTitle: { ...type.subheading, fontSize: 15, color: colors.danger },
+  rejectedText: { ...type.bodySmall, color: colors.text },
+  missing: { ...type.bodySmall, color: colors.danger, marginTop: spacing.md },
+  note: { ...type.caption, marginTop: spacing.base, lineHeight: 18 },
 }));

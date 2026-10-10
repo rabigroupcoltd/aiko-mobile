@@ -63,7 +63,15 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "typecheck": "tsc --noEmit",
-    "build": "eas build --platform android --profile preview"
+    "env:push": "eas env:push --environment production --environment preview --environment development --path .env --force",
+    "build:android": "eas build --platform android --profile production",
+    "build:ios": "eas build --platform ios --profile production",
+    "build:all": "eas build --platform all --profile production",
+    "build:android:apk": "eas build --platform android --profile preview",
+    "submit:android": "eas submit --platform android --latest",
+    "submit:ios": "eas submit --platform ios --latest",
+    "release:ios": "eas build --platform ios --profile production --auto-submit",
+    "release:all": "eas build --platform all --profile production --auto-submit"
   },
   "private": true
 }

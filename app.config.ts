@@ -10,6 +10,12 @@ import type { ExpoConfig } from 'expo/config';
 const googleMapsApiKey = process.env.GOOGLE_MAPS_ANDROID_API_KEY;
 
 /**
+ * Optional. Without it iOS uses Apple Maps, which needs no key; with it, iOS
+ * switches to Google tiles to match Android (see MapPanel).
+ */
+const googleMapsIosApiKey = process.env.GOOGLE_MAPS_IOS_API_KEY;
+
+/**
  * Notifee ships its `app.notifee:core` AAR in a local Maven repo inside its own
  * package rather than publishing to a public one. It registers that repo from
  * *inside* its own `android/build.gradle`, via `rootProject.allprojects {}`.
@@ -46,9 +52,20 @@ const config: ExpoConfig = {
     // Matches the app registered in the Firebase project (aiko-7874b).
     bundleIdentifier: 'com.aiko.app',
     googleServicesFile: './GoogleService-Info.plist',
+    // No custom crypto beyond HTTPS, so App Store Connect can skip the export
+    // compliance questionnaire on every build.
+    config: { usesNonExemptEncryption: false },
+    // Push (FCM rides on APNs). Xcode switches this to `production` when the
+    // archive is exported for TestFlight/App Store.
+    entitlements: { 'aps-environment': 'development' },
     infoPlist: {
       NSCameraUsageDescription:
         'Aiko uses the camera to take your profile photo, verify that you are a real person, and capture your documents.',
+      NSLocationWhenInUseUsageDescription:
+        'Aiko uses your location to set your pickup point and, for riders, to send you orders nearby.',
+      // `location` is added by the expo-location plugin below; this adds the
+      // silent-push mode FCM data messages need to wake the app.
+      UIBackgroundModes: ['remote-notification'],
       // NSMicrophoneUsageDescription intentionally omitted — we never record audio.
       // NSPhotoLibraryUsageDescription intentionally omitted — there is no gallery
       // picker anywhere in this app; all capture is camera-only by design.
@@ -118,6 +135,7 @@ const config: ExpoConfig = {
   },
 
   extra: {
+    iosGoogleMaps: Boolean(googleMapsIosApiKey),
     eas: {
       projectId: '4c6c28f1-6fbc-4f6c-a719-d26d5b627cfa',
     },
@@ -161,10 +179,14 @@ const config: ExpoConfig = {
           // run:android` always passes.
           extraMavenRepos: [notifeeMavenRepo],
         },
-        // iOS values are here for completeness; this demo is built on Windows
-        // and therefore Android-only. 16.4 is SDK 57's minimum.
         ios: {
+          // SDK 57's minimum.
           deploymentTarget: '16.4',
+          // react-native-firebase only links as static frameworks on iOS.
+          useFrameworks: 'static',
+          // …and its pods must be linked statically against the precompiled
+          // React Native binaries, or the build fails on non-modular headers.
+          forceStaticLinking: ['RNFBApp', 'RNFBMessaging'],
         },
       },
     ],
@@ -194,10 +216,9 @@ const config: ExpoConfig = {
     // adding them; `npx expo run:android` will not pick them up from a cached
     // dev client.
     //
-    // iOS note: react-native-firebase requires
-    // `expo-build-properties.ios.useFrameworks: 'static'`. Deliberately not set,
-    // because it changes how every pod in the graph links and this project only
-    // builds for Android. Add it when an iOS build is actually attempted.
+    // iOS: these need `useFrameworks: 'static'`, set under expo-build-properties
+    // above. The APNs key must also be uploaded to Firebase (Project settings →
+    // Cloud Messaging → iOS app) or no push ever reaches an iPhone.
     '@react-native-firebase/app',
     '@react-native-firebase/messaging',
     [
@@ -212,8 +233,16 @@ const config: ExpoConfig = {
         // without the second gives a permission that does almost nothing.
         isAndroidBackgroundLocationEnabled: true,
         isAndroidForegroundServiceEnabled: true,
+        // The iOS equivalent: adds the `location` background mode, without
+        // which an online rider drops out of dispatch when the phone locks.
+        isIosBackgroundLocationEnabled: true,
       },
     ],
+    // Only when an iOS Maps key is supplied — it pulls in the Google Maps iOS
+    // SDK, which Apple Maps (the fallback) does not need.
+    ...(googleMapsIosApiKey
+      ? [['react-native-maps', { iosGoogleMapsApiKey: googleMapsIosApiKey }] as [string, object]]
+      : []),
     // Required: `npx expo install` could not add this itself because this config
     // is a dynamic .ts file. The plugin pins the Android Material dependency the
     // date dialog is built on.

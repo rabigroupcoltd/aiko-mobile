@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 /**
  * Runtime access to build-time config.
@@ -12,7 +13,16 @@ const androidConfig = Constants.expoConfig?.android?.config as
   | { googleMaps?: { apiKey?: string } }
   | undefined;
 
-export const HAS_MAPS_KEY = Boolean(androidConfig?.googleMaps?.apiKey);
+/**
+ * Whether iOS was built with a Google Maps key (GOOGLE_MAPS_IOS_API_KEY). Without
+ * one, iOS uses Apple Maps, which needs no key at all.
+ */
+export const IOS_USES_GOOGLE_MAPS = Boolean(
+  (Constants.expoConfig?.extra as { iosGoogleMaps?: boolean } | undefined)?.iosGoogleMaps,
+);
+
+export const HAS_MAPS_KEY =
+  Platform.OS === 'ios' ? true : Boolean(androidConfig?.googleMaps?.apiKey);
 
 /**
  * Whether the app can call Google Places directly.

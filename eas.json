@@ -4,14 +4,26 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "base": {
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://aiko-api-uf0v.onrender.com/api"
+      }
+    },
     "development": {
+      "extends": "base",
+      "environment": "development",
       "developmentClient": true,
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "extends": "base",
+      "environment": "preview",
+      "distribution": "internal",
+      "android": { "buildType": "apk" }
     },
     "production": {
+      "extends": "base",
+      "environment": "production",
       "autoIncrement": true
     }
   },
