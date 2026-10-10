@@ -35,7 +35,8 @@ export interface DriverProfile {
   userId: string;
   vehicleType: VehicleType;
   vehiclePlate: string;
-  vehicleModel: string;
+  vehicleBrand: string | null;
+  vehicleModel: string | null;
   vehicleColor: string | null;
   vehicleYear: number | null;
   kycStatus: KycStatus;
@@ -99,7 +100,9 @@ export interface DriverAnalytics {
 export interface RegisterDriverPayload {
   vehicleType: VehicleType;
   vehiclePlate: string;
-  vehicleModel: string;
+  /** The make — Bajaj, TVS, Honda… */
+  vehicleBrand: string;
+  vehicleModel?: string;
   vehicleColor?: string;
   vehicleYear?: number;
   /** Comma-separated labels matched positionally, e.g. "FRONT,BACK". */

@@ -2,7 +2,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
 
-import { AppHeader, Button, Card, Chip, Screen, TextField } from '@/components/ui';
+import { AppHeader, Button, Card, Chip, Screen } from '@/components/ui';
 import { CAPTURE_CONFIG } from '@/data/copy';
 import { getVehicle, toApiVehicleType } from '@/data/vehicleTypes';
 import { RegisterDriverManager } from '@/modules/drivers/driversController';
@@ -20,12 +20,13 @@ type Props = NativeStackScreenProps<
   typeof ROUTES.DOCUMENTS_REVIEW
 >;
 
-const DOCS: RiderDocumentTarget[] = ['license', 'nationalId', 'plate'];
+const DOCS: RiderDocumentTarget[] = ['license', 'nationalId', 'vehicle', 'plate'];
 
 /** How each capture is labelled on the server, so the admin sees what is what. */
 const PHOTO_TYPE: Record<RiderDocumentTarget, string> = {
   license: 'DRIVER_LICENSE',
   nationalId: 'NATIONAL_ID',
+  vehicle: 'FRONT',
   plate: 'PLATE_NUMBER',
 };
 
@@ -49,12 +50,12 @@ function toUpload(target: RiderDocumentTarget, asset: DocumentAsset): UploadFile
 }
 
 /**
- * The last rider step: check the captures, type the plate and model, submit.
+ * The last rider step: everything captured, at a glance, then submit.
  *
- * Submitting registers the vehicle (`POST /drivers/register`), which is what
- * creates the driver profile an admin approves — the account moves to PENDING
- * and RiderStack swaps this screen for the waiting screen on its own. A
- * rejected rider lands back here and the same call resubmits.
+ * Submitting registers the vehicle (`POST /drivers/register`), which creates
+ * the driver profile an admin approves — the account moves to PENDING and
+ * RiderStack swaps this screen for the waiting screen on its own. A rejected
+ * rider lands back here and the same call resubmits.
  */
 export function DocumentsReviewScreen({ navigation }: Props) {
   const styles = useStyles();
@@ -65,31 +66,27 @@ export function DocumentsReviewScreen({ navigation }: Props) {
     onboarding?.driver.status === 'REJECTED' ? onboarding.driver.rejectionReason : null;
 
   const { registerDriver, isLoading } = RegisterDriverManager();
-
-  const [plate, setPlate] = useState('');
-  const [model, setModel] = useState('');
-  const [color, setColor] = useState('');
   const [touched, setTouched] = useState(false);
 
   const vehicle = documents.vehicleType ? getVehicle(documents.vehicleType) : null;
+  const details = documents.vehicleDetails;
   const missingDocs = DOCS.filter((target) => !documents[target]);
-
-  const plateError = plate.trim().length < 3 ? 'Enter the number on your plate' : undefined;
-  const modelError = model.trim().length < 2 ? 'Enter your vehicle make and model' : undefined;
-  const ready = missingDocs.length === 0 && Boolean(vehicle) && !plateError && !modelError;
+  const detailsMissing = !details?.brand?.trim() || (details?.plate?.trim().length ?? 0) < 3;
+  const ready = missingDocs.length === 0 && Boolean(vehicle) && !detailsMissing;
 
   const handleSubmit = async () => {
     setTouched(true);
-    if (!ready || !documents.vehicleType) return;
+    if (!ready || !documents.vehicleType || !details) return;
 
     const captured = DOCS.map((target) => [target, documents[target]!] as const);
 
     try {
       await registerDriver({
         vehicleType: toApiVehicleType(documents.vehicleType),
-        vehiclePlate: plate.trim().toUpperCase(),
-        vehicleModel: model.trim(),
-        ...(color.trim() ? { vehicleColor: color.trim() } : {}),
+        vehiclePlate: details.plate.trim().toUpperCase(),
+        vehicleBrand: details.brand.trim(),
+        ...(details.model.trim() ? { vehicleModel: details.model.trim() } : {}),
+        ...(details.color.trim() ? { vehicleColor: details.color.trim() } : {}),
         photoTypes: captured.map(([target]) => PHOTO_TYPE[target]).join(','),
         photos: captured.map(([target, asset]) => toUpload(target, asset)),
       });
@@ -114,7 +111,7 @@ export function DocumentsReviewScreen({ navigation }: Props) {
       <AppHeader
         onBack={() => navigation.goBack()}
         title="Review and submit"
-        subtitle="Check your documents and tell us about your vehicle."
+        subtitle="Check everything before it goes to our team."
       />
 
       {rejectionReason ? (
@@ -124,6 +121,7 @@ export function DocumentsReviewScreen({ navigation }: Props) {
         </View>
       ) : null}
 
+      <Text style={styles.section}>Documents</Text>
       <View style={styles.list}>
         {DOCS.map((target) => {
           const asset = documents[target];
@@ -154,60 +152,29 @@ export function DocumentsReviewScreen({ navigation }: Props) {
             </Card>
           );
         })}
-
-        <Card style={styles.row}>
-          <View style={[styles.thumb, styles.thumbEmpty]}>
-            <Text style={styles.thumbIcon}>{vehicle?.emoji ?? '🚲'}</Text>
-          </View>
-          <View style={styles.rowBody}>
-            <Text style={styles.rowTitle}>Vehicle type</Text>
-            <Chip
-              label={vehicle ? `${vehicle.label} · ${vehicle.localName}` : 'Not selected'}
-              tone={vehicle ? 'brand' : 'danger'}
-            />
-          </View>
-          <Pressable onPress={() => navigation.navigate(ROUTES.VEHICLE_TYPE)} hitSlop={8}>
-            <Text style={styles.retake}>Change</Text>
-          </Pressable>
-        </Card>
       </View>
 
-      <Text style={styles.section}>Vehicle details</Text>
-      <View style={styles.form}>
-        <TextField
-          label="Plate number"
-          value={plate}
-          onChangeText={setPlate}
-          placeholder="e.g. MNA-123-XY"
-          autoCapitalize="characters"
-          autoCorrect={false}
-          maxLength={20}
-          error={touched ? plateError : undefined}
-        />
-        <TextField
-          label="Make and model"
-          value={model}
-          onChangeText={setModel}
-          placeholder="e.g. Bajaj Boxer"
-          autoCapitalize="words"
-          maxLength={100}
-          error={touched ? modelError : undefined}
-        />
-        <TextField
-          label="Colour (optional)"
-          value={color}
-          onChangeText={setColor}
-          placeholder="e.g. Red"
-          autoCapitalize="words"
-          maxLength={40}
-        />
+      <View style={styles.sectionRow}>
+        <Text style={styles.section}>Vehicle</Text>
+        <Pressable onPress={() => navigation.navigate(ROUTES.VEHICLE_DETAILS)} hitSlop={8}>
+          <Text style={styles.retake}>Edit</Text>
+        </Pressable>
       </View>
+      <Card>
+        <Detail label="Type" value={vehicle ? `${vehicle.label} · ${vehicle.localName}` : null} />
+        <Detail label="Brand" value={details?.brand} />
+        <Detail label="Model" value={details?.model} optional />
+        <Detail label="Plate number" value={details?.plate} />
+        <Detail label="Colour" value={details?.color} optional last />
+      </Card>
 
-      {touched && (missingDocs.length > 0 || !vehicle) ? (
+      {touched && !ready ? (
         <Text style={styles.missing}>
           {missingDocs.length > 0
             ? `Add your ${missingDocs.map((t) => CAPTURE_CONFIG[t].shortLabel.toLowerCase()).join(', ')} before submitting.`
-            : 'Choose your vehicle type before submitting.'}
+            : !vehicle
+              ? 'Choose your vehicle type before submitting.'
+              : 'Add your vehicle brand and plate number before submitting.'}
         </Text>
       ) : null}
 
@@ -216,6 +183,30 @@ export function DocumentsReviewScreen({ navigation }: Props) {
         while you wait.
       </Text>
     </Screen>
+  );
+}
+
+function Detail({
+  label,
+  value,
+  optional,
+  last,
+}: {
+  label: string;
+  value?: string | null;
+  optional?: boolean;
+  last?: boolean;
+}) {
+  const styles = useStyles();
+  const empty = !value?.trim();
+
+  return (
+    <View style={[styles.detail, !last && styles.detailDivider]}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={[styles.detailValue, empty && !optional && styles.detailMissing]}>
+        {empty ? (optional ? '—' : 'Missing') : value}
+      </Text>
+    </View>
   );
 }
 
@@ -233,8 +224,18 @@ const useStyles = makeStyles(({ colors, type }) => ({
   rowBody: { flex: 1, gap: spacing.xs, alignItems: 'flex-start' },
   rowTitle: { ...type.subheading, fontSize: 15 },
   retake: { ...type.subheading, fontSize: 14, color: colors.primary },
-  section: { ...type.heading, marginTop: spacing.xl, marginBottom: spacing.md },
-  form: { gap: spacing.xs },
+  section: { ...type.heading, marginTop: spacing.lg, marginBottom: spacing.md },
+  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  detail: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  detailDivider: { borderBottomWidth: 1, borderBottomColor: colors.divider },
+  detailLabel: type.bodySmall,
+  detailValue: { ...type.subheading, fontSize: 15, flexShrink: 1, textAlign: 'right' },
+  detailMissing: { color: colors.danger },
   rejected: {
     backgroundColor: colors.dangerBg,
     borderRadius: radius.base,

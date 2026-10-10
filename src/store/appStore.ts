@@ -7,11 +7,21 @@ import { deleteAsset, persistCapture } from '@/utils/fileStore';
 
 export const STORAGE_KEY = 'aiko-app-v1';
 
+/** What the rider types about their vehicle, kept as they type so nothing is lost. */
+export interface VehicleDetailsDraft {
+  brand: string;
+  model: string;
+  plate: string;
+  color: string;
+}
+
 interface Documents {
   license?: DocumentAsset;
   nationalId?: DocumentAsset;
+  vehicle?: DocumentAsset;
   plate?: DocumentAsset;
   vehicleType?: VehicleType;
+  vehicleDetails?: VehicleDetailsDraft;
 }
 
 /**
@@ -44,6 +54,7 @@ interface AppState {
     capture: { uri: string; width: number; height: number }
   ) => Promise<void>;
   setVehicleType: (v: VehicleType) => void;
+  setVehicleDetails: (patch: Partial<VehicleDetailsDraft>) => void;
   updateSettings: (patch: Partial<AppState['settings']>) => void;
   /**
    * Wipes every draft. Called on sign-out (see `useLogoutManager`) so a
@@ -102,6 +113,12 @@ export const useAppStore = create<AppState>()(
 
       setVehicleType: (v) =>
         set({ documents: { ...get().documents, vehicleType: v } }),
+
+      setVehicleDetails: (patch) => {
+        const documents = get().documents;
+        const current = documents.vehicleDetails ?? { brand: '', model: '', plate: '', color: '' };
+        set({ documents: { ...documents, vehicleDetails: { ...current, ...patch } } });
+      },
 
       updateSettings: (patch) => set({ settings: { ...get().settings, ...patch } }),
 

@@ -30,7 +30,7 @@ export function PlatePhotoScreen({ navigation }: Props) {
       <AppHeader
         onBack={() => navigation.goBack()}
         title="Vehicle plate number"
-        subtitle="Step 4 of 4 · Rider verification"
+        subtitle="Step 5 of 5 · Rider verification"
       />
 
       <CapturePrompt target="plate" asset={plate} tips={TIPS} />

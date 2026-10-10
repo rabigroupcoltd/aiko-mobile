@@ -21,14 +21,14 @@ export function VehicleTypeScreen({ navigation }: Props) {
       footer={
         <Button
           label="Continue"
-          onPress={() => navigation.navigate(ROUTES.PLATE_PHOTO)}
+          onPress={() => navigation.navigate(ROUTES.VEHICLE_DETAILS)}
           disabled={!vehicleType}
         />
       }>
       <AppHeader
         onBack={() => navigation.goBack()}
         title="What do you ride?"
-        subtitle="Step 3 of 4 · Rider verification"
+        subtitle="Step 3 of 5 · Rider verification"
       />
 
       <View style={styles.cards}>

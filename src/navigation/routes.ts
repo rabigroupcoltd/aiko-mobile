@@ -15,6 +15,7 @@ export const ROUTES = {
   LICENSE_CAPTURE: 'LicenseCapture',
   NATIONAL_ID: 'NationalId',
   VEHICLE_TYPE: 'VehicleType',
+  VEHICLE_DETAILS: 'VehicleDetails',
   PLATE_PHOTO: 'PlatePhoto',
   DOCUMENTS_REVIEW: 'DocumentsReview',
 
@@ -63,6 +64,7 @@ export type RiderOnboardingRouteName =
   | typeof ROUTES.LICENSE_CAPTURE
   | typeof ROUTES.NATIONAL_ID
   | typeof ROUTES.VEHICLE_TYPE
+  | typeof ROUTES.VEHICLE_DETAILS
   | typeof ROUTES.PLATE_PHOTO
   | typeof ROUTES.DOCUMENTS_REVIEW;
 

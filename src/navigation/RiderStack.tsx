@@ -8,6 +8,7 @@ import { NationalIdScreen } from '@/screens/rider/NationalIdScreen';
 import { PendingApprovalScreen } from '@/screens/rider/PendingApprovalScreen';
 import { PlatePhotoScreen } from '@/screens/rider/PlatePhotoScreen';
 import { RiderHomeScreen } from '@/screens/rider/RiderHomeScreen';
+import { VehicleDetailsScreen } from '@/screens/rider/VehicleDetailsScreen';
 import { VehicleTypeScreen } from '@/screens/rider/VehicleTypeScreen';
 import { ROUTES } from './routes';
 import type { RiderStackParamList } from './types';
@@ -25,6 +26,7 @@ export function RiderStack() {
         <Stack.Screen name={ROUTES.LICENSE_CAPTURE} component={LicenseCaptureScreen} />
         <Stack.Screen name={ROUTES.NATIONAL_ID} component={NationalIdScreen} />
         <Stack.Screen name={ROUTES.VEHICLE_TYPE} component={VehicleTypeScreen} />
+        <Stack.Screen name={ROUTES.VEHICLE_DETAILS} component={VehicleDetailsScreen} />
         <Stack.Screen name={ROUTES.PLATE_PHOTO} component={PlatePhotoScreen} />
         <Stack.Screen name={ROUTES.DOCUMENTS_REVIEW} component={DocumentsReviewScreen} />
       </Stack.Navigator>

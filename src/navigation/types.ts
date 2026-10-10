@@ -45,6 +45,7 @@ export type RiderStackParamList = {
   [ROUTES.LICENSE_CAPTURE]: undefined;
   [ROUTES.NATIONAL_ID]: undefined;
   [ROUTES.VEHICLE_TYPE]: undefined;
+  [ROUTES.VEHICLE_DETAILS]: undefined;
   [ROUTES.PLATE_PHOTO]: undefined;
   [ROUTES.DOCUMENTS_REVIEW]: undefined;
   [ROUTES.PENDING_APPROVAL]: undefined;

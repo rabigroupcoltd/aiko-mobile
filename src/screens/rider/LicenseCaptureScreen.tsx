@@ -33,7 +33,7 @@ export function LicenseCaptureScreen({ navigation }: Props) {
       <AppHeader
         onBack={() => navigation.goBack()}
         title="Driver's licence"
-        subtitle="Step 1 of 4 · Rider verification"
+        subtitle="Step 1 of 5 · Rider verification"
       />
 
       <CapturePrompt target="license" asset={license} tips={TIPS} />

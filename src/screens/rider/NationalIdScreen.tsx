@@ -30,7 +30,7 @@ export function NationalIdScreen({ navigation }: Props) {
       <AppHeader
         onBack={() => navigation.goBack()}
         title="National ID"
-        subtitle="Step 2 of 4 · Rider verification"
+        subtitle="Step 2 of 5 · Rider verification"
       />
 
       <CapturePrompt target="nationalId" asset={nationalId} tips={TIPS} />

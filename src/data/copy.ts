@@ -43,6 +43,14 @@ export const CAPTURE_CONFIG: Record<CaptureTarget, CaptureConfig> = {
     confirmLabel: 'Use this photo',
     shortLabel: 'National ID',
   },
+  vehicle: {
+    title: 'Your vehicle',
+    instruction: 'Stand back so the whole vehicle fits in the frame, with the plate visible.',
+    facing: 'back',
+    overlay: 'card',
+    confirmLabel: 'Use this photo',
+    shortLabel: 'Vehicle photo',
+  },
   plate: {
     title: 'Vehicle plate number',
     instruction: 'Take a clear photo of your plate number. Get close enough to read it.',

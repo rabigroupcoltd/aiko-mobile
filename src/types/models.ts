@@ -6,7 +6,7 @@ export type Role = 'passenger' | 'rider';
 export type VehicleType = 'bike' | 'tricycle';
 
 /** Everything the camera can be pointed at. Drives CAPTURE_CONFIG. */
-export type CaptureTarget = 'profile' | 'license' | 'nationalId' | 'plate';
+export type CaptureTarget = 'profile' | 'license' | 'nationalId' | 'vehicle' | 'plate';
 
 /** The subset stored under `documents` — i.e. everything except the selfie. */
 export type RiderDocumentTarget = Exclude<CaptureTarget, 'profile'>;
