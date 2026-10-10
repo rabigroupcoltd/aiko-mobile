@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { Pressable, Text, View, type ViewStyle } from 'react-native';
 
-import { hitSize, makeStyles, spacing } from '@/theme';
+import { hitSize, makeStyles, radius, spacing } from '@/theme';
+import { Icon } from './Icon';
 
 interface AppHeaderProps {
   title?: string;
@@ -38,8 +39,8 @@ export function AppHeader({
             hitSlop={12}
             accessibilityRole="button"
             accessibilityLabel={onBack ? 'Go back' : 'Open menu'}
-            style={styles.iconButton}>
-            <Text style={styles.icon}>{onBack ? '‹' : '☰'}</Text>
+            style={({ pressed }) => [styles.iconButton, styles.iconButtonFilled, pressed && styles.pressed]}>
+            <Icon name={onBack ? 'chevron-left' : 'menu'} size={22} strokeWidth={2.2} />
           </Pressable>
         ) : (
           <View style={styles.iconButton} />
@@ -65,13 +66,17 @@ const useStyles = makeStyles(({ colors, type }) => ({
   iconButton: {
     width: hitSize,
     height: hitSize,
-    marginLeft: -spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // The back chevron is optically small at its natural size; bump and nudge it.
-  icon: { fontSize: 30, lineHeight: 34, color: colors.text },
+  iconButtonFilled: {
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  pressed: { opacity: 0.7 },
   trailing: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  title: { ...type.title, marginTop: spacing.sm },
+  title: { ...type.title, marginTop: spacing.base },
   subtitle: { ...type.bodySmall, marginTop: spacing.xs },
 }));

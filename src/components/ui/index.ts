@@ -15,3 +15,4 @@ export { EmptyState } from './EmptyState';
 export { ListRow } from './ListRow';
 export { ThemeToggle } from './ThemeToggle';
 export { GoogleSignInButton } from './GoogleSignInButton';
+export { Icon, type IconName } from './Icon';

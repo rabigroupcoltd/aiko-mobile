@@ -61,7 +61,7 @@ export function Button({
         styles.base,
         SIZES[size],
         { backgroundColor: v.bg, borderColor: v.border },
-        variant === 'primary' && !isInert && shadows.sm,
+        variant === 'primary' && !isInert && shadows.md,
         fullWidth && styles.fullWidth,
         pressed && !isInert && styles.pressed,
         isInert && styles.inert,
@@ -84,7 +84,7 @@ export function Button({
 const SIZES: Record<Size, ViewStyle> = StyleSheet.create({
   sm: { minHeight: 36, paddingHorizontal: spacing.base, borderRadius: radius.md },
   md: { minHeight: hitSize, paddingHorizontal: spacing.lg, borderRadius: radius.base },
-  lg: { minHeight: 54, paddingHorizontal: spacing.xl, borderRadius: radius.base },
+  lg: { minHeight: 56, paddingHorizontal: spacing.xl, borderRadius: radius.lg },
 });
 
 const useStyles = makeStyles(({ type }) => ({
@@ -96,7 +96,7 @@ const useStyles = makeStyles(({ type }) => ({
   fullWidth: { alignSelf: 'stretch' },
   content: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   leading: { justifyContent: 'center' },
-  label: type.button,
+  label: { ...type.button, fontWeight: '700' },
   pressed: { opacity: 0.85, transform: [{ scale: 0.985 }] },
   // Dimming the whole button keeps disabled state legible without needing a
   // separate colour for every variant.

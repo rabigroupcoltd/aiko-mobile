@@ -62,7 +62,7 @@ const config: ExpoConfig = {
     googleServicesFile: './google-services.json',
     predictiveBackGestureEnabled: false,
     adaptiveIcon: {
-      backgroundColor: '#0E8F4E',
+      backgroundColor: '#0D8A41',
       foregroundImage: './assets/android-icon-foreground.png',
       backgroundImage: './assets/android-icon-background.png',
       monochromeImage: './assets/android-icon-monochrome.png',
@@ -180,7 +180,7 @@ const config: ExpoConfig = {
       'expo-splash-screen',
       {
         image: './assets/splash-icon.png',
-        backgroundColor: '#0E8F4E',
+        backgroundColor: '#0D8A41',
         imageWidth: 180,
       },
     ],
