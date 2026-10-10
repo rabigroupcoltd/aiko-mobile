@@ -1,8 +1,10 @@
 import { getApp } from '@react-native-firebase/app';
 import { getMessaging, setBackgroundMessageHandler } from '@react-native-firebase/messaging';
 
+import type { PushData } from '@/modules/notifications/notificationsTypes';
 import { createLogger } from '@/utils/logger';
 import { ensureNotificationChannel } from './notificationChannel';
+import { clearOrderNotification, displayOrderOffer } from './orderNotifications';
 
 const log = createLogger('push:bg');
 
@@ -16,34 +18,52 @@ const log = createLogger('push:bg');
  * from a component or a hook.
  *
  * It runs in its own JS context with no React tree, no navigation and no query
- * cache, so there is deliberately one job here: make sure the high-importance
- * channel exists.
+ * cache, so it can only do things that need none of those: create the channel,
+ * draw a tray entry, cancel one.
  *
- * That matters more than it sounds. The very first notification a fresh install
- * receives can arrive in this context, before any screen has mounted — a driver
+ * The channel matters more than it sounds. The very first notification a fresh
+ * install receives can arrive here, before any screen has mounted — a driver
  * who installs the app, goes online, and pockets the phone. If the channel does
  * not exist yet, Android files the message under its own low-priority fallback,
  * and channel importance is fixed at creation: losing that race once means no
  * heads-up banner and no sound until the app is reinstalled.
  *
- * Everything else is already covered. Messages carrying a `notification` block
- * are drawn by Android itself and must not be drawn again here, and the
- * foreground context refetches on its next resume.
- *
- * One thing this deliberately does NOT do is clear the tray card for an order
- * another driver has just taken. Notifee can only cancel notifications it
- * displayed itself, and these are drawn by the system from the FCM payload, so
- * there is no id to cancel. The stale card survives until the driver opens the
- * app, at which point the grid refetches and the order is gone. Fixing it
- * properly means sending data-only messages and displaying every one through
- * notifee — a bigger change than it is worth before the tray is a real problem.
+ * The order lifecycle is the other job. Offers arrive as data-only messages and
+ * are drawn here through Notifee under an id derived from the order, which is
+ * what makes them cancellable when somebody else wins the race — see
+ * `orderNotifications`. Messages that do carry a `notification` block are drawn
+ * by Android and must not be drawn again.
  */
 export function registerPushBackgroundHandler(): void {
   setBackgroundMessageHandler(getMessaging(getApp()), async (message) => {
-    log.debug('Background message', String(message.data?.type ?? 'unknown'));
+    const data = (message.data ?? {}) as PushData;
+    log.debug('Background message', String(data.type ?? 'unknown'));
 
     try {
       await ensureNotificationChannel();
+
+      switch (data.type) {
+        case 'ORDER_AVAILABLE':
+          await displayOrderOffer(data);
+          break;
+
+        // Somebody else took it, or the customer called it off. The entry on
+        // the phone is now advertising work that cannot be claimed.
+        case 'ORDER_REMOVED':
+          await clearOrderNotification(data.orderId);
+          break;
+
+        // Winning also ends the offer — the card becomes a trip, and leaving
+        // the "new order" entry up would invite a second tap on it.
+        case 'ORDER_RESERVED':
+          await clearOrderNotification(data.orderId);
+          break;
+
+        default:
+          // Everything else either carries its own notification block or is
+          // only interesting to a foreground client with a query cache.
+          break;
+      }
     } catch (error) {
       // A background handler that throws takes the headless task down with it
       // and FCM records a delivery failure. Nothing here is worth that.

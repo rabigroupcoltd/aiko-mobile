@@ -10,8 +10,8 @@ import {
   DRIVER_ACTIVE_ORDER_STATUSES,
   type OrderStatus,
 } from '@/modules/shared/apiTypes';
+import { useOnboardingState } from '@/modules/onboarding/onboardingController';
 import { useOpenDrawer } from '@/navigation/useAppNavigation';
-import { useAppStore } from '@/store/appStore';
 import { makeStyles, spacing } from '@/theme';
 
 type Filter = 'active' | 'completed' | 'cancelled' | 'skipped';
@@ -40,7 +40,7 @@ const STATUS_CHIP: Partial<
 export function OrderHistoryScreen() {
   const styles = useStyles();
   const openDrawer = useOpenDrawer();
-  const isRider = useAppStore((s) => s.role === 'rider');
+  const isRider = useOnboardingState()?.accountType === 'RIDER';
 
   const [filter, setFilter] = useState<Filter>('active');
 

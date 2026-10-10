@@ -1,61 +1,57 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useState } from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
 
-import { AppHeader, Button, Card, Chip, LoadingOverlay, Screen } from '@/components/ui';
+import { AppHeader, Card, Chip, Screen } from '@/components/ui';
 import { CAPTURE_CONFIG } from '@/data/copy';
-import { featureFlags } from '@/config/featureFlags';
 import { getVehicle } from '@/data/vehicleTypes';
 import { ROUTES } from '@/navigation/routes';
 import { useOpenCamera } from '@/navigation/useAppNavigation';
-import type { OnboardingStackParamList } from '@/navigation/types';
+import type { RiderStackParamList } from '@/navigation/types';
 import { useAppStore } from '@/store/appStore';
 import { makeStyles, radius, spacing } from '@/theme';
 import type { RiderDocumentTarget } from '@/types/models';
-import { jitteredSleep } from '@/utils/delay';
 
 type Props = NativeStackScreenProps<
-  OnboardingStackParamList,
+  RiderStackParamList,
   typeof ROUTES.DOCUMENTS_REVIEW
 >;
 
 const DOCS: RiderDocumentTarget[] = ['license', 'nationalId', 'plate'];
 
+/**
+ * Review only — there is no working "submit" here yet.
+ *
+ * `RiderStack` correctly reads real backend driver status
+ * (`onboarding.driver.status`) to decide what to show, but this screen has
+ * nothing real to hand it: the backend contract and this UI don't line up.
+ *
+ * - `POST /drivers/register` wants `vehiclePlate`/`vehicleModel` as typed
+ *   text, plus `vehicleColor`/`vehicleYear`. Nothing in this flow captures
+ *   any of those — only a photo of the plate, never the number itself.
+ * - `VehiclePhotoType` (FRONT/BACK/SIDE/INTERIOR/PLATE_NUMBER/OTHER) has no
+ *   category for a driver's licence or a national ID. There is nowhere on
+ *   the server to correctly store either, and mislabelling them as vehicle
+ *   photos would put identity documents in the wrong place unreviewed.
+ *
+ * Wiring this for real needs both a product decision on where/how license
+ * and ID documents are stored for KYC, and new fields on this screen for
+ * the plate/model/color/year text — not something to guess at here. Until
+ * then this screen is honest about not being submittable rather than
+ * pretending a tap here reaches an admin's KYC queue.
+ */
 export function DocumentsReviewScreen({ navigation }: Props) {
   const styles = useStyles();
   const documents = useAppStore((s) => s.documents);
-  const submitRiderDocuments = useAppStore((s) => s.submitRiderDocuments);
   const openCamera = useOpenCamera();
 
-  const [submitting, setSubmitting] = useState(false);
-
   const vehicle = documents.vehicleType ? getVehicle(documents.vehicleType) : null;
-  const complete = DOCS.every((d) => documents[d]) && !!documents.vehicleType;
-
-  const handleSubmit = async () => {
-    setSubmitting(true);
-    await jitteredSleep(featureFlags.FAKE_DELAY_MS);
-    submitRiderDocuments();
-    setSubmitting(false);
-    // No navigation call — submitting flips verificationStatus to 'pending',
-    // completing onboarding, and the root switch mounts the drawer.
-  };
 
   return (
-    <Screen
-      scroll
-      footer={
-        <Button
-          label="Submit for review"
-          onPress={handleSubmit}
-          disabled={!complete}
-          loading={submitting}
-        />
-      }>
+    <Screen scroll>
       <AppHeader
         onBack={() => navigation.goBack()}
         title="Review your details"
-        subtitle="Check everything is clear before submitting."
+        subtitle="What you've captured so far."
       />
 
       <View style={styles.list}>
@@ -109,12 +105,10 @@ export function DocumentsReviewScreen({ navigation }: Props) {
       <View style={styles.notice}>
         <Text style={styles.noticeIcon}>ℹ️</Text>
         <Text style={styles.noticeText}>
-          An admin reviews rider documents before you can accept trips. This usually takes
-          up to 24 hours.
+          Rider verification isn't open yet — there's nothing to submit to just yet.
+          Check back once it's live.
         </Text>
       </View>
-
-      <LoadingOverlay visible={submitting} message="Submitting your documents…" />
     </Screen>
   );
 }

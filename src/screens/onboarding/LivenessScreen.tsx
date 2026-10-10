@@ -5,18 +5,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import { Camera as FaceCamera } from 'react-native-vision-camera-face-detector';
 
-import { DebugOverlay } from '@/components/liveness/DebugOverlay';
 import { FaceOvalGuide } from '@/components/liveness/FaceOvalGuide';
 import { LivenessProgress } from '@/components/liveness/LivenessProgress';
 import { Button } from '@/components/ui';
-import { featureFlags } from '@/config/featureFlags';
 import { LIVENESS_COPY } from '@/data/copy';
 import { useCameraActive } from '@/hooks/useCameraActive';
 import { useLivenessCheck } from '@/hooks/useLivenessCheck';
 import { LIVENESS } from '@/liveness/constants';
-import { ROUTES } from '@/navigation/routes';
+import { UpdateOnboardingManager } from '@/modules/onboarding/onboardingController';
+import { onboardingStepRoute, ROUTES } from '@/navigation/routes';
 import type { OnboardingStackParamList } from '@/navigation/types';
-import { useAppStore } from '@/store/appStore';
 import { colors, radius, screenGutter, spacing, typography } from '@/theme';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, typeof ROUTES.LIVENESS>;
@@ -43,17 +41,22 @@ type Props = NativeStackScreenProps<OnboardingStackParamList, typeof ROUTES.LIVE
 const DetectorCamera = memo(FaceCamera);
 
 export function LivenessScreen({ navigation }: Props) {
-  const setLivenessPassed = useAppStore((s) => s.setLivenessPassed);
+  const { updateOnboarding } = UpdateOnboardingManager();
   const isActive = useCameraActive();
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('front');
 
   const [started, setStarted] = useState(false);
-  const tapCount = useRef(0);
+  const [continuing, setContinuing] = useState(false);
+
+  // Fired as soon as detection passes, so the save is usually already done by
+  // the time the user taps Continue — handleContinue awaits the same promise
+  // rather than firing a second request.
+  const saveResult = useRef<ReturnType<typeof updateOnboarding> | null>(null);
 
   const handlePassed = useCallback(() => {
-    setLivenessPassed(true);
-  }, [setLivenessPassed]);
+    saveResult.current = updateOnboarding({ livenessPassed: true });
+  }, [updateOnboarding]);
 
   const {
     phase,
@@ -65,7 +68,6 @@ export function LivenessScreen({ navigation }: Props) {
     debug,
     detectorOptions,
     begin,
-    forcePass,
   } = useLivenessCheck(handlePassed);
 
   useEffect(() => {
@@ -81,19 +83,16 @@ export function LivenessScreen({ navigation }: Props) {
     begin();
   };
 
-  /**
-   * Five taps on the title force a pass.
-   *
-   * Harsh backlight or a projector-lit room can defeat ML Kit's eye classifier,
-   * and a demo that dead-ends at identity verification is a bad demo. Demo-only
-   * and gated behind the feature flag.
-   */
-  const handleTitleTap = () => {
-    if (!featureFlags.DEMO_BYPASS_LIVENESS) return;
-    tapCount.current += 1;
-    if (tapCount.current >= 5) {
-      tapCount.current = 0;
-      forcePass();
+  const handleContinue = async () => {
+    setContinuing(true);
+    try {
+      const state = await (saveResult.current ?? updateOnboarding({ livenessPassed: true }));
+      const next = onboardingStepRoute(state.resumeStep);
+      if (next) navigation.navigate(next);
+    } catch {
+      // useApiManager has already shown the reason.
+    } finally {
+      setContinuing(false);
     }
   };
 
@@ -147,9 +146,7 @@ export function LivenessScreen({ navigation }: Props) {
               style={styles.backButton}>
               <Text style={styles.backIcon}>‹</Text>
             </Pressable>
-            <Pressable onPress={handleTitleTap}>
-              <Text style={styles.screenTitle}>{LIVENESS_COPY.screenTitle}</Text>
-            </Pressable>
+            <Text style={styles.screenTitle}>{LIVENESS_COPY.screenTitle}</Text>
             <View style={styles.backButton} />
           </View>
 
@@ -160,10 +157,6 @@ export function LivenessScreen({ navigation }: Props) {
 
         {/* ── bottom ── */}
         <View style={styles.bottom}>
-          {featureFlags.SHOW_LIVENESS_DEBUG && started ? (
-            <DebugOverlay info={debug} phase={phase} />
-          ) : null}
-
           <View style={[styles.promptCard, failed && styles.promptCardError, passed && styles.promptCardSuccess]}>
             <Text style={styles.promptTitle}>{prompt.title}</Text>
             <Text style={styles.promptSubtitle}>{prompt.subtitle}</Text>
@@ -199,18 +192,10 @@ export function LivenessScreen({ navigation }: Props) {
 
           {passed ? (
             <View style={styles.actions}>
-              <Button
-                label="Continue"
-                onPress={() => navigation.navigate(ROUTES.USER_TYPE)}
-              />
+              <Button label="Continue" onPress={handleContinue} loading={continuing} />
             </View>
           ) : null}
 
-          {featureFlags.DEMO_BYPASS_LIVENESS && started && !passed ? (
-            <Pressable onPress={forcePass} hitSlop={8} style={styles.skip}>
-              <Text style={styles.skipText}>DEV: skip liveness</Text>
-            </Pressable>
-          ) : null}
         </View>
       </SafeAreaView>
     </View>
@@ -247,8 +232,6 @@ const styles = StyleSheet.create({
   intro: { ...typography.bodySmall, color: colors.neutral[300], textAlign: 'center' },
   exhausted: { ...typography.caption, color: colors.neutral[400], textAlign: 'center' },
 
-  skip: { alignSelf: 'center', paddingVertical: spacing.sm },
-  skipText: { ...typography.caption, color: colors.warning, textDecorationLine: 'underline' },
 
   permission: {
     flex: 1,

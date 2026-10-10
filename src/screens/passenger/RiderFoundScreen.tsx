@@ -13,12 +13,12 @@ import {
   RateOrderManager,
   useGetOrderEtaManager,
   useGetOrderManager,
+  useGetUnreadCountsManager,
 } from '@/modules/orders/ordersController';
 import type { Order } from '@/modules/orders/ordersTypes';
 import { CLOSED_ORDER_STATUSES, type OrderStatus } from '@/modules/shared/apiTypes';
 import { ROUTES } from '@/navigation/routes';
 import type { PassengerStackParamList } from '@/navigation/types';
-import { getRideSocket } from '@/services/rideSocket';
 import { useBookingStore } from '@/store/bookingStore';
 import { makeStyles, spacing, useTheme } from '@/theme';
 import type { Place } from '@/types/models';
@@ -115,7 +115,7 @@ export function RiderFoundScreen({ navigation, route }: Props) {
   >(null);
 
   /**
-   * Polled as a fallback only. `ride-stage-changed` pushes every transition, so
+   * Polled as a fallback only. ORDER_STATUS pushes every transition, so
    * the interval exists for a socket that dropped mid-trip — 15s is frequent
    * enough that a missed "driver arrived" is not left stale for long.
    */
@@ -126,22 +126,12 @@ export function RiderFoundScreen({ navigation, route }: Props) {
 
   const driverId = order?.driverId ?? null;
 
-  // Subscribe to the driver's position feed. The gateway also joins us
-  // automatically on connect for a trip already in flight, so this mainly
-  // covers the trip that was accepted during this session.
-  useEffect(() => {
-    if (!driverId) return;
-
-    const socket = getRideSocket();
-    socket?.emit('subscribe-driver-location', { driverId });
-
-    return () => {
-      socket?.emit('unsubscribe-driver-location', { driverId });
-    };
-  }, [driverId]);
+  // No subscription call: the server joins us to the driver's position feed
+  // when the order is reserved, and re-joins on connect for a trip already in
+  // flight. DRIVER_LOCATION simply starts arriving.
 
   useRideEvent(
-    'driver-location-update',
+    'DRIVER_LOCATION',
     (position) => {
       if (position.driverId !== driverId) return;
       setDriverPosition({ lat: position.lat, lng: position.lng, heading: position.heading });
@@ -167,13 +157,13 @@ export function RiderFoundScreen({ navigation, route }: Props) {
     refetchInterval: 30_000,
   });
 
-  useRideEvent('ride-stage-changed', () => void refetch(), Boolean(orderId));
-  useRideEvent('trip-cancelled', () => void refetch(), Boolean(orderId));
+  useRideEvent('ORDER_STATUS', () => void refetch(), Boolean(orderId));
+  useRideEvent('ORDER_CANCELLED', () => void refetch(), Boolean(orderId));
 
   // A driver claimed the order. Both the order and its ETA change at once, so
   // the ETA is refetched alongside rather than waiting for its own poll.
   useRideEvent(
-    'order-reserved',
+    'ORDER_RESERVED',
     (payload) => {
       if (payload?.order?.id !== orderId) return;
       void refetch();
@@ -181,7 +171,20 @@ export function RiderFoundScreen({ navigation, route }: Props) {
     },
     Boolean(orderId),
   );
-  useRideEvent('order-no-driver', () => void refetch(), Boolean(orderId));
+  useRideEvent('ORDER_NO_DRIVER', () => void refetch(), Boolean(orderId));
+
+  /**
+   * Unread messages on this one order.
+   *
+   * The endpoint answers for every chat the caller is party to; a passenger has
+   * at most a handful, so this reads the one entry it needs rather than adding
+   * a per-order variant of the same query.
+   */
+  const { data: unread, refetch: refetchUnread } = useGetUnreadCountsManager();
+  const unreadHere = unread?.counts?.[orderId] ?? 0;
+
+  useRideEvent('MESSAGE', () => void refetchUnread(), Boolean(orderId));
+  useRideEvent('MESSAGE_READ', () => void refetchUnread(), Boolean(orderId));
 
   const goHome = useCallback(() => {
     reset();
@@ -313,8 +316,8 @@ export function RiderFoundScreen({ navigation, route }: Props) {
             <>
               <View style={styles.contactRow}>
                 <Button
-                  label="Chat"
-                  variant="secondary"
+                  label={unreadHere > 0 ? `Chat (${unreadHere > 9 ? '9+' : unreadHere})` : 'Chat'}
+                  variant={unreadHere > 0 ? 'primary' : 'secondary'}
                   onPress={() =>
                     navigation.navigate(ROUTES.ORDER_CHAT, { orderId, title: driverName })
                   }

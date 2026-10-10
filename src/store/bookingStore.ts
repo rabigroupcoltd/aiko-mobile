@@ -34,6 +34,8 @@ interface BookingState {
    */
   pickupPhone: string;
   dropoffPhone: string;
+  /** What the customer is sending. Optional — an empty string means unsaid. */
+  description: string;
   vehicleType: VehicleType;
   query: string;
   results: Place[];
@@ -48,6 +50,7 @@ interface BookingState {
 
   setPickup: (p: Place | null) => void;
   setDropoff: (p: Place | null) => void;
+  setDescription: (v: string) => void;
   setPickupPhone: (v: string) => void;
   setDropoffPhone: (v: string) => void;
   setVehicleType: (v: VehicleType) => void;
@@ -66,6 +69,7 @@ const initial = {
   dropoff: null,
   pickupPhone: '',
   dropoffPhone: '',
+  description: '',
   vehicleType: DEFAULT_VEHICLE_TYPE,
   query: '',
   results: [],
@@ -90,6 +94,7 @@ export const useBookingStore = create<BookingState>()((set) => ({
 
   setPickup: (pickup) => set({ pickup }),
   setDropoff: (dropoff) => set({ dropoff }),
+  setDescription: (description) => set({ description }),
   setPickupPhone: (pickupPhone) => set({ pickupPhone }),
   setDropoffPhone: (dropoffPhone) => set({ dropoffPhone }),
   setVehicleType: (vehicleType) => set({ vehicleType }),

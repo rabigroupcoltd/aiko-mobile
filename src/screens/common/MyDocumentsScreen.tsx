@@ -3,6 +3,7 @@ import { Image, Pressable, Text, View } from 'react-native';
 import { AppHeader, Card, Chip, EmptyState, Screen } from '@/components/ui';
 import { CAPTURE_CONFIG } from '@/data/copy';
 import { getVehicle } from '@/data/vehicleTypes';
+import { useOnboardingState } from '@/modules/onboarding/onboardingController';
 import { useOpenCamera, useOpenDrawer } from '@/navigation/useAppNavigation';
 import { useAppStore } from '@/store/appStore';
 import { makeStyles, radius, spacing } from '@/theme';
@@ -16,24 +17,28 @@ export function MyDocumentsScreen() {
   const openCamera = useOpenCamera();
 
   const documents = useAppStore((s) => s.documents);
-  const verificationStatus = useAppStore((s) => s.verificationStatus);
+  const driverStatus = useOnboardingState()?.driver.status ?? 'NOT_SUBMITTED';
 
   const vehicle = documents.vehicleType ? getVehicle(documents.vehicleType) : null;
   const hasAny = DOCS.some((d) => documents[d]);
 
   const statusTone =
-    verificationStatus === 'approved'
+    driverStatus === 'APPROVED'
       ? ('success' as const)
-      : verificationStatus === 'pending'
+      : driverStatus === 'PENDING'
         ? ('pending' as const)
-        : ('neutral' as const);
+        : driverStatus === 'REJECTED'
+          ? ('danger' as const)
+          : ('neutral' as const);
 
   const statusLabel =
-    verificationStatus === 'approved'
+    driverStatus === 'APPROVED'
       ? 'Approved'
-      : verificationStatus === 'pending'
+      : driverStatus === 'PENDING'
         ? 'Under review'
-        : 'Not submitted';
+        : driverStatus === 'REJECTED'
+          ? 'Rejected'
+          : 'Not submitted';
 
   return (
     <Screen scroll>

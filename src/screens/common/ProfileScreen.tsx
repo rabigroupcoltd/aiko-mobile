@@ -1,8 +1,10 @@
 import { Text, View } from 'react-native';
 
 import { AppHeader, Avatar, Button, Card, Chip, Screen } from '@/components/ui';
+import { useOnboardingState } from '@/modules/onboarding/onboardingController';
 import { useOpenCamera, useOpenDrawer } from '@/navigation/useAppNavigation';
 import { useAppStore } from '@/store/appStore';
+import { useAuthStore } from '@/store/authStore';
 import { makeStyles, spacing } from '@/theme';
 import { formatE164ForDisplay } from '@/utils/phone';
 
@@ -11,13 +13,15 @@ export function ProfileScreen() {
   const openDrawer = useOpenDrawer();
   const openCamera = useOpenCamera();
 
-  const user = useAppStore((s) => s.user);
-  const role = useAppStore((s) => s.role);
-  const verificationStatus = useAppStore((s) => s.verificationStatus);
-  const livenessPassed = useAppStore((s) => s.livenessPassed);
-  const livenessAt = useAppStore((s) => s.livenessAt);
-  const photo = useAppStore((s) => s.photos.profile);
+  const user = useAuthStore((s) => s.user);
+  const onboarding = useOnboardingState();
+  // The just-captured photo, if the user retook it this session; the
+  // persisted one otherwise.
+  const localPhoto = useAppStore((s) => s.photos.profile);
 
+  const isRider = onboarding?.accountType === 'RIDER';
+  const approved = onboarding?.driver.status === 'APPROVED';
+  const livenessPassed = onboarding?.requirements.liveness ?? false;
   const fullName = user ? `${user.firstName} ${user.lastName}`.trim() : '—';
 
   return (
@@ -25,18 +29,19 @@ export function ProfileScreen() {
       <AppHeader onMenu={openDrawer} title="Profile" />
 
       <View style={styles.hero}>
-        <Avatar uri={photo?.uri} name={fullName} size={96} />
+        <Avatar
+          uri={localPhoto?.uri ?? user?.profilePhotoUrl ?? undefined}
+          name={fullName}
+          size={96}
+        />
         <Text style={styles.name}>{fullName}</Text>
         <View style={styles.chips}>
-          <Chip
-            label={role === 'rider' ? 'Rider' : 'Passenger'}
-            tone="brand"
-          />
+          <Chip label={isRider ? 'Rider' : 'Passenger'} tone="brand" />
           {livenessPassed ? <Chip label="✓ Identity verified" tone="success" /> : null}
-          {role === 'rider' ? (
+          {isRider ? (
             <Chip
-              label={verificationStatus === 'approved' ? 'Approved' : 'Pending review'}
-              tone={verificationStatus === 'approved' ? 'success' : 'pending'}
+              label={approved ? 'Approved' : 'Pending review'}
+              tone={approved ? 'success' : 'pending'}
               dot
             />
           ) : null}
@@ -54,7 +59,7 @@ export function ProfileScreen() {
 
       <Card style={styles.details}>
         <Text style={styles.sectionTitle}>Account details</Text>
-        <Row label="Phone number" value={user ? formatE164ForDisplay(user.phone) : '—'} />
+        <Row label="Phone number" value={user?.phone ? formatE164ForDisplay(user.phone) : '—'} />
         <Row label="Email address" value={user?.email ?? '—'} />
         <Row label="Date of birth" value={user?.dob ?? '—'} />
         <Row
@@ -78,10 +83,10 @@ export function ProfileScreen() {
           value={livenessPassed ? 'Passed' : 'Not completed'}
           valueTone={livenessPassed ? 'success' : 'muted'}
         />
-        {livenessAt ? (
+        {user?.livenessPassedAt ? (
           <Row
             label="Verified on"
-            value={new Date(livenessAt).toLocaleString('en-NG', {
+            value={new Date(user.livenessPassedAt).toLocaleString('en-NG', {
               day: 'numeric',
               month: 'short',
               year: 'numeric',

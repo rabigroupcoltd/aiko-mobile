@@ -135,15 +135,13 @@ export const OTP_COPY = {
   title: 'Verify your number',
   subtitle: 'Enter the 4-digit code we sent to',
   resend: 'Resend code',
-  demoHint: 'Demo mode — any 4 digits will work.',
 } as const;
 
 export const BOOKING_COPY = {
   searchPlaceholder: 'Where are you going?',
   pickupPlaceholder: 'Pickup location',
-  cacheHitBadge: 'Cached',
-  remoteSearching: 'Checking wider area…',
-  noResults: 'No saved address matches that',
+  remoteSearching: 'Searching…',
+  noResults: 'No matches',
   noResultsHint: 'Try a nearby landmark — for example "Mobil" or "Tunga".',
   findRider: 'Find a rider',
   matchingStages: [

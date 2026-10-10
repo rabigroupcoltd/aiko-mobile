@@ -8,6 +8,8 @@ import type { ApiResponse, QueryOptions } from '@/modules/shared/apiTypes';
 import { parseApiError } from '@/utils/parseApiError';
 import type {
   BlockDriverVariables,
+  DriverState,
+  HeartbeatAck,
   DriverAnalytics,
   DriverDetail,
   DriverLocationAck,
@@ -52,6 +54,29 @@ export const useGetMyDriverProfileManager = ({ enabled = true }: QueryOptions = 
     queryFn: async () => {
       try {
         const response = await AxiosWithToken.get<ApiResponse<DriverDetail>>('/drivers/me');
+        return response.data.data;
+      } catch (error) {
+        throw new Error(parseApiError(error));
+      }
+    },
+    enabled,
+  });
+};
+
+/**
+ * Everything the driver app needs to draw itself, in one call.
+ *
+ * The reconnect path, and the first thing the shift screen asks for. Not
+ * polled on a timer by default — the socket pushes what changes — but worth
+ * refetching whenever the app returns to the foreground, because that is
+ * exactly when the socket may have been asleep and missed something.
+ */
+export const useGetDriverStateManager = ({ enabled = true }: QueryOptions = {}) => {
+  return useQuery({
+    queryKey: [DRIVERS_QUERY_KEY, 'state'],
+    queryFn: async () => {
+      try {
+        const response = await AxiosWithToken.get<ApiResponse<DriverState>>('/drivers/state');
         return response.data.data;
       } catch (error) {
         throw new Error(parseApiError(error));
@@ -281,6 +306,90 @@ export const UpdateDriverLocationManager = () => {
   };
 
   return { updateLocation, data, response, isLoading, isSuccess, isError, error, reset };
+};
+
+/**
+ * Start a shift.
+ *
+ * Self-scoped — no driver id, because the token already identifies the driver.
+ * Going online also sweeps for work already open nearby: a driver arriving
+ * mid-search is offered requests raised before they came on, which the original
+ * fan-out could never have reached them with.
+ */
+export const GoOnlineManager = () => {
+  const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
+    DriverProfile,
+    Error,
+    void
+  >({
+    endpoint: '/drivers/online',
+    queryKey: [DRIVERS_QUERY_KEY],
+    method: 'POST',
+    showSuccessToast: true,
+  });
+
+  const goOnline = async () => {
+    const result = await callApi(undefined as never);
+    return result.data;
+  };
+
+  return { goOnline, data, response, isLoading, isSuccess, isError, error, reset };
+};
+
+/**
+ * End a shift.
+ *
+ * Orders already held are untouched — this stops new work being offered, it
+ * does not abandon a delivery in progress.
+ */
+export const GoOfflineManager = () => {
+  const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
+    DriverProfile,
+    Error,
+    void
+  >({
+    endpoint: '/drivers/offline',
+    queryKey: [DRIVERS_QUERY_KEY],
+    method: 'POST',
+    showSuccessToast: true,
+  });
+
+  const goOffline = async () => {
+    const result = await callApi(undefined as never);
+    return result.data;
+  };
+
+  return { goOffline, data, response, isLoading, isSuccess, isError, error, reset };
+};
+
+/**
+ * Stay in the dispatch pool without moving.
+ *
+ * A position fix refreshes presence as a side effect, so this is for the driver
+ * who is parked, waiting, or indoors with a poor lock and has no new fix worth
+ * sending. Without it they silently drop out of the pool when the TTL expires
+ * while the app still says "online".
+ *
+ * Silent like the location heartbeat: it fires on a timer, and a toast or a
+ * cache invalidation on each one would make the app unusable.
+ */
+export const DriverHeartbeatManager = () => {
+  const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
+    HeartbeatAck,
+    Error,
+    void
+  >({
+    endpoint: '/drivers/heartbeat',
+    method: 'POST',
+    showErrorToast: false,
+  });
+
+  const sendHeartbeat = async () => {
+    const result = await callApi(undefined as never);
+    return result.data;
+  };
+
+  return { sendHeartbeat, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
 export const UploadVehiclePhotosManager = () => {

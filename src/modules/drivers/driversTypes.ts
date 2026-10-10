@@ -42,7 +42,8 @@ export interface DriverProfile {
   kycRejectionReason: string | null;
   isAvailable: boolean;
   isBlocked: boolean;
-  debtLimit: number;
+  /** Own override; null follows the platform limit — see `DriverState.debt`. */
+  debtLimit: number | null;
   currentDebt: number;
   rating: number;
   ratingCount: number;
@@ -149,6 +150,79 @@ export interface DriverLocationAck {
   lat: number;
   lng: number;
   recordedAt: string;
+}
+
+/** OFFLINE / AVAILABLE / BUSY, as dispatch sees this driver right now. */
+export type DispatchStatus = 'OFFLINE' | 'AVAILABLE' | 'BUSY';
+
+/** One held order, trimmed to what the shift screen renders. */
+export interface ActiveOrderSummary {
+  id: string;
+  status: string;
+  /** What the passenger is sending. Null on orders raised before the field existed. */
+  description: string | null;
+  pickupLocation: string;
+  pickupLat: number;
+  pickupLng: number;
+  dropoffLocation: string;
+  dropoffLat: number;
+  dropoffLng: number;
+  distanceKm: number;
+  fare: number;
+  driverEarnings: number;
+  currency: string;
+  reservedAt: string | null;
+  createdAt: string;
+}
+
+/**
+ * Everything the driver app needs on open, from `GET /drivers/state`.
+ *
+ * This is the reconnect path. The socket only pushes notifications and holds no
+ * state, so after a drop, a cold start, or a return from the background the app
+ * asks once and rebuilds from the answer rather than replaying anything.
+ *
+ * `isAvailable` and `presence.online` are both reported because they can
+ * legitimately disagree: the first is the shift switch as the driver last set
+ * it, the second is whether Redis still holds a live heartbeat. A killed app
+ * leaves the first true and the second false — the driver is notionally on duty
+ * but has dropped out of the dispatch pool, and the fix is to resume heartbeats,
+ * not to make them toggle back on.
+ */
+export interface DriverState {
+  driverId: string;
+  vehicleType: VehicleType;
+  status: DispatchStatus;
+  isAvailable: boolean;
+  presence: { online: boolean; heartbeatTtlSeconds: number };
+  kycStatus: KycStatus;
+  isBlocked: boolean;
+  canGoOnline: boolean;
+  /** Why the driver cannot take new work, ready to show as-is. Null when they can. */
+  blockReason: string | null;
+  /** Commission owed from cash trips against the limit in force. */
+  debt: DriverDebtStatus;
+  held: number;
+  capacity: number;
+  atCapacity: boolean;
+  activeOrders: ActiveOrderSummary[];
+  lastLocation: { lat: number; lng: number; recordedAt: string | null } | null;
+}
+
+export interface DriverDebtStatus {
+  current: number;
+  /** 0 means no limit. */
+  limit: number;
+  isOverride: boolean;
+  /** At or over the limit — no new orders until an admin records a payment. */
+  locked: boolean;
+  remaining: number | null;
+}
+
+export interface HeartbeatAck {
+  driverId: string;
+  online: boolean;
+  expiresInSeconds: number;
 }
 
 export interface ListDriversParams {

@@ -41,6 +41,18 @@ export function OrderCard({
         <MatchBadge match={fit.match} />
       </View>
 
+      {/*
+        What the driver is being asked to carry. Directly under the price
+        because it is the other half of the same decision — a fare is only
+        worth taking if the parcel fits on the bike. Hidden entirely when the
+        customer said nothing, rather than shown as an empty row.
+      */}
+      {order.description ? (
+        <Text style={styles.description} numberOfLines={2}>
+          {order.description}
+        </Text>
+      ) : null}
+
       <Leg label="Pickup" value={order.pickupLocation} tone="pickup" />
       <Leg label="Drop-off" value={order.dropoffLocation} tone="dropoff" />
 
@@ -145,6 +157,11 @@ function formatAge(seconds: number): string {
 }
 
 const useStyles = makeStyles(({ colors, type }) => ({
+  description: {
+    ...type.bodySmall,
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
   card: { gap: spacing.sm, borderWidth: 2 },
   cardFits: { borderColor: colors.primary },
   // Muted rather than hidden: the driver still sees the job exists and why it

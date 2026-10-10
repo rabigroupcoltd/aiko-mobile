@@ -12,12 +12,14 @@ import type {
   CancelOrderVariables,
   CreateOrderPayload,
   ListOrdersParams,
+  MarkReadResult,
   Order,
   OrderEta,
   RateOrderVariables,
   RideMessage,
   RideRating,
   SendMessageVariables,
+  UnreadCounts,
   UpdateOrderStatusVariables,
 } from './ordersTypes';
 
@@ -124,6 +126,32 @@ export const useGetOrderEtaManager = ({
 };
 
 /** The trip chat, oldest first. Participants only. */
+/**
+ * Unread counts for every open chat the caller is party to.
+ *
+ * One request for all of them: a driver holding three orders needs three badges
+ * on one screen. Polled on a slow interval as a backstop — the socket clears a
+ * badge the moment a message is read elsewhere, and MESSAGE bumps it up.
+ */
+export const useGetUnreadCountsManager = ({
+  enabled = true,
+  refetchInterval = 60_000,
+}: QueryOptions & { refetchInterval?: number | false } = {}) => {
+  return useQuery({
+    queryKey: [ORDERS_QUERY_KEY, 'unread'],
+    queryFn: async () => {
+      try {
+        const response = await AxiosWithToken.get<ApiResponse<UnreadCounts>>('/orders/unread');
+        return response.data.data;
+      } catch (error) {
+        throw new Error(parseApiError(error));
+      }
+    },
+    enabled,
+    refetchInterval,
+  });
+};
+
 export const useGetOrderMessagesManager = ({
   id,
   enabled = true,
@@ -243,6 +271,37 @@ export const CancelOrderManager = () => {
   };
 
   return { cancelOrder, data, response, isLoading, isSuccess, isError, error, reset };
+};
+
+/**
+ * Mark the other party's messages as read.
+ *
+ * Called when the chat is on screen, never from a background refresh — the
+ * server treats this as "somebody looked", and a poll is not somebody looking.
+ * Silent: it fires on mount and on every incoming message, so a toast or a
+ * global invalidation would be constant noise.
+ */
+export const MarkMessagesReadManager = () => {
+  const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
+    MarkReadResult,
+    Error,
+    { id: string }
+  >({
+    endpoint: ({ id }) => `/orders/${id}/messages/read`,
+    getBody: () => ({}),
+    // Only the badge query — re-fetching every order because a chat was opened
+    // would reload the whole home screen each time.
+    queryKey: [ORDERS_QUERY_KEY, 'unread'],
+    method: 'POST',
+    showErrorToast: false,
+  });
+
+  const markRead = async (id: string) => {
+    const result = await callApi({ id });
+    return result.data;
+  };
+
+  return { markRead, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
 /** Also pushed to the other party over the socket. Closed trips reject these. */

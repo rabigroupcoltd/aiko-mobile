@@ -5,23 +5,21 @@ import { Pressable, Text, View } from 'react-native';
 import { AppHeader, Button, LoadingOverlay, OtpInput, Screen } from '@/components/ui';
 import type { OtpInputHandle } from '@/components/ui';
 import { OTP_COPY } from '@/data/copy';
-import { featureFlags } from '@/config/featureFlags';
 import { useCountdown } from '@/hooks/useCountdown';
-import { ROUTES } from '@/navigation/routes';
-import type { AuthStackParamList } from '@/navigation/types';
-import { useAppStore } from '@/store/appStore';
+import { UpdateOnboardingManager } from '@/modules/onboarding/onboardingController';
+import { ROUTES, onboardingStepRoute } from '@/navigation/routes';
+import type { OnboardingStackParamList } from '@/navigation/types';
 import { makeStyles, radius, spacing } from '@/theme';
-import { jitteredSleep } from '@/utils/delay';
 import { formatE164ForDisplay } from '@/utils/phone';
 
-type Props = NativeStackScreenProps<AuthStackParamList, typeof ROUTES.OTP>;
+type Props = NativeStackScreenProps<OnboardingStackParamList, typeof ROUTES.OTP>;
 
 const CODE_LENGTH = 4;
 
-export function OtpScreen({ navigation }: Props) {
+export function OtpScreen({ navigation, route }: Props) {
   const styles = useStyles();
-  const pendingPhone = useAppStore((s) => s.pendingPhone);
-  const confirmOtp = useAppStore((s) => s.confirmOtp);
+  const { phone } = route.params;
+  const { updateOnboarding } = UpdateOnboardingManager();
 
   const [code, setCode] = useState('');
   const [verifying, setVerifying] = useState(false);
@@ -39,12 +37,18 @@ export function OtpScreen({ navigation }: Props) {
 
   const verify = async () => {
     setVerifying(true);
-    await jitteredSleep(featureFlags.FAKE_DELAY_MS);
-    // Demo: any 4-digit code is accepted. There is no real verification here.
-    confirmOtp();
-    setVerifying(false);
-    // No navigation call — confirming flips `phoneVerified`, and the root
-    // switch swaps the auth stack for onboarding on the next render.
+    try {
+      // TODO: verify the code with the SMS provider. Nothing checks it today —
+      // any four digits pass — which is why REQUIRE_OTP is off and this screen
+      // is unreachable. Do not turn that flag on until this calls something.
+      const state = await updateOnboarding({ phone });
+      const next = onboardingStepRoute(state.resumeStep);
+      if (next) navigation.navigate(next);
+    } catch {
+      // useApiManager has already shown the reason.
+    } finally {
+      setVerifying(false);
+    }
   };
 
   // Auto-submit once the code is complete, which is what users expect.
@@ -67,10 +71,7 @@ export function OtpScreen({ navigation }: Props) {
       <AppHeader onBack={() => navigation.goBack()} title={OTP_COPY.title} />
 
       <Text style={styles.subtitle}>
-        {OTP_COPY.subtitle}{' '}
-        <Text style={styles.phone}>
-          {pendingPhone ? formatE164ForDisplay(pendingPhone) : 'your number'}
-        </Text>
+        {OTP_COPY.subtitle} <Text style={styles.phone}>{formatE164ForDisplay(phone)}</Text>
       </Text>
 
       <View style={styles.inputWrap}>
@@ -94,11 +95,6 @@ export function OtpScreen({ navigation }: Props) {
         )}
       </View>
 
-      <View style={styles.demoHint}>
-        <Text style={styles.demoIcon}>🧪</Text>
-        <Text style={styles.demoText}>{OTP_COPY.demoHint}</Text>
-      </View>
-
       <LoadingOverlay visible={verifying} message="Verifying your code…" />
     </Screen>
   );
@@ -111,15 +107,4 @@ const useStyles = makeStyles(({ colors, type }) => ({
   resendRow: { alignItems: 'center' },
   resendActive: { ...type.subheading, fontSize: 14, color: colors.primary },
   resendWaiting: type.bodySmall,
-  demoHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.xxl,
-    padding: spacing.md,
-    backgroundColor: colors.warningBg,
-    borderRadius: radius.base,
-  },
-  demoIcon: { fontSize: 14 },
-  demoText: { ...type.caption, color: colors.warning, flex: 1 },
 }));

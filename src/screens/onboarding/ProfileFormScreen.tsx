@@ -6,15 +6,19 @@ import {
   AppHeader,
   Button,
   DateField,
+  PhoneInput,
   Screen,
   StepDots,
   TextField,
 } from '@/components/ui';
-import { ROUTES } from '@/navigation/routes';
+import { UpdateOnboardingManager } from '@/modules/onboarding/onboardingController';
+import { onboardingStepRoute, ROUTES } from '@/navigation/routes';
 import type { OnboardingStackParamList } from '@/navigation/types';
 import { useAppStore } from '@/store/appStore';
+import { useAuthStore } from '@/store/authStore';
 import { ONBOARDING_TOTAL_STEPS } from '@/store/selectors';
 import { latestDobForAge, parseIsoDate, toIsoDate } from '@/utils/date';
+import { isValidNigerianPhone, toE164, toNationalNumber } from '@/utils/phone';
 
 type Props = NativeStackScreenProps<
   OnboardingStackParamList,
@@ -26,6 +30,7 @@ interface Errors {
   firstName?: string;
   lastName?: string;
   dob?: string;
+  phone?: string;
 }
 
 const MIN_AGE = 18;
@@ -38,11 +43,12 @@ const MIN_AGE = 18;
 const LATEST_ALLOWED_DOB = latestDobForAge(MIN_AGE);
 
 export function ProfileFormScreen({ navigation }: Props) {
-  const user = useAppStore((s) => s.user);
+  const user = useAuthStore((s) => s.user);
   const googleAccount = useAppStore((s) => s.googleAccount);
-  const saveProfile = useAppStore((s) => s.saveProfile);
+  const { updateOnboarding } = UpdateOnboardingManager();
 
-  // Anything Google gave us pre-fills the form; the user can still edit it.
+  // Anything Google or a previous session gave us pre-fills the form; the
+  // user can still edit it.
   const [firstName, setFirstName] = useState(
     user?.firstName ?? googleAccount?.givenName ?? ''
   );
@@ -53,7 +59,13 @@ export function ProfileFormScreen({ navigation }: Props) {
   const [dob, setDob] = useState<Date | null>(
     user?.dob ? parseIsoDate(user.dob) : null
   );
+  // Google gives no phone number, so this screen is where every account
+  // provides one — the onboarding stack's own PHONE step is commented out
+  // for the same reason (see OnboardingStack). Unverified, same as before:
+  // there is no SMS provider behind it yet.
+  const [phone, setPhone] = useState(toNationalNumber(user?.phone ?? ''));
   const [errors, setErrors] = useState<Errors>({});
+  const [saving, setSaving] = useState(false);
 
   const validate = (): Errors => {
     const next: Errors = {};
@@ -64,6 +76,8 @@ export function ProfileFormScreen({ navigation }: Props) {
     if (!email.trim()) next.email = 'Enter your email address.';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
       next.email = "That doesn't look like a valid email.";
+
+    if (!isValidNigerianPhone(phone)) next.phone = 'Enter a valid Nigerian mobile number.';
 
     // The picker can only ever hand back a real date on or before
     // LATEST_ALLOWED_DOB, so "did you pick one" is the only case left to check
@@ -78,18 +92,28 @@ export function ProfileFormScreen({ navigation }: Props) {
     return next;
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     const found = validate();
     setErrors(found);
     if (Object.keys(found).length > 0 || !dob) return;
 
-    saveProfile({
-      email: email.trim(),
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      dob: toIsoDate(dob),
-    });
-    navigation.navigate(ROUTES.PROFILE_PHOTO);
+    setSaving(true);
+    try {
+      const state = await updateOnboarding({
+        email: email.trim(),
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        phone: toE164(phone),
+        dob: toIsoDate(dob),
+      });
+      const next = onboardingStepRoute(state.resumeStep);
+      if (next) navigation.navigate(next);
+    } catch {
+      // A duplicate email surfaces here as a 409 — useApiManager already
+      // toasted it, and the form stays put so the user can pick another.
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -99,7 +123,7 @@ export function ProfileFormScreen({ navigation }: Props) {
       footer={<Button label="Continue" onPress={handleContinue} testID="profile-continue" />}>
       <AppHeader
         title="Tell us about you"
-        subtitle="This is how riders and passengers will recognise you."
+        subtitle="This is how riders and passengers will recognise you, and your rider will use your number to reach you about a trip."
         trailing={<StepDots total={ONBOARDING_TOTAL_STEPS} current={0} />}
       />
 
@@ -132,6 +156,14 @@ export function ProfileFormScreen({ navigation }: Props) {
           autoCapitalize="none"
           autoCorrect={false}
           textContentType="emailAddress"
+        />
+        <PhoneInput
+          value={phone}
+          onChange={(next) => {
+            setPhone(next);
+            if (errors.phone) setErrors((prev) => ({ ...prev, phone: undefined }));
+          }}
+          error={errors.phone}
         />
         <DateField
           label="Date of birth"

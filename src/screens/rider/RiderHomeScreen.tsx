@@ -8,7 +8,8 @@ import { RouteTimeline } from '@/components/marketplace/RouteTimeline';
 import { AppHeader, Avatar, Button, Card, Chip, EmptyState, Screen } from '@/components/ui';
 import { describeVehicle } from '@/data/vehicleTypes';
 import { useDriverLocation } from '@/hooks/useDriverLocation';
-import { useRideEvent } from '@/hooks/useRideSocket';
+import { useDriverShift } from '@/hooks/useDriverShift';
+import { useRideEvent, useRideEvents } from '@/hooks/useRideSocket';
 import {
   ReserveOrderManager,
   SkipOrderManager,
@@ -24,11 +25,13 @@ import {
   type RoutePlan,
 } from '@/modules/marketplace/marketplaceTypes';
 import {
-  SetDriverAvailabilityManager,
   useGetDriverAnalyticsManager,
   useGetMyDriverProfileManager,
 } from '@/modules/drivers/driversController';
-import { UpdateOrderStatusManager } from '@/modules/orders/ordersController';
+import {
+  UpdateOrderStatusManager,
+  useGetUnreadCountsManager,
+} from '@/modules/orders/ordersController';
 import type { OrderStatus } from '@/modules/shared/apiTypes';
 import { ROUTES } from '@/navigation/routes';
 import type { RiderStackParamList } from '@/navigation/types';
@@ -69,12 +72,22 @@ export function RiderHomeScreen({ navigation }: Props) {
 
   const { data: driver, refetch: refetchDriver } = useGetMyDriverProfileManager();
   const { data: config } = useGetMarketplaceConfigManager();
-  const { setAvailability, isLoading: togglingAvailability } = SetDriverAvailabilityManager();
+
+  /**
+   * The shift: state, the online switch, and the heartbeat that keeps this
+   * driver in the dispatch pool while they are not moving.
+   */
+  const {
+    online,
+    presenceLapsed,
+    debt,
+    setOnline,
+    toggling: togglingAvailability,
+    refetch: refetchShift,
+  } = useDriverShift();
   const { reserveOrder } = ReserveOrderManager();
   const { skipOrder } = SkipOrderManager();
   const { updateOrderStatus, isLoading: advancing } = UpdateOrderStatusManager();
-
-  const online = Boolean(driver?.isAvailable);
 
   // Publishing a position is what keeps the driver in the pool — the server
   // drops anyone whose heartbeat lapses after DRIVER_HEARTBEAT_TTL.
@@ -122,21 +135,52 @@ export function RiderHomeScreen({ navigation }: Props) {
 
   // ---------------------------------------------------------------- realtime
 
-  // A new order landed nearby. Refetching rather than appending keeps one
-  // source of truth — and the broadcast carries no compatibility score, which
-  // is most of what the card shows.
-  useRideEvent('order-available', () => void refetchGrid(), online && !atCapacity);
+  // A new request landed nearby. Refetching rather than appending keeps one
+  // source of truth — and the notification carries no compatibility score,
+  // which is most of what the card shows.
+  useRideEvent('REQUEST_NEW', () => void refetchGrid(), online && !atCapacity);
 
-  // Somebody took it, or it closed. Dropped from the grid immediately: §24.
-  useRideEvent('order-removed', (payload) => {
+  /**
+   * The card is gone.
+   *
+   * Two codes, one outcome: REQUEST_LOST is another driver winning the race,
+   * REQUEST_CLOSED is the customer cancelling or the search giving up. The grid
+   * drops the card either way, and the message the server sent explains which
+   * it was — worth showing, because a card vanishing with no reason reads as a
+   * bug rather than as losing a race.
+   */
+  useRideEvents(['REQUEST_LOST', 'REQUEST_CLOSED'], (payload, code, message) => {
     setHidden((current) => new Set(current).add(payload.orderId));
+    if (code === 'REQUEST_LOST') showToast.info(message);
   });
 
-  useRideEvent('ride-stage-changed', () => {
+  // Won it. The card becomes a held order, so both lists change at once.
+  useRideEvent('REQUEST_WON', (payload) => {
+    setHidden((current) => new Set(current).add(payload.order.id));
     void refetchActive();
     void refetchGrid();
   });
-  useRideEvent('trip-cancelled', () => void refetchActive());
+
+  useRideEvent('ORDER_STATUS', () => {
+    void refetchActive();
+    void refetchGrid();
+    // Capacity moves with every status change, and it is what decides whether
+    // the driver is offered anything else.
+    void refetchShift();
+  });
+  useRideEvent('ORDER_CANCELLED', () => void refetchActive());
+
+  /**
+   * Unread chat counts, one request for every order held.
+   *
+   * The socket keeps it honest between polls: a message arriving bumps the
+   * badge, and reading one elsewhere clears it, so the slow interval is only a
+   * backstop for a dropped connection.
+   */
+  const { data: unread, refetch: refetchUnread } = useGetUnreadCountsManager();
+
+  useRideEvent('MESSAGE', () => void refetchUnread());
+  useRideEvent('MESSAGE_READ', () => void refetchUnread());
 
   // ------------------------------------------------------------- analytics
 
@@ -170,7 +214,7 @@ export function RiderHomeScreen({ navigation }: Props) {
       }
 
       try {
-        await setAvailability({ id: driver.id, isAvailable: value });
+        await setOnline(value);
         await refetchDriver();
       } catch (e: any) {
         // The server refuses for reasons the driver needs to hear — unapproved
@@ -178,7 +222,7 @@ export function RiderHomeScreen({ navigation }: Props) {
         showToast.error(e?.message ?? 'Could not change your status.');
       }
     },
-    [driver, activeOrders.length, requestLocation, setAvailability, refetchDriver],
+    [driver, activeOrders.length, requestLocation, setOnline, refetchDriver],
   );
 
   /**
@@ -313,6 +357,38 @@ export function RiderHomeScreen({ navigation }: Props) {
         />
       </Card>
 
+      {/*
+        The shift switch says online but the server's presence key has lapsed —
+        the app was killed or frozen mid-shift. The heartbeat restores it within
+        thirty seconds on its own, so this explains a gap rather than asking the
+        driver to do anything: without it the screen reads "online" while no
+        orders arrive, which looks like the app is broken.
+      */}
+      {/*
+        Owed commission has reached the limit. Orders already held still get
+        delivered; nothing new is offered until an admin records a payment.
+      */}
+      {debt?.locked ? (
+        <Card style={styles.warning}>
+          <Text style={styles.warningTitle}>Commission limit reached</Text>
+          <Text style={styles.warningText}>
+            {`You owe ₦${debt.current.toLocaleString()} in commission from cash trips (limit ₦${debt.limit.toLocaleString()}). Pay it to Aiko to start taking new orders again.`}
+          </Text>
+        </Card>
+      ) : debt && debt.limit > 0 && debt.current > 0 ? (
+        <Text style={styles.statusHint}>
+          {`Commission owed: ₦${debt.current.toLocaleString()} of ₦${debt.limit.toLocaleString()} limit`}
+        </Text>
+      ) : null}
+
+      {presenceLapsed ? (
+        <Card style={styles.warning}>
+          <Text style={styles.warningText}>
+            Reconnecting you to the dispatch pool…
+          </Text>
+        </Card>
+      ) : null}
+
       {online && granted === false ? (
         <Card style={styles.warning}>
           <Text style={styles.warningText}>
@@ -389,6 +465,7 @@ export function RiderHomeScreen({ navigation }: Props) {
           onAdvance={advanceOrder}
           onNavigate={navigateTo}
           onChat={(orderId, title) => navigation.navigate(ROUTES.ORDER_CHAT, { orderId, title })}
+          unreadByOrder={unread?.counts ?? {}}
         />
       )}
     </Screen>
@@ -483,6 +560,7 @@ function ActiveTab({
   onAdvance,
   onNavigate,
   onChat,
+  unreadByOrder,
 }: {
   orders: ActiveOrder[];
   route: RoutePlan | null | undefined;
@@ -490,6 +568,8 @@ function ActiveTab({
   onAdvance: (orderId: string, status: OrderStatus) => void;
   onNavigate: (lat: number, lng: number, label: string) => void;
   onChat: (orderId: string, title: string) => void;
+  /** Unread messages keyed by order id — absent means none. */
+  unreadByOrder: Record<string, number>;
 }) {
   const styles = useStyles();
 
@@ -524,6 +604,7 @@ function ActiveTab({
               : onNavigate(order.pickupLat, order.pickupLng, order.pickupLocation)
           }
           onChat={() => onChat(order.id, order.user?.name ?? 'Customer')}
+          unread={unreadByOrder[order.id] ?? 0}
         />
       ))}
     </View>

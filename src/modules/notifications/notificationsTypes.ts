@@ -20,13 +20,23 @@ export const PUSH_TYPES = [
   'TRIP_MESSAGE',
   'KYC_STATUS',
 
-  // Marketplace. No ORDER_REMOVED — an order somebody else took is dropped
-  // from the grid by the `order-removed` socket event, not by a notification.
+  // Marketplace.
   'ORDER_AVAILABLE',
+  /**
+   * Silent — this order is off the market, drop the card.
+   *
+   * The socket says the same thing through REQUEST_LOST / REQUEST_CLOSED, but a
+   * backgrounded driver has no socket and still has the ORDER_AVAILABLE entry
+   * in their tray advertising work that is gone. Offers are drawn by the app
+   * through Notifee precisely so this can cancel one.
+   */
+  'ORDER_REMOVED',
   'ORDER_RESERVED',
   'ORDER_PICKED_UP',
   'ORDER_DELIVERED',
   'ORDER_NO_DRIVER',
+  /** The assigned driver's location stopped arriving mid-trip. */
+  'DRIVER_UNREACHABLE',
 ] as const;
 export type PushType = (typeof PUSH_TYPES)[number];
 

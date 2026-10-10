@@ -15,16 +15,10 @@ export function PassengerStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name={ROUTES.PASSENGER_HOME} component={HomeScreen} />
       <Stack.Screen name={ROUTES.ORDER_REVIEW} component={OrderReviewScreen} />
-      {/*
-        The bid flow is still reachable and still works — the marketplace is a
-        layer on top of it, not a replacement. Home now leads to OrderReview
-        instead, which is the flow §43 describes.
-      */}
+ 
       <Stack.Screen
         name={ROUTES.MATCHING}
         component={MatchingScreen}
-        // Fading into the matching screen keeps attention on the radar
-        // animation rather than a lateral slide.
         options={{ animation: 'fade', gestureEnabled: false }}
       />
       <Stack.Screen

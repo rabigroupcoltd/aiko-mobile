@@ -40,12 +40,15 @@ export function ActiveOrderCard({
   onAdvance,
   onNavigate,
   onChat,
+  unread = 0,
   advancing,
 }: {
   order: ActiveOrder;
   onAdvance: (status: OrderStatus) => void;
   onNavigate: () => void;
   onChat: () => void;
+  /** Unread messages on this order's chat. Badged onto the Chat button. */
+  unread?: number;
   advancing?: boolean;
 }) {
   const styles = useStyles();
@@ -99,7 +102,19 @@ export function ActiveOrderCard({
       <View style={styles.contactRow}>
         <Button label="Navigate" variant="secondary" size="sm" onPress={onNavigate} style={styles.contact} />
         <Button label="Call" variant="secondary" size="sm" onPress={call} style={styles.contact} />
-        <Button label="Chat" variant="secondary" size="sm" onPress={onChat} style={styles.contact} />
+        {/*
+          The count goes in the label rather than a floating dot: a driver
+          holding three orders is scanning three identical cards at a traffic
+          light, and "Chat (2)" survives that glance where a badge in the corner
+          does not.
+        */}
+        <Button
+          label={unread > 0 ? `Chat (${unread > 9 ? '9+' : unread})` : 'Chat'}
+          variant={unread > 0 ? 'primary' : 'secondary'}
+          size="sm"
+          onPress={onChat}
+          style={styles.contact}
+        />
       </View>
 
       {next ? (

@@ -1,13 +1,6 @@
 import { QueryClient } from '@tanstack/react-query';
 
-/**
- * One client for the app.
- *
- * The defaults are tuned for a phone on mobile data rather than a desktop
- * browser: a short freshness window so screens do not refetch on every focus,
- * and no retry on a 4xx, which will fail again identically and only costs the
- * user another round trip on a metered connection.
- */
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

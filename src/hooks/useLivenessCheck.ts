@@ -192,12 +192,6 @@ export function useLivenessCheck(onPassed?: () => void) {
     setUi(uiFrom(stateRef.current));
   }, [reset]);
 
-  /** Force a pass — demo escape hatch only, gated by the caller. */
-  const forcePass = useCallback(() => {
-    stateRef.current = { ...stateRef.current, phase: 'PASSED', progress: 1 };
-    setUi(uiFrom(stateRef.current));
-    onPassedRef.current?.();
-  }, []);
 
   const detectorOptions = useMemo(
     () => ({
@@ -213,5 +207,5 @@ export function useLivenessCheck(onPassed?: () => void) {
     [onFacesDetected, onError]
   );
 
-  return { ...ui, debug, detectorOptions, begin, forcePass, reset };
+  return { ...ui, debug, detectorOptions, begin, reset };
 }

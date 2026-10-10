@@ -4,11 +4,11 @@ import { View } from 'react-native';
 import { AppHeader, Button, Screen, SelectableCard } from '@/components/ui';
 import { VEHICLE_TYPES } from '@/data/vehicleTypes';
 import { ROUTES } from '@/navigation/routes';
-import type { OnboardingStackParamList } from '@/navigation/types';
+import type { RiderStackParamList } from '@/navigation/types';
 import { useAppStore } from '@/store/appStore';
 import { makeStyles, spacing } from '@/theme';
 
-type Props = NativeStackScreenProps<OnboardingStackParamList, typeof ROUTES.VEHICLE_TYPE>;
+type Props = NativeStackScreenProps<RiderStackParamList, typeof ROUTES.VEHICLE_TYPE>;
 
 export function VehicleTypeScreen({ navigation }: Props) {
   const styles = useStyles();

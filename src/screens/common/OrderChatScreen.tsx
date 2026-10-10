@@ -13,6 +13,7 @@ import {
 import { Screen } from '@/components/ui';
 import { useRideEvent } from '@/hooks/useRideSocket';
 import {
+  MarkMessagesReadManager,
   SendOrderMessageManager,
   useGetOrderMessagesManager,
 } from '@/modules/orders/ordersController';
@@ -47,8 +48,8 @@ export function OrderChatScreen({ navigation, route }: Props) {
   const listRef = useRef<FlatList<RideMessage>>(null);
 
   /**
-   * Polled slowly. `new-message` pushes each message as it lands, so this only
-   * has to cover a socket that dropped mid-conversation.
+   * Polled slowly. MESSAGE pushes each message as it lands, so this only has
+   * to cover a socket that dropped mid-conversation.
    */
   const { data: messages, refetch } = useGetOrderMessagesManager({
     id: orderId,
@@ -56,13 +57,49 @@ export function OrderChatScreen({ navigation, route }: Props) {
   });
 
   const { sendMessage, isLoading: sending } = SendOrderMessageManager();
+  const { markRead } = MarkMessagesReadManager();
+
+  /**
+   * Held in a ref so the effects below depend on the order id alone.
+   * `markRead` is a fresh closure each render, and depending on it would fire
+   * the mark-read call on every keystroke in the composer.
+   */
+  const markReadRef = useRef(markRead);
+  markReadRef.current = markRead;
+
+  /**
+   * Opening the chat is what "read" means.
+   *
+   * Deliberately not tied to the polling query: that runs every twenty seconds
+   * as a backstop for a dropped socket, including while the app is backgrounded,
+   * and a background refresh is not somebody reading. Failures are swallowed —
+   * an unread badge that lingers is a far smaller problem than a chat screen
+   * that throws.
+   */
+  useEffect(() => {
+    if (!orderId) return;
+    void markReadRef.current(orderId).catch(() => undefined);
+  }, [orderId]);
 
   useRideEvent(
-    'new-message',
-    (payload: any) => {
+    'MESSAGE',
+    ({ message }) => {
       // The room is per order, but a driver holding several is joined to all of
       // them — so the id still has to be checked.
+      if (message?.orderId !== orderId) return;
+      void refetch();
+      // Arrived while the thread is on screen, so it is read on arrival.
+      void markReadRef.current(orderId).catch(() => undefined);
+    },
+    Boolean(orderId),
+  );
+
+  // The other party opened the thread — repaint our own bubbles as read.
+  useRideEvent(
+    'MESSAGE_READ',
+    (payload) => {
       if (payload?.orderId !== orderId) return;
+      if (payload.readerId === myUserId) return; // our own receipt
       void refetch();
     },
     Boolean(orderId),
@@ -71,6 +108,9 @@ export function OrderChatScreen({ navigation, route }: Props) {
   useEffect(() => {
     if (messages?.length) listRef.current?.scrollToEnd({ animated: true });
   }, [messages?.length]);
+
+  /** The newest message I sent, which is the only one that shows a receipt. */
+  const lastMineId = messages?.filter((m) => m.senderId === myUserId).at(-1)?.id;
 
   const handleSend = useCallback(async () => {
     const content = draft.trim();
@@ -110,7 +150,13 @@ export function OrderChatScreen({ navigation, route }: Props) {
           keyExtractor={(message) => message.id}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
-            <Bubble message={item} mine={item.senderId === myUserId} />
+            <Bubble
+              message={item}
+              mine={item.senderId === myUserId}
+              // Only the last of your own messages carries a receipt — a "Read"
+              // under every bubble is noise, and the newest one implies the rest.
+              showReceipt={item.senderId === myUserId && item.id === lastMineId}
+            />
           )}
           ListEmptyComponent={
             <Text style={styles.empty}>
@@ -148,7 +194,15 @@ export function OrderChatScreen({ navigation, route }: Props) {
   );
 }
 
-function Bubble({ message, mine }: { message: RideMessage; mine: boolean }) {
+function Bubble({
+  message,
+  mine,
+  showReceipt,
+}: {
+  message: RideMessage;
+  mine: boolean;
+  showReceipt?: boolean;
+}) {
   const styles = useStyles();
   return (
     <View style={[styles.bubbleRow, mine && styles.bubbleRowMine]}>
@@ -161,12 +215,21 @@ function Bubble({ message, mine }: { message: RideMessage; mine: boolean }) {
           })}
         </Text>
       </View>
+      {showReceipt ? (
+        <Text style={styles.receipt}>{message.readAt ? 'Read' : 'Sent'}</Text>
+      ) : null}
     </View>
   );
 }
 
 const useStyles = makeStyles(({ colors, type }) => ({
   flex: { flex: 1 },
+  receipt: {
+    ...type.caption,
+    color: colors.textMuted,
+    marginTop: 2,
+    marginRight: spacing.xs,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

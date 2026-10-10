@@ -3,9 +3,9 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { AppHeader, Button, Screen, SelectableCard, StepDots } from '@/components/ui';
+import { UpdateOnboardingManager } from '@/modules/onboarding/onboardingController';
 import { ROUTES } from '@/navigation/routes';
 import type { OnboardingStackParamList } from '@/navigation/types';
-import { useAppStore } from '@/store/appStore';
 import { ONBOARDING_TOTAL_STEPS } from '@/store/selectors';
 import { makeStyles, radius, spacing } from '@/theme';
 import type { Role } from '@/types/models';
@@ -14,25 +14,37 @@ type Props = NativeStackScreenProps<OnboardingStackParamList, typeof ROUTES.USER
 
 export function UserTypeScreen({ navigation }: Props) {
   const styles = useStyles();
-  const setRole = useAppStore((s) => s.setRole);
+  const { updateOnboarding } = UpdateOnboardingManager();
   const [selected, setSelected] = useState<Role | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!selected) return;
-    setRole(selected);
 
-    if (selected === 'rider') {
-      navigation.navigate(ROUTES.LICENSE_CAPTURE);
+    setSaving(true);
+    try {
+      // No navigation call either way: setting accountType makes
+      // `passengerReady` true, and RootNavigator swaps in the drawer (or, for
+      // a rider, RiderStack's vehicle-registration chain within it) on the
+      // next render.
+      await updateOnboarding({ accountType: selected === 'rider' ? 'RIDER' : 'PASSENGER' });
+    } catch {
+      // useApiManager has already shown the reason.
+    } finally {
+      setSaving(false);
     }
-    // Passengers need no further steps — setting the role completes onboarding
-    // and the root switch swaps in the drawer on the next render.
   };
 
   return (
     <Screen
       scroll
       footer={
-        <Button label="Continue" onPress={handleContinue} disabled={!selected} />
+        <Button
+          label="Continue"
+          onPress={handleContinue}
+          disabled={!selected}
+          loading={saving}
+        />
       }>
       <AppHeader
         onBack={() => navigation.goBack()}

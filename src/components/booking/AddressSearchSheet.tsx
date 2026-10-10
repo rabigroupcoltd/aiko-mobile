@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -13,6 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { EmptyState, TextField } from '@/components/ui';
 import { BOOKING_COPY } from '@/data/copy';
 import { useDefaultPlaces, usePlaceSearch } from '@/hooks/usePlaceSearch';
+import { CreateAddressManager } from '@/modules/addresses/addressesController';
+import { getPlaceDetails, type PlacePrediction } from '@/services/googlePlaces';
 import { makeStyles, screenGutter, spacing, useTheme } from '@/theme';
 import type { Place } from '@/types/models';
 import { PlaceRow } from './PlaceRow';
@@ -28,9 +30,10 @@ interface AddressSearchSheetProps {
 /**
  * Full-screen address picker.
  *
- * The cache-hit vs remote-lookup distinction is surfaced explicitly here —
- * that two-tier behaviour is the point of this screen in the demo, so it has to
- * be legible rather than hidden behind an instant result.
+ * Typing hits Google Places Autocomplete directly. Picking a result resolves
+ * its coordinates with one Place Details call, saves it to the caller's
+ * address book (so it shows up under "Your saved places" next time), and only
+ * then hands the fully-formed `Place` back to the caller.
  */
 export function AddressSearchSheet({
   visible,
@@ -42,27 +45,78 @@ export function AddressSearchSheet({
   const styles = useStyles();
   const { colors } = useTheme();
   const [query, setQuery] = useState('');
-  const { results, state, loading, error } = usePlaceSearch(query);
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const { predictions, state, loading, error, sessionToken, resetSession } =
+    usePlaceSearch(query);
   const { places: savedPlaces, loading: savedLoading } = useDefaultPlaces();
+  const { createAddress } = CreateAddressManager();
 
-  // With no query we show the caller's saved addresses. The old "browse every
-  // landmark" list went with the bundled JSON — those places are on the server
-  // now and reached by typing.
+  // A fresh session each time the sheet opens, per Google's billing model —
+  // the previous session already ended in a pick, a close, or nothing at all.
+  useEffect(() => {
+    if (visible) resetSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
   const searching = query.trim().length > 0;
-  const showing = searching ? results : savedPlaces;
-  const isCacheHit = state === 'cache-hit';
 
-  const handleSelect = (place: Place) => {
+  const handleClose = () => {
+    setQuery('');
+    onClose();
+  };
+
+  const handleSelectSaved = (place: Place) => {
     onSelect(place);
     setQuery('');
     onClose();
   };
 
+  const handleSelectPrediction = async (prediction: PlacePrediction) => {
+    if (resolvingId) return;
+    setResolvingId(prediction.placeId);
+
+    try {
+      const resolved = await getPlaceDetails(prediction.placeId, sessionToken);
+
+      const place: Place = {
+        id: resolved.placeId,
+        name: resolved.name || prediction.mainText,
+        address: resolved.address,
+        lat: resolved.lat,
+        lng: resolved.lng,
+        placeId: resolved.placeId,
+        category: null,
+        source: 'REMOTE',
+        isDefault: false,
+      };
+
+      onSelect(place);
+      setQuery('');
+      resetSession();
+      onClose();
+
+      // Fire-and-forget: the booking flow shouldn't stall — or fail — on this.
+      createAddress({
+        name: place.name,
+        address: place.address,
+        latitude: place.lat,
+        longitude: place.lng,
+        placeId: place.placeId ?? undefined,
+      }).catch(() => undefined);
+    } catch {
+      // Leave the sheet open with the existing results — the status row
+      // already surfaces a generic error state on the next render if this
+      // becomes a pattern; a one-off tap failure isn't worth a toast.
+    } finally {
+      setResolvingId(null);
+    }
+  };
+
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.header}>
-          <Pressable onPress={onClose} hitSlop={12} accessibilityLabel="Close">
+          <Pressable onPress={handleClose} hitSlop={12} accessibilityLabel="Close">
             <Text style={styles.close}>✕</Text>
           </Pressable>
           <Text style={styles.title}>{title}</Text>
@@ -83,49 +137,79 @@ export function AddressSearchSheet({
           />
 
           <View style={styles.statusRow}>
-            {error ? (
-              <Text style={styles.statusMiss}>{error}</Text>
-            ) : !searching ? (
+            {!searching ? (
               <Text style={styles.status}>
                 {savedLoading ? 'Loading your places…' : 'Your saved places'}
               </Text>
-            ) : loading ? (
+            ) : state === 'error' ? (
+              <Text style={styles.statusMiss}>{error}</Text>
+            ) : state === 'searching' ? (
               <Text style={styles.status}>{BOOKING_COPY.remoteSearching}</Text>
-            ) : isCacheHit ? (
-              <Text style={styles.statusCache}>
-                ✓ {results.length} match{results.length === 1 ? '' : 'es'} from local cache
+            ) : state === 'results' ? (
+              <Text style={styles.status}>
+                {predictions.length} found
               </Text>
-            ) : results.length > 0 ? (
-              <Text style={styles.status}>{results.length} found</Text>
             ) : (
-              <Text style={styles.statusMiss}>No matches</Text>
+              <Text style={styles.statusMiss}>{BOOKING_COPY.noResults}</Text>
             )}
           </View>
         </View>
 
-        <FlatList
-          data={showing}
-          keyExtractor={(item) => item.id}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <PlaceRow place={item} cached={isCacheHit} onPress={() => handleSelect(item)} />
-          )}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          ListEmptyComponent={
-            loading || savedLoading ? null : (
-              <EmptyState
-                icon="🔍"
-                title={searching ? BOOKING_COPY.noResults : 'No saved places yet'}
-                body={
-                  searching
-                    ? BOOKING_COPY.noResultsHint
-                    : 'Search for a landmark, market or area to get started.'
-                }
+        {searching ? (
+          <FlatList
+            data={predictions}
+            keyExtractor={(item) => item.placeId}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.list}
+            renderItem={({ item }) => (
+              <PlaceRow
+                place={{
+                  id: item.placeId,
+                  name: item.mainText,
+                  address: item.secondaryText || item.description,
+                  lat: 0,
+                  lng: 0,
+                  placeId: item.placeId,
+                  category: null,
+                  source: 'REMOTE',
+                  isDefault: false,
+                }}
+                onPress={() => handleSelectPrediction(item)}
+                loading={resolvingId === item.placeId}
               />
-            )
-          }
-        />
+            )}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+            ListEmptyComponent={
+              loading ? null : (
+                <EmptyState
+                  icon="🔍"
+                  title={BOOKING_COPY.noResults}
+                  body={BOOKING_COPY.noResultsHint}
+                />
+              )
+            }
+          />
+        ) : (
+          <FlatList
+            data={savedPlaces}
+            keyExtractor={(item) => item.id}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.list}
+            renderItem={({ item }) => (
+              <PlaceRow place={item} onPress={() => handleSelectSaved(item)} />
+            )}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+            ListEmptyComponent={
+              savedLoading ? null : (
+                <EmptyState
+                  icon="🔍"
+                  title="No saved places yet"
+                  body="Search for a landmark, market or area to get started."
+                />
+              )
+            }
+          />
+        )}
       </SafeAreaView>
     </Modal>
   );
@@ -147,7 +231,6 @@ const useStyles = makeStyles(({ colors, type }) => ({
   searchField: { marginBottom: spacing.xs },
   statusRow: { paddingBottom: spacing.sm },
   status: type.caption,
-  statusCache: { ...type.caption, color: colors.primary, fontWeight: '600' },
   statusMiss: { ...type.caption, color: colors.warning },
   list: { paddingHorizontal: screenGutter, paddingBottom: spacing.xxl },
   separator: {

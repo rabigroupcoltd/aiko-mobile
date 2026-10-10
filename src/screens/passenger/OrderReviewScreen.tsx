@@ -32,6 +32,7 @@ export function OrderReviewScreen({ navigation }: Props) {
   const dropoff = useBookingStore((s) => s.dropoff);
   const pickupPhone = useBookingStore((s) => s.pickupPhone);
   const dropoffPhone = useBookingStore((s) => s.dropoffPhone);
+  const description = useBookingStore((s) => s.description);
   const vehicleType = useBookingStore((s) => s.vehicleType);
   const confirmBooking = useBookingStore((s) => s.confirmBooking);
 
@@ -59,6 +60,9 @@ export function OrderReviewScreen({ navigation }: Props) {
         pickupLng: pickup.lng,
         dropoffLat: dropoff.lat,
         dropoffLng: dropoff.lng,
+        // Trimmed to undefined rather than sent empty: the column is nullable,
+        // and an empty string would render as a blank line on the driver's card.
+        description: description.trim() || undefined,
         pickupPhone: toE164(pickupPhone),
         dropoffPhone: toE164(dropoffPhone),
         paymentMethod: 'CASH',
@@ -80,6 +84,7 @@ export function OrderReviewScreen({ navigation }: Props) {
     dropoff,
     pickupPhone,
     dropoffPhone,
+    description,
     vehicleType,
     confirming,
     createOrder,

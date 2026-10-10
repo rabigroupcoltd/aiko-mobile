@@ -1,8 +1,7 @@
 /** Core domain types shared across the app. */
 
+/** A local UI choice, before it becomes `onboarding.accountType` server-side. */
 export type Role = 'passenger' | 'rider';
-
-export type VerificationStatus = 'none' | 'pending' | 'approved';
 
 export type VehicleType = 'bike' | 'tricycle';
 
@@ -12,27 +11,13 @@ export type CaptureTarget = 'profile' | 'license' | 'nationalId' | 'plate';
 /** The subset stored under `documents` — i.e. everything except the selfie. */
 export type RiderDocumentTarget = Exclude<CaptureTarget, 'profile'>;
 
-export interface UserProfile {
-  id: string;
-  /** E.164, e.g. "+2348031234567". */
-  phone: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  /** ISO 8601 date string (YYYY-MM-DD). */
-  dob: string;
-  createdAt: string;
-}
-
-/** How the user got into the app. */
-export type AuthMethod = 'phone' | 'google';
-
 /**
- * The subset of a Google account we keep.
+ * The subset of a Google account we keep, purely to pre-fill the profile form.
  *
- * Only ever used to pre-fill the profile form and show provenance in the UI —
- * the ID token is deliberately not persisted, since this demo has no backend to
- * exchange it with and storing a credential we can't use is pure liability.
+ * The ID token itself is deliberately not persisted here — it is exchanged for
+ * a Firebase token and then our own session immediately after sign-in (see
+ * `services/firebaseAuth`), and storing a one-shot credential we would never
+ * reuse is pure liability.
  */
 export interface GoogleAccount {
   id: string;

@@ -33,6 +33,13 @@ export interface OrderCompatibility {
 export interface MarketplaceOrder {
   id: string;
   vehicleType: VehicleType;
+  /**
+   * What the customer is sending, in their words.
+   *
+   * Null on orders raised before the field existed, and on customers who left
+   * it blank — the card renders it only when there is something to render.
+   */
+  description: string | null;
   pickupLocation: string;
   pickupLat: number;
   pickupLng: number;

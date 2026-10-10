@@ -3,10 +3,10 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { CapturePrompt } from '@/components/camera/CapturePrompt';
 import { AppHeader, Button, Screen } from '@/components/ui';
 import { ROUTES } from '@/navigation/routes';
-import type { OnboardingStackParamList } from '@/navigation/types';
+import type { RiderStackParamList } from '@/navigation/types';
 import { useAppStore } from '@/store/appStore';
 
-type Props = NativeStackScreenProps<OnboardingStackParamList, typeof ROUTES.PLATE_PHOTO>;
+type Props = NativeStackScreenProps<RiderStackParamList, typeof ROUTES.PLATE_PHOTO>;
 
 const TIPS = [
   'Stand close enough that the plate number is readable.',

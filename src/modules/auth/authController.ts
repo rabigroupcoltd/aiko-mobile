@@ -6,6 +6,7 @@ import AxiosWithToken from '@/constants/api_management/MyHttpHelperWithToken';
 import useApiManager from '@/constants/mainController';
 import type { ApiResponse, QueryOptions } from '@/modules/shared/apiTypes';
 import { unregisterPushToken } from '@/services/pushNotifications';
+import { useAppStore } from '@/store/appStore';
 import { useAuthStore } from '@/store/authStore';
 import { parseApiError } from '@/utils/parseApiError';
 import type {
@@ -105,14 +106,20 @@ export const AdminLoginManager = () => {
  * the previous user's notifications. It is awaited but never allowed to fail
  * the logout — being unable to reach the server is not a reason to keep someone
  * signed in.
+ *
+ * Local capture drafts are cleared too — a license photo or chosen vehicle
+ * type left in `appStore` must not silently attach itself to whoever signs
+ * in next on this device.
  */
 export const useLogoutManager = () => {
   const clearSession = useAuthStore((state) => state.clearSession);
+  const clearLocalDrafts = useAppStore((state) => state.clearLocalDrafts);
 
   const logout = useCallback(async () => {
     await unregisterPushToken();
     clearSession();
-  }, [clearSession]);
+    clearLocalDrafts();
+  }, [clearSession, clearLocalDrafts]);
 
   return { logout };
 };

@@ -1,9 +1,7 @@
 import { Text, View } from 'react-native';
 
 import { AppHeader, Button, Card, Chip, Screen } from '@/components/ui';
-import { featureFlags } from '@/config/featureFlags';
 import { useOpenDrawer } from '@/navigation/useAppNavigation';
-import { approveRider } from '@/store/devActions';
 import { useAppStore } from '@/store/appStore';
 import { makeStyles, radius, spacing } from '@/theme';
 
@@ -83,19 +81,6 @@ export function PendingApprovalScreen() {
       <Text style={styles.support}>
         Something wrong? Contact support on 0800 000 0000.
       </Text>
-
-      {featureFlags.SHOW_DEV_PANEL ? (
-        <View style={styles.dev}>
-          <Text style={styles.devLabel}>DEV — skip the wait</Text>
-          <Button
-            label="Simulate admin approval"
-            variant="secondary"
-            size="sm"
-            onPress={approveRider}
-            leading={<Text>✅</Text>}
-          />
-        </View>
-      ) : null}
     </Screen>
   );
 }
@@ -152,15 +137,4 @@ const useStyles = makeStyles(({ colors, type }) => ({
     marginTop: spacing.lg,
   },
 
-  dev: {
-    marginTop: spacing.xl,
-    padding: spacing.md,
-    gap: spacing.sm,
-    borderRadius: radius.base,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.surfaceAlt,
-  },
-  devLabel: { ...type.caption, fontWeight: '700', color: colors.warning },
 }));

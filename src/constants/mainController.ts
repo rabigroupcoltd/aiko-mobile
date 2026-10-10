@@ -7,14 +7,7 @@ import showToast from '@/utils/toast';
 import Axios from './api_management/MyHttpHelper';
 import AxiosWithToken from './api_management/MyHttpHelperWithToken';
 
-/**
- * The write half of every controller.
- *
- * Wraps a mutation so a controller only has to name an endpoint and its types:
- * the envelope is unwrapped, failures become readable strings, the toast fires,
- * and the listed query keys are invalidated. Reads use `useQuery` directly —
- * they need none of this.
- */
+
 
 type HttpMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -30,18 +23,11 @@ interface ApiManagerOptions<TVariables> {
   isAuth?: boolean;
   showSuccessToast?: boolean;
   showErrorToast?: boolean;
-  /** Set null for multipart, so axios can write its own boundary. */
+  /** Set null for multipart (a FormData body is detected automatically too). */
   contentType?: string | null;
 }
 
-/**
- * Picks what actually goes in the body.
- *
- * Needed because variables carry path params too — `{ id, name }` addresses
- * `/users/{id}` but must send only `{ name }`. The API validates with
- * `forbidNonWhitelisted`, so a stray `id` in the body is a 400, not a field the
- * server politely ignores.
- */
+
 export type BodySelector<TVariables> = (details: TVariables) => unknown;
 
 /** Drops the named keys, for the common case of stripping path params. */
@@ -69,10 +55,7 @@ interface ApiManagerReturn<TData, TError, TVariables> {
   mutation: UseMutationResult<ApiResponse<TData>, TError, TVariables>;
 }
 
-/**
- * `endpoint` may be a string or a function of the variables, so a controller
- * can address `/orders/{id}/cancel` without a hook per id.
- */
+
 export type EndpointResolver<TVariables> = string | ((details: TVariables) => string);
 
 const useApiManager = <TData = unknown, TError = Error, TVariables = unknown>({
@@ -91,7 +74,17 @@ const useApiManager = <TData = unknown, TError = Error, TVariables = unknown>({
   const apiController = async (details: TVariables): Promise<ApiResponse<TData>> => {
     const url = typeof endpoint === 'function' ? endpoint(details) : endpoint;
     const body = getBody ? getBody(details) : details;
-    const config = { headers: contentType ? { 'Content-Type': contentType } : undefined };
+    const isMultipart = contentType === null || body instanceof FormData;
+    // Multipart must override the instance's JSON default explicitly. Leaving
+    // the header unset lets `application/json` through, and axios then
+    // serialises the FormData to JSON — the file never reaches the server.
+    // React Native's networking layer appends the boundary itself.
+    const config = isMultipart
+      ? {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          transformRequest: (data: unknown) => data,
+        }
+      : { headers: contentType ? { 'Content-Type': contentType } : undefined };
 
     try {
       let response: AxiosResponse<ApiResponse<TData>>;

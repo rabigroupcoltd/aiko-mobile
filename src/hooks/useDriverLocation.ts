@@ -6,7 +6,7 @@ import {
   startBackgroundLocation,
   stopBackgroundLocation,
 } from '@/services/backgroundLocation';
-import { getRideSocket } from '@/services/rideSocket';
+import AxiosWithToken from '@/constants/api_management/MyHttpHelperWithToken';
 import { createLogger } from '@/utils/logger';
 
 const log = createLogger('location');
@@ -14,8 +14,8 @@ const log = createLogger('location');
 /**
  * How often a foregrounded driver publishes.
  *
- * Faster than the background service, because the socket is already open and
- * this is what animates the marker on the passenger's map in real time.
+ * Faster than the background service: this is what animates the marker on the
+ * passenger's map, and a driver with the app open is the one being watched.
  */
 const HEARTBEAT_INTERVAL_MS = 10_000;
 /** Or after this much movement, whichever comes first. */
@@ -195,29 +195,31 @@ export function useDriverLocation(enabled: boolean): DriverLocationState {
 }
 
 /**
- * Publishes a fix over the socket, rate-limited.
+ * Publishes a fix, rate-limited.
  *
  * `watchPositionAsync` fires on distance as well as time, so a driver in
  * traffic can produce several fixes a second. The server only needs one every
  * ten — anything more is battery and bandwidth for a marker that has not
  * visibly moved.
+ *
+ * Over REST, not the socket. The socket is receive-only: it exists to tell the
+ * app what changed, and every write the app makes is an HTTP call. That also
+ * makes this identical to what `backgroundLocation` does when the app is not on
+ * screen, so a driver's position is published the same way whether or not
+ * anyone is looking at the phone.
  */
 function publish(coords: Coords, lastSentAt: { current: number }) {
   const now = Date.now();
   if (now - lastSentAt.current < HEARTBEAT_INTERVAL_MS) return;
 
-  const socket = getRideSocket();
-  // No socket means the app is backgrounded or the connection dropped. The
-  // background service is publishing over REST in that case, so there is
-  // nothing to fall back to here.
-  if (!socket?.connected) return;
-
   lastSentAt.current = now;
 
-  // Fire and forget: the ack carries nothing the UI needs, and a dropped
-  // heartbeat is corrected by the next one ten seconds later.
-  socket.emit('driver-live-location', {
+  // Fire and forget: the response carries nothing the UI needs, and a dropped
+  // fix is corrected by the next one ten seconds later. Caught rather than left
+  // to float — an unhandled rejection every ten seconds while a tunnel drops
+  // the connection would bury everything else in the log.
+  void AxiosWithToken.post('/drivers/location', {
     ...coords,
     recordedAt: new Date(now).toISOString(),
-  });
+  }).catch((error) => log.debug('location publish failed', error?.message));
 }

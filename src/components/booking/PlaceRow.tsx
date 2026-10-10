@@ -1,14 +1,13 @@
-import { Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
-import { Chip } from '@/components/ui';
-import { makeStyles, radius, spacing } from '@/theme';
+import { makeStyles, radius, spacing, useTheme } from '@/theme';
 import type { Place, PlaceCategory } from '@/types/models';
 
 interface PlaceRowProps {
   place: Place;
   onPress: () => void;
-  /** Show the "Cached" badge — this result came from the local list. */
-  cached?: boolean;
+  /** Resolving this prediction's coordinates via Place Details. */
+  loading?: boolean;
 }
 
 const CATEGORY_ICON: Record<PlaceCategory, string> = {
@@ -30,12 +29,14 @@ function iconFor(place: Place): string {
   return place.source === 'SAVED' ? SAVED_ICON : DEFAULT_ICON;
 }
 
-export function PlaceRow({ place, onPress, cached }: PlaceRowProps) {
+export function PlaceRow({ place, onPress, loading }: PlaceRowProps) {
   const styles = useStyles();
+  const { colors } = useTheme();
 
   return (
     <Pressable
       onPress={onPress}
+      disabled={loading}
       accessibilityRole="button"
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
       <View style={styles.icon}>
@@ -51,7 +52,7 @@ export function PlaceRow({ place, onPress, cached }: PlaceRowProps) {
         </Text>
       </View>
 
-      {cached ? <Chip label="Cached" tone="brand" /> : null}
+      {loading ? <ActivityIndicator size="small" color={colors.primary} /> : null}
     </Pressable>
   );
 }

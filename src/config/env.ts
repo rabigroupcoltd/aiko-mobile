@@ -15,6 +15,16 @@ const androidConfig = Constants.expoConfig?.android?.config as
 export const HAS_MAPS_KEY = Boolean(androidConfig?.googleMaps?.apiKey);
 
 /**
+ * Whether the app can call Google Places directly.
+ *
+ * Separate from HAS_MAPS_KEY: that one is baked into AndroidManifest.xml for
+ * map tiles and is restricted to this app's package + SHA-1, which a plain
+ * HTTPS call from JS does not present. This key has to be usable from a bare
+ * fetch, so it's restricted by API instead — see .env.example.
+ */
+export const HAS_PLACES_KEY = Boolean(process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY);
+
+/**
  * Where the API lives.
  *
  * The default targets the Android emulator: `10.0.2.2` is the host machine as

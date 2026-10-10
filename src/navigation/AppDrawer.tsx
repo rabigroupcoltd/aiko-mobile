@@ -1,12 +1,12 @@
 import { createDrawerNavigator } from '@react-navigation/drawer';
 
 import { DrawerContent } from '@/components/drawer/DrawerContent';
+import { useOnboardingState } from '@/modules/onboarding/onboardingController';
 import { MyDocumentsScreen } from '@/screens/common/MyDocumentsScreen';
 import { OrderHistoryScreen } from '@/screens/common/OrderHistoryScreen';
 import { ProfileScreen } from '@/screens/common/ProfileScreen';
 import { SettingsScreen } from '@/screens/common/SettingsScreen';
 import { DriverEarningsScreen } from '@/screens/rider/DriverEarningsScreen';
-import { useAppStore } from '@/store/appStore';
 import { useTheme } from '@/theme';
 import { PassengerStack } from './PassengerStack';
 import { RiderStack } from './RiderStack';
@@ -23,9 +23,9 @@ const Drawer = createDrawerNavigator<DrawerParamList>();
  * hidden from the menu.
  */
 export function AppDrawer() {
-  const role = useAppStore((s) => s.role);
+  const onboarding = useOnboardingState();
   const { colors } = useTheme();
-  const isRider = role === 'rider';
+  const isRider = onboarding?.accountType === 'RIDER';
 
   return (
     <Drawer.Navigator

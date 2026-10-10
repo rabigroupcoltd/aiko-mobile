@@ -100,6 +100,14 @@ export interface RideRating {
 export interface CreateOrderPayload extends TripRoute {
   vehicleType: VehicleType;
   paymentMethod: PaymentMethod;
+  /**
+   * What is being sent, in the customer's own words.
+   *
+   * Shown on the driver's card. A laptop and a gas cylinder are the same
+   * distance and the same fare, and not the same decision — this is the first
+   * thing a driver actually wants to know about a job.
+   */
+  description?: string;
   pickupPhone?: string;
   dropoffPhone?: string;
   /**
@@ -129,6 +137,25 @@ export interface UpdateOrderStatusVariables {
 export interface CancelOrderVariables {
   id: string;
   reason?: string;
+}
+
+/**
+ * Unread chat messages, keyed by order.
+ *
+ * Only the other party's messages count — your own are read by definition — and
+ * closed orders are excluded, since their chat can no longer be opened to clear
+ * the badge.
+ */
+export interface UnreadCounts {
+  counts: Record<string, number>;
+  total: number;
+}
+
+export interface MarkReadResult {
+  orderId: string;
+  /** How many messages this call actually marked. Zero on a re-open. */
+  read: number;
+  readAt: string;
 }
 
 export interface SendMessageVariables {

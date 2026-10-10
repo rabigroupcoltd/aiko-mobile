@@ -5,34 +5,36 @@ import {
 import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar, Chip, ListRow } from '@/components/ui';
-import { featureFlags } from '@/config/featureFlags';
+import { useLogoutManager } from '@/modules/auth/authController';
+import { useOnboardingState } from '@/modules/onboarding/onboardingController';
 import { ROUTES } from '@/navigation/routes';
 import { useOpenCamera } from '@/navigation/useAppNavigation';
 import { useAppStore } from '@/store/appStore';
+import { useAuthStore } from '@/store/authStore';
 import { makeStyles, radius, spacing } from '@/theme';
 import { formatE164ForDisplay } from '@/utils/phone';
-import { DevPanel } from './DevPanel';
 
 export function DrawerContent(props: DrawerContentComponentProps) {
   const { navigation, state } = props;
   const styles = useStyles();
 
-  const user = useAppStore((s) => s.user);
-  const role = useAppStore((s) => s.role);
-  const verificationStatus = useAppStore((s) => s.verificationStatus);
-  const profilePhoto = useAppStore((s) => s.photos.profile);
-  const logout = useAppStore((s) => s.logout);
+  const user = useAuthStore((s) => s.user);
+  const onboarding = useOnboardingState();
+  // The just-captured photo, if the user retook it this session; the
+  // persisted one otherwise.
+  const localPhoto = useAppStore((s) => s.photos.profile);
+  const { logout } = useLogoutManager();
   const openCamera = useOpenCamera();
 
+  const isRider = onboarding?.accountType === 'RIDER';
   const activeRoute = state.routeNames[state.index];
   const fullName = user ? `${user.firstName} ${user.lastName}`.trim() : 'Guest';
 
-  const roleChip =
-    role === 'rider'
-      ? verificationStatus === 'approved'
-        ? { label: 'Rider · Approved', tone: 'success' as const }
-        : { label: 'Rider · Pending', tone: 'pending' as const }
-      : { label: 'Passenger', tone: 'brand' as const };
+  const roleChip = isRider
+    ? onboarding?.driver.status === 'APPROVED'
+      ? { label: 'Rider · Approved', tone: 'success' as const }
+      : { label: 'Rider · Pending', tone: 'pending' as const }
+    : { label: 'Passenger', tone: 'brand' as const };
 
   const handleLogout = () => {
     Alert.alert('Log out?', 'You will need to sign in again to continue.', [
@@ -42,7 +44,7 @@ export function DrawerContent(props: DrawerContentComponentProps) {
         style: 'destructive',
         onPress: () => {
           navigation.closeDrawer();
-          setTimeout(logout, 260);
+          setTimeout(() => void logout(), 260);
         },
       },
     ]);
@@ -54,7 +56,7 @@ export function DrawerContent(props: DrawerContentComponentProps) {
     <View style={styles.container}>
       <DrawerContentScrollView {...props} contentContainerStyle={styles.scroll}>
         <View style={styles.header}>
-          <Avatar uri={profilePhoto?.uri} name={fullName} size={64} />
+          <Avatar uri={localPhoto?.uri ?? user?.profilePhotoUrl ?? undefined} name={fullName} size={64} />
           <View style={styles.headerText}>
             <Text style={styles.name} numberOfLines={1}>
               {fullName}
@@ -70,8 +72,8 @@ export function DrawerContent(props: DrawerContentComponentProps) {
 
         <View style={styles.items}>
           <ListRow
-            icon={role === 'rider' ? '🏍️' : '🏠'}
-            title={role === 'rider' ? 'Dashboard' : 'Book a ride'}
+            icon={isRider ? '🏍️' : '🏠'}
+            title={isRider ? 'Dashboard' : 'Book a ride'}
             onPress={go(ROUTES.HOME_TAB)}
             style={activeRoute === ROUTES.HOME_TAB ? styles.activeRow : undefined}
           />
@@ -92,12 +94,12 @@ export function DrawerContent(props: DrawerContentComponentProps) {
           />
           <ListRow
             icon="🗂️"
-            title={role === 'rider' ? 'My orders' : 'Order history'}
-            subtitle={role === 'rider' ? 'Active, completed and skipped' : 'Past and active orders'}
+            title={isRider ? 'My orders' : 'Order history'}
+            subtitle={isRider ? 'Active, completed and skipped' : 'Past and active orders'}
             onPress={go(ROUTES.ORDER_HISTORY)}
             style={activeRoute === ROUTES.ORDER_HISTORY ? styles.activeRow : undefined}
           />
-          {role === 'rider' ? (
+          {isRider ? (
             <>
               <ListRow
                 icon="💰"
@@ -123,15 +125,11 @@ export function DrawerContent(props: DrawerContentComponentProps) {
           />
           <ListRow icon="🚪" title="Log out" onPress={handleLogout} chevron={false} />
         </View>
-
-        {featureFlags.SHOW_DEV_PANEL ? (
-          <DevPanel closeDrawer={() => navigation.closeDrawer()} />
-        ) : null}
       </DrawerContentScrollView>
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>Aiko · Minna, Niger State</Text>
-        <Text style={styles.footerVersion}>Demo build</Text>
+        <Text style={styles.footerVersion}>v1.0.0</Text>
       </View>
     </View>
   );

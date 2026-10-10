@@ -6,7 +6,6 @@ import { MatchingAnimation } from '@/components/booking/MatchingAnimation';
 import { BidCard } from '@/components/booking/BidCard';
 import { Button, Screen } from '@/components/ui';
 import { BOOKING_COPY } from '@/data/copy';
-import { useRideEvent } from '@/hooks/useRideSocket';
 import {
   AcceptDriverManager,
   CancelRideRequestManager,
@@ -117,10 +116,9 @@ export function MatchingScreen({ navigation, route }: Props) {
   const expired = request?.status === 'EXPIRED';
   const cancelled = request?.status === 'CANCELLED';
 
-  // Every socket event here means the same thing — the request changed — so
-  // they all resolve to one refetch rather than patching the cache by hand.
-  useRideEvent('driver-bid-placed', () => void refetch(), Boolean(requestId));
-  useRideEvent('ride-request-expired', () => void refetch(), Boolean(requestId));
+  // No socket subscriptions: the bid lane raises no notifications now that
+  // dispatch runs through the marketplace, and the 5s poll above is the whole
+  // update path for this screen.
 
   // The stage copy is a progress indication, not a simulation of work: the
   // search really is running server-side for RIDE_REQUEST_TTL seconds.

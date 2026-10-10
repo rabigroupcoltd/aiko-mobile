@@ -1,67 +1,108 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-import type { AddressSearchResult } from '@/modules/addresses/addressesTypes';
+import { HAS_PLACES_KEY, MINNA_CENTER } from '@/config/env';
+import { useGetAddressesManager } from '@/modules/addresses/addressesController';
 import {
-  useGetAddressesManager,
-  useSearchAddressesManager,
-} from '@/modules/addresses/addressesController';
-import type { Place, PlaceCategory } from '@/types/models';
+  autocomplete,
+  newSessionToken,
+  type PlacePrediction,
+} from '@/services/googlePlaces';
+import type { Place } from '@/types/models';
 import { useDebouncedValue } from './useDebouncedValue';
 
-export type SearchState = 'idle' | 'cache-hit' | 'remote-lookup' | 'no-results';
+export type SearchState = 'idle' | 'searching' | 'results' | 'no-results' | 'error';
 
 interface UsePlaceSearchResult {
-  results: Place[];
+  predictions: PlacePrediction[];
   state: SearchState;
   loading: boolean;
   /** Non-null when the lookup failed, so the sheet can say why. */
   error: string | null;
+  /** Pass to getPlaceDetails when a prediction is picked, to close out the billing session. */
+  sessionToken: string;
+  /** Call once a prediction has been resolved (or the sheet is closed) to start a fresh session. */
+  resetSession: () => void;
 }
 
 /**
- * Address search, served by the API.
+ * Address search, called straight against Google Places Autocomplete.
  *
- * The two-tier behaviour the bundled landmark list used to simulate is now
- * real: the server checks the caller's saved addresses and the shared place
- * cache before reaching for the Places API, and reports which tier answered.
- * That is surfaced here because the distinction is worth showing.
- *
- * The debounce stays on this side — it saves a request per keystroke, which
- * matters more against a network than it did against a local array.
+ * No backend round trip and no cache tier — every keystroke (after debounce)
+ * is a live Google lookup. `sessionToken` ties this to the Place Details call
+ * that ends it, so Google bills the pair as one search rather than two.
  */
 export function usePlaceSearch(query: string): UsePlaceSearchResult {
-  const debounced = useDebouncedValue(query, 220);
+  const debounced = useDebouncedValue(query, 300);
   const trimmed = debounced.trim();
 
-  const { data, isFetching, error } = useSearchAddressesManager({ q: trimmed });
+  const [sessionToken, setSessionToken] = useState(newSessionToken);
+  const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const results = useMemo(() => (data?.results ?? []).map(toPlace), [data]);
+  // Guards against an in-flight request from a stale keystroke overwriting a
+  // newer one that resolved first.
+  const requestId = useRef(0);
 
-  const state: SearchState = !trimmed
-    ? 'idle'
-    : isFetching
-      ? 'remote-lookup'
-      : results.length === 0
-        ? 'no-results'
-        : // `source` is the server's own account of which tier answered.
-          data?.source === 'remote'
-          ? 'remote-lookup'
-          : 'cache-hit';
+  useEffect(() => {
+    if (!trimmed) {
+      setPredictions([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    if (!HAS_PLACES_KEY) {
+      setPredictions([]);
+      setError('Search unavailable — Google Places is not configured');
+      setLoading(false);
+      return;
+    }
+
+    const id = (requestId.current += 1);
+    setLoading(true);
+    setError(null);
+
+    autocomplete(trimmed, sessionToken, {
+      lat: MINNA_CENTER.latitude,
+      lng: MINNA_CENTER.longitude,
+    })
+      .then((results) => {
+        if (requestId.current !== id) return;
+        setPredictions(results);
+      })
+      .catch((e) => {
+        if (requestId.current !== id) return;
+        setPredictions([]);
+        setError(e?.message ?? 'Search failed');
+      })
+      .finally(() => {
+        if (requestId.current === id) setLoading(false);
+      });
+  }, [trimmed, sessionToken]);
+
+  const state: SearchState = useMemo(() => {
+    if (!trimmed) return 'idle';
+    if (loading) return 'searching';
+    if (error) return 'error';
+    return predictions.length === 0 ? 'no-results' : 'results';
+  }, [trimmed, loading, error, predictions.length]);
 
   return {
-    results,
+    predictions,
     state,
-    loading: Boolean(trimmed) && isFetching,
-    error: error ? error.message : null,
+    loading: Boolean(trimmed) && loading,
+    error,
+    sessionToken,
+    resetSession: () => setSessionToken(newSessionToken()),
   };
 }
 
 /**
  * The list shown before anything is typed.
  *
- * Saved addresses, which is what a returning user wants — the old behaviour of
- * listing every bundled landmark went with the JSON file. A new account has
- * none, and the sheet shows an empty state prompting them to search.
+ * Saved addresses, which is what a returning user wants. These already carry
+ * real coordinates, so picking one skips Place Details entirely.
  */
 export function useDefaultPlaces() {
   const { data, isPending } = useGetAddressesManager();
@@ -83,37 +124,4 @@ export function useDefaultPlaces() {
   );
 
   return { places, loading: isPending };
-}
-
-const CATEGORIES: PlaceCategory[] = [
-  'landmark',
-  'market',
-  'campus',
-  'hospital',
-  'transport',
-  'government',
-  'residential',
-];
-
-function toPlace(result: AddressSearchResult): Place {
-  return {
-    // A cached or remote hit has no id of its own; the address is unique per
-    // row, so it is the stable list key.
-    id: result.id ?? result.placeId ?? result.address,
-    name: result.name ?? result.address,
-    address: result.address,
-    // The API allows nulls for a saved address entered without coordinates.
-    // Zeroes keep the map from crashing; such a row cannot be booked anyway.
-    lat: result.latitude ?? 0,
-    lng: result.longitude ?? 0,
-    placeId: result.placeId,
-    category: toCategory(result.category),
-    source: result.source,
-    isDefault: result.isDefault,
-  };
-}
-
-/** Narrows the server's free-text category, ignoring anything unrecognised. */
-function toCategory(value: string | null): PlaceCategory | null {
-  return value && (CATEGORIES as string[]).includes(value) ? (value as PlaceCategory) : null;
 }

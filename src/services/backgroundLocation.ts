@@ -38,7 +38,7 @@ const DISTANCE_M = 50;
  *
  * - The socket. It is gone in the background, and reviving it per fix would
  *   cost a handshake every twenty seconds. `POST /api/drivers/location` writes
- *   the same Redis keys and now raises the same `driver-location-update`
+ *   the same Redis keys and raises the same DRIVER_LOCATION notification
  *   broadcast, so a passenger watching the map sees no difference.
  *
  * - `AxiosWithToken`. Its interceptor waits on the zustand store to rehydrate,

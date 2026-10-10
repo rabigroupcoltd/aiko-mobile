@@ -19,7 +19,7 @@ export const MARKETPLACE_QUERY_KEY = 'marketplace';
 /**
  * The driver's order marketplace.
  *
- * The socket is what makes new orders appear — `order-available` lands and the
+ * The socket is what makes new orders appear — REQUEST_NEW lands and the
  * screen refetches. These queries are the fallback for a dropped connection and
  * the source of the per-driver compatibility scores, which the broadcast cannot
  * carry because they depend on where this driver is and what they hold.

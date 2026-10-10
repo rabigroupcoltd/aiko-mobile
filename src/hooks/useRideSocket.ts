@@ -3,15 +3,17 @@ import { useEffect, useRef } from 'react';
 import {
   disconnectRideSocket,
   getRideSocket,
-  type ServerEvents,
+  type InfoCode,
+  type InfoEnvelope,
+  type InfoPayloads,
 } from '@/services/rideSocket';
 import { useAuthStore } from '@/store/authStore';
 
 /**
  * Keeps one socket alive for as long as there is a session.
  *
- * Mount once, near the root. Screens do not call this — they use
- * `useRideEvent` to listen, which does not own the connection.
+ * Mount once, near the root. Screens do not call this — they use `useRideEvent`
+ * to listen, which does not own the connection.
  */
 export function useRideSocketConnection() {
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -31,14 +33,19 @@ export function useRideSocketConnection() {
 }
 
 /**
- * Subscribes to one server event for the lifetime of a screen.
+ * Subscribes to one notification code for the lifetime of a screen.
+ *
+ * The server sends a single `info` event and distinguishes what happened by its
+ * `code`, so every subscriber attaches the same listener and filters. That is
+ * why this hook takes a code rather than an event name: screens should never
+ * see the transport-level event, only the thing that happened.
  *
  * The handler is held in a ref so an inline arrow function — which is what
  * every call site will pass — does not resubscribe on every render.
  */
-export function useRideEvent<K extends keyof ServerEvents>(
-  event: K,
-  handler: (payload: ServerEvents[K]) => void,
+export function useRideEvent<K extends InfoCode & keyof InfoPayloads>(
+  code: K,
+  handler: (data: InfoPayloads[K], message: string) => void,
   enabled = true,
 ) {
   const handlerRef = useRef(handler);
@@ -50,11 +57,55 @@ export function useRideEvent<K extends keyof ServerEvents>(
     const socket = getRideSocket();
     if (!socket) return;
 
-    const listener = (payload: ServerEvents[K]) => handlerRef.current(payload);
-    socket.on(event as string, listener);
+    const listener = (envelope: InfoEnvelope) => {
+      if (envelope?.code !== code) return;
+      handlerRef.current(envelope.data as InfoPayloads[K], envelope.message);
+    };
+
+    socket.on('info', listener);
 
     return () => {
-      socket.off(event as string, listener);
+      socket.off('info', listener);
     };
-  }, [event, enabled]);
+  }, [code, enabled]);
+}
+
+/**
+ * Subscribes to several codes with one handler.
+ *
+ * For the case where two codes mean the same thing to a screen — a card leaving
+ * the grid is REQUEST_LOST or REQUEST_CLOSED depending on why, and the grid
+ * removes it either way.
+ */
+export function useRideEvents<K extends InfoCode & keyof InfoPayloads>(
+  codes: readonly K[],
+  handler: (data: InfoPayloads[K], code: K, message: string) => void,
+  enabled = true,
+) {
+  const handlerRef = useRef(handler);
+  handlerRef.current = handler;
+
+  // Joined so a caller passing an inline array literal does not resubscribe on
+  // every render — the identity changes, the contents almost never do.
+  const key = codes.join('|');
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    const socket = getRideSocket();
+    if (!socket) return;
+
+    const watched = new Set<string>(key.split('|'));
+
+    const listener = (envelope: InfoEnvelope) => {
+      if (!envelope?.code || !watched.has(envelope.code)) return;
+      handlerRef.current(envelope.data as InfoPayloads[K], envelope.code as K, envelope.message);
+    };
+
+    socket.on('info', listener);
+
+    return () => {
+      socket.off('info', listener);
+    };
+  }, [key, enabled]);
 }

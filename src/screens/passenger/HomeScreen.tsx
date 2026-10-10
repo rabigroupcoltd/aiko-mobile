@@ -12,6 +12,7 @@ import { ROUTES } from '@/navigation/routes';
 import { useOpenDrawer } from '@/navigation/useAppNavigation';
 import type { PassengerStackParamList } from '@/navigation/types';
 import { useAppStore } from '@/store/appStore';
+import { useAuthStore } from '@/store/authStore';
 import { useBookingStore } from '@/store/bookingStore';
 import { makeStyles, spacing, useTheme } from '@/theme';
 import type { Place } from '@/types/models';
@@ -29,8 +30,9 @@ export function HomeScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const openDrawer = useOpenDrawer();
 
-  const user = useAppStore((s) => s.user);
-  const profilePhoto = useAppStore((s) => s.photos.profile);
+  const user = useAuthStore((s) => s.user);
+  const localPhoto = useAppStore((s) => s.photos.profile);
+  const profilePhotoUri = localPhoto?.uri ?? user?.profilePhotoUrl ?? undefined;
 
   const pickup = useBookingStore((s) => s.pickup);
   const dropoff = useBookingStore((s) => s.dropoff);
@@ -41,6 +43,8 @@ export function HomeScreen({ navigation }: Props) {
   const setDropoff = useBookingStore((s) => s.setDropoff);
   const setPickupPhone = useBookingStore((s) => s.setPickupPhone);
   const setDropoffPhone = useBookingStore((s) => s.setDropoffPhone);
+  const description = useBookingStore((s) => s.description);
+  const setDescription = useBookingStore((s) => s.setDescription);
   const setVehicleType = useBookingStore((s) => s.setVehicleType);
 
   const [sheet, setSheet] = useState<SheetTarget>(null);
@@ -99,7 +103,7 @@ export function HomeScreen({ navigation }: Props) {
       }>
       <AppHeader
         onMenu={openDrawer}
-        trailing={<Avatar uri={profilePhoto?.uri} name={user?.firstName} size={36} />}
+        trailing={<Avatar uri={profilePhotoUri} name={user?.firstName ?? undefined} size={36} />}
       />
 
       <Text style={styles.greeting}>
@@ -137,6 +141,8 @@ export function HomeScreen({ navigation }: Props) {
           value={dropoffPhone}
           onChange={setDropoffPhone}
         />
+        <View style={styles.rowDivider} />
+        <DescriptionRow value={description} onChange={setDescription} />
       </Card>
 
       {hasRoute ? (
@@ -233,6 +239,43 @@ function LocationRow({
  * separate contacts block: the driver calls "the person at the pickup", so the
  * number reads as part of that leg.
  */
+/**
+ * What is being sent.
+ *
+ * Optional, and deliberately not validated. The driver reads it to decide
+ * whether they can carry the thing, and the range of answers people give — "my
+ * daughter's lunchbox", "50kg of rice", "documents, urgent" — is exactly what a
+ * category picker would have flattened. Free text is the honest shape until
+ * there is enough of it to learn categories from.
+ */
+function DescriptionRow({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const styles = useStyles();
+  const { colors } = useTheme();
+
+  return (
+    <View style={styles.contactRow}>
+      <Text style={styles.contactLabel}>What are you sending?</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChange}
+        placeholder="Optional — e.g. two cartons of frozen chicken"
+        placeholderTextColor={colors.textDisabled}
+        // Matches the column, so the server never has to reject what was typed.
+        maxLength={500}
+        multiline
+        accessibilityLabel="What are you sending?"
+        style={styles.contactInput}
+      />
+    </View>
+  );
+}
+
 function ContactRow({
   label,
   placeholder,

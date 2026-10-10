@@ -78,6 +78,48 @@ export const UpdateOnboardingManager = () => {
   return { updateOnboarding, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
+/** A locally-captured file, in the shape React Native's FormData expects. */
+export interface OnboardingPhotoFile {
+  uri: string;
+  name: string;
+  type: string;
+}
+
+/**
+ * The PHOTO step's upload half.
+ *
+ * One call: uploads the selfie and saves the resulting url/key against the
+ * account, so the screen never has to make two round trips (upload, then
+ * PATCH with what came back).
+ */
+export const UploadOnboardingPhotoManager = () => {
+  const setOnboarding = useAuthStore((state) => state.setOnboarding);
+
+  const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
+    OnboardingState,
+    Error,
+    OnboardingPhotoFile
+  >({
+    endpoint: '/onboarding/photo',
+    getBody: (photo) => {
+      const form = new FormData();
+      form.append('photo', photo as unknown as Blob);
+      return form;
+    },
+    contentType: null,
+    queryKey: [ONBOARDING_QUERY_KEY, 'auth'],
+    method: 'POST',
+  });
+
+  const uploadPhoto = async (photo: OnboardingPhotoFile) => {
+    const result = await callApi(photo);
+    setOnboarding(result.data);
+    return result.data;
+  };
+
+  return { uploadPhoto, data, response, isLoading, isSuccess, isError, error, reset };
+};
+
 // ============================================
 // HELPERS
 // ============================================

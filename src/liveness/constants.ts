@@ -1,13 +1,4 @@
-/**
- * Liveness thresholds — the single tuning surface.
- *
- * Every number that might need adjusting on real hardware, in real light, lives
- * here. `machine.ts` deliberately contains no numeric literals, so tuning never
- * means editing logic.
- *
- * Calibrate with the on-screen debug overlay (featureFlags.SHOW_LIVENESS_DEBUG)
- * in three lighting conditions: indoor office, bright outdoor, and dim.
- */
+
 export const LIVENESS = {
   // ── engine ────────────────────────────────────────────────────────────────
   /** FSM evaluation rate. Decoupled from camera fps so timings are portable. */

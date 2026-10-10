@@ -36,6 +36,11 @@ export function WelcomeScreen({ navigation }: Props) {
    * Three hops because each one only produces what the next needs: Google
    * proves who they are, Firebase turns that into a token our backend trusts,
    * and the backend turns that into a session plus the onboarding state.
+   *
+   * No navigation call on success: storing the session updates `authStore`,
+   * and RootNavigator swaps this screen out for OnboardingStack — resuming at
+   * PHONE, since Google gives no number and a dispatch app needs a reachable
+   * one — on its next render.
    */
   const handleGoogle = async () => {
     setGoogleLoading(true);
@@ -67,12 +72,7 @@ export function WelcomeScreen({ navigation }: Props) {
         return;
       }
 
-      // Stores the session, so every later request is authenticated. The
-      // navigator picks the branch from state on the next render — the phone
-      // step still runs, because Google gives no number and a dispatch app
-      // needs a reachable one.
       await signInWithFirebase({ idToken: exchanged.idToken });
-      navigation.navigate(ROUTES.PHONE_ENTRY);
     } catch {
       // useApiManager has already shown the reason.
     } finally {
@@ -111,24 +111,21 @@ export function WelcomeScreen({ navigation }: Props) {
           ))}
         </View>
 
-        <Button
-          label="Continue with phone"
-          onPress={() => navigation.navigate(ROUTES.PHONE_ENTRY)}
-          testID="welcome-get-started"
-        />
-
-        {/* Hidden entirely when no OAuth client is configured — a button that
-            can only ever fail is worse than no button. */}
+        {/*
+          Google is the only credential that gets a real backend session right
+          now — a dispatch app needs a reachable phone number, but there is no
+          SMS provider behind the OTP screen yet (see featureFlags.REQUIRE_OTP),
+          so a phone-only sign-in has nothing to verify against. Hidden
+          entirely when no OAuth client is configured either — a button that
+          can only ever fail is worse than no button.
+        */}
         {isGoogleSignInConfigured ? (
-          <>
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
-            </View>
-            <GoogleSignInButton onPress={handleGoogle} loading={googleLoading} />
-          </>
-        ) : null}
+          <GoogleSignInButton onPress={handleGoogle} loading={googleLoading} />
+        ) : (
+          <Text style={styles.legal}>
+            Sign-in is not configured for this build yet.
+          </Text>
+        )}
 
         <Text style={styles.legal}>
           By continuing you agree to Aiko&apos;s Terms of Service and Privacy Policy.

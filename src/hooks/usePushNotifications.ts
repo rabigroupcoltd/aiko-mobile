@@ -18,6 +18,7 @@ import {
   registerPushToken,
   type RemoteMessage,
 } from '@/services/pushNotifications';
+import { clearOrderNotification } from '@/services/orderNotifications';
 import { useAuthStore } from '@/store/authStore';
 import { createLogger } from '@/utils/logger';
 import showToast from '@/utils/toast';
@@ -47,11 +48,16 @@ const INVALIDATES: Record<PushType, string[]> = {
   // Marketplace. ORDER_AVAILABLE only touches the grid; the rest move an order
   // the driver or customer already holds, so the order queries go too.
   ORDER_AVAILABLE: [MARKETPLACE_QUERY_KEY],
+  // Losing the race changes only what is on offer, never anything held.
+  ORDER_REMOVED: [MARKETPLACE_QUERY_KEY],
   ORDER_RESERVED: [MARKETPLACE_QUERY_KEY, ORDERS_QUERY_KEY],
   ORDER_PICKED_UP: [MARKETPLACE_QUERY_KEY, ORDERS_QUERY_KEY],
   // A delivery settles money as well as freeing a slot.
   ORDER_DELIVERED: [MARKETPLACE_QUERY_KEY, ORDERS_QUERY_KEY, DRIVERS_QUERY_KEY],
   ORDER_NO_DRIVER: [ORDERS_QUERY_KEY],
+  // Alert-only — no order field changes, so nothing needs refetching. Admin
+  // devices land here too; they have no ORDERS_QUERY_KEY cache to invalidate.
+  DRIVER_UNREACHABLE: [],
 };
 
 /** Notifications worth interrupting a foreground user for. */
@@ -67,6 +73,7 @@ const TOAST_IN_FOREGROUND: PushType[] = [
   'ORDER_PICKED_UP',
   'ORDER_DELIVERED',
   'ORDER_NO_DRIVER',
+  'DRIVER_UNREACHABLE',
 ];
 
 export interface UsePushNotificationsOptions {
@@ -126,6 +133,15 @@ export function usePushNotifications({ onOpen }: UsePushNotificationsOptions = {
     return onMessage(getMessaging(getApp()), (message) => {
       const data = readPushData(message);
       invalidate(queryClient, data);
+
+      // An offer drawn while the app was in the background is still in the tray
+      // when the driver opens it. Clearing it here means the phone never shows
+      // a card for work that has already gone, whichever state the app was in
+      // when the news arrived. Offers themselves are not drawn in the
+      // foreground: the grid on screen is already the better version of one.
+      if (data.type === 'ORDER_REMOVED' || data.type === 'ORDER_RESERVED') {
+        void clearOrderNotification(data.orderId);
+      }
 
       if (!message.notification) return; // silent — the refetch was the point
       if (!data.type || !TOAST_IN_FOREGROUND.includes(data.type)) return;
