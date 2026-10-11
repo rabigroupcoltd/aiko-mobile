@@ -22,7 +22,6 @@ type Props = NativeStackScreenProps<
 
 const DOCS: RiderDocumentTarget[] = ['license', 'nationalId', 'vehicle', 'plate'];
 
-/** How each capture is labelled on the server, so the admin sees what is what. */
 const PHOTO_TYPE: Record<RiderDocumentTarget, string> = {
   license: 'DRIVER_LICENSE',
   nationalId: 'NATIONAL_ID',
@@ -49,14 +48,6 @@ function toUpload(target: RiderDocumentTarget, asset: DocumentAsset): UploadFile
   };
 }
 
-/**
- * The last rider step: everything captured, at a glance, then submit.
- *
- * Submitting registers the vehicle (`POST /drivers/register`), which creates
- * the driver profile an admin approves — the account moves to PENDING and
- * RiderStack swaps this screen for the waiting screen on its own. A rejected
- * rider lands back here and the same call resubmits.
- */
 export function DocumentsReviewScreen({ navigation }: Props) {
   const styles = useStyles();
   const documents = useAppStore((s) => s.documents);
@@ -90,10 +81,7 @@ export function DocumentsReviewScreen({ navigation }: Props) {
         photoTypes: captured.map(([target]) => PHOTO_TYPE[target]).join(','),
         photos: captured.map(([target, asset]) => toUpload(target, asset)),
       });
-      // No navigation: the onboarding refetch flips RiderStack to the
-      // waiting screen.
     } catch {
-      // useApiManager has already shown the reason.
     }
   };
 

@@ -2,14 +2,6 @@ import { useId } from 'react';
 import { StyleSheet } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
-/**
- * The brand-green backdrop for splash and welcome: a diagonal gradient with a
- * soft highlight and a faint dashed route sweeping across it.
- *
- * Fills its parent absolutely and ignores touches, so it can sit behind any
- * content. Drawn in a fixed viewBox with `slice`, so it crops rather than
- * stretches on tall or wide screens.
- */
 export function BrandBackdrop() {
   const id = useId().replace(/[^a-zA-Z0-9]/g, '');
 
@@ -34,7 +26,6 @@ export function BrandBackdrop() {
       <Rect width="400" height="800" fill={`url(#bg${id})`} />
       <Rect width="400" height="800" fill={`url(#glow${id})`} />
 
-      {/* A route from bottom-left to top-right — pickup to drop-off. */}
       <Path
         d="M-20 640 C 80 560, 60 440, 180 420 S 330 300, 420 160"
         fill="none"

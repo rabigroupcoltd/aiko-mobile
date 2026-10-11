@@ -15,8 +15,6 @@ export function ProfileScreen() {
 
   const user = useAuthStore((s) => s.user);
   const onboarding = useOnboardingState();
-  // The just-captured photo, if the user retook it this session; the
-  // persisted one otherwise.
   const localPhoto = useAppStore((s) => s.photos.profile);
 
   const isRider = onboarding?.accountType === 'RIDER';

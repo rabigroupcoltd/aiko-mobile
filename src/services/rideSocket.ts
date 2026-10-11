@@ -6,34 +6,8 @@ import { createLogger } from '@/utils/logger';
 
 const log = createLogger('socket');
 
-/**
- * The `/ride` gateway — a notification pipe, and nothing else.
- *
- * The socket never sends. Every mutation the app makes is a REST call through
- * the controllers, which already carry retries, error toasts and react-query
- * invalidation; emitting the same thing here would need all of that rebuilt to
- * gain nothing. What arrives is a stream of notifications telling the app that
- * something changed so it can update what is on screen.
- *
- * One socket for the whole app, not one per screen: the server joins you to
- * your user room, your driver room and any in-flight trip room on connect, and
- * a second connection would duplicate every notification.
- *
- * Reconnecting needs no resubscription and no replay. The server re-joins every
- * room on each handshake, and because nothing was ever in flight there is
- * nothing to reconcile — a driver calls `GET /api/drivers/state` and rebuilds.
- */
-
 let socket: Socket | null = null;
 
-// ------------------------------------------------------------------- codes
-
-/**
- * The driver's card grid.
- *
- * A card appears on REQUEST_NEW and leaves on exactly one of the other three.
- * There is no fourth way, and the app never expires one on its own.
- */
 export const INFO_CODES = {
   REQUEST_NEW: 'REQUEST_NEW',
   REQUEST_WON: 'REQUEST_WON',
@@ -59,22 +33,11 @@ export const ERROR_CODES = {
 
 export type SocketErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
 
-/** Why a card left the grid. */
 export type RemovalReason = 'TAKEN' | 'CANCELLED' | 'NO_DRIVER_FOUND' | 'SKIPPED';
 
-// ---------------------------------------------------------------- payloads
-
-/**
- * An open order as a driver sees it before committing.
- *
- * Carries no compatibility score on purpose: that is per-driver, and one
- * notification goes to everyone in the ring. The screen refetches the grid on
- * receipt, which is where the scoring happens.
- */
 export interface OrderCard {
   id: string;
   vehicleType: string;
-  /** What the passenger is sending. Null on orders raised before the field existed. */
   description: string | null;
   pickupLocation: string;
   pickupLat: number;
@@ -98,7 +61,6 @@ export interface DriverPosition {
   recordedAt: string;
 }
 
-/** `data` keyed by the code that carried it. */
 export interface InfoPayloads {
   REQUEST_NEW: { order: OrderCard };
   REQUEST_WON: { order: { id: string; [key: string]: unknown } };
@@ -114,11 +76,6 @@ export interface InfoPayloads {
   ORDER_NO_DRIVER: { order: { id: string; [key: string]: unknown } };
   DRIVER_LOCATION: DriverPosition;
   MESSAGE: { message: { orderId: string; [key: string]: unknown } };
-  /**
-   * The other party opened the chat, so everything sent before `readAt` is
-   * read. Both parties are in the trip room, so compare `readerId` against your
-   * own id to ignore the receipt you just caused.
-   */
   MESSAGE_READ: { orderId: string; readerId: string; readAt: string; count: number };
   KYC_UPDATED: { driver: { id: string; kycStatus: string; [key: string]: unknown } };
 }
@@ -135,14 +92,6 @@ export interface SocketErrorEnvelope {
   error: string;
 }
 
-// ------------------------------------------------------------ connection
-
-/**
- * Connects, or returns the live socket.
- *
- * Reconnection is left to socket.io — it backs off on its own, and the gateway
- * re-joins every room on each successful handshake.
- */
 export function getRideSocket(): Socket | null {
   const token = useAuthStore.getState().accessToken;
   if (!token) return null;
@@ -152,8 +101,6 @@ export function getRideSocket(): Socket | null {
   socket = io(WEBSOCKET_URL, {
     transports: ['websocket'],
     auth: { token },
-    // The handshake carries the token, so a stale socket left over from a
-    // previous session must not be reused after signing in as someone else.
     forceNew: true,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 8000,
@@ -165,9 +112,6 @@ export function getRideSocket(): Socket | null {
 
   socket.on('error', (envelope: SocketErrorEnvelope) => {
     if (envelope?.code === ERROR_CODES.UNAUTHORIZED) {
-      // The server closes the socket right after this. Reconnecting would loop
-      // on the same rejected token, so the session is dropped instead and the
-      // navigator falls back to the auth stack on its next render.
       log.warn('handshake rejected — clearing session');
       disconnectRideSocket();
       useAuthStore.getState().clearSession();

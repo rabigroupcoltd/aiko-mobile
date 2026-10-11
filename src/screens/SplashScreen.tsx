@@ -5,15 +5,6 @@ import { AikoMark } from '@/components/brand/AikoMark';
 import { BrandBackdrop } from '@/components/brand/BrandBackdrop';
 import { green, spacing, typographyFor, lightColors } from '@/theme';
 
-/**
- * Shown while the store rehydrates from AsyncStorage. No navigator is mounted
- * behind this, so nothing can navigate on stale defaults.
- *
- * Deliberately brand-green in both schemes — it matches the native splash
- * (same glyph, same green), so the hand-off from native to JS is seamless, and
- * a scheme-dependent splash would flicker on cold start before the stored
- * theme preference has been read.
- */
 export function SplashScreen() {
   const enter = useRef(new Animated.Value(0)).current;
 

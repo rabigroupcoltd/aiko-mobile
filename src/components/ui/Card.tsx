@@ -11,7 +11,6 @@ interface CardProps {
   style?: ViewStyle;
 }
 
-/** The app's core surface primitive: rounded, softly raised, theme-aware. */
 export function Card({
   children,
   onPress,

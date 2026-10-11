@@ -7,21 +7,11 @@ import type { OnboardingState } from '@/modules/onboarding/onboardingTypes';
 
 export const AUTH_STORAGE_KEY = 'aiko-auth-v1';
 
-/**
- * Server session: the bearer token, who it belongs to, and where onboarding
- * left off.
- *
- * Deliberately separate from `appStore`, which holds local demo state. The
- * request interceptor reads this synchronously via `getState()`, so it must not
- * be entangled with anything that re-renders.
- */
 interface AuthState {
-  /** False until AsyncStorage rehydration finishes. Never persisted. */
   _hasHydrated: boolean;
 
   accessToken: string | null;
   user: AuthUser | null;
-  /** Last known onboarding state, refreshed on every sign-in. */
   onboarding: OnboardingState | null;
 
   setSession: (session: {
@@ -56,15 +46,12 @@ export const useAuthStore = create<AuthState>()(
       name: AUTH_STORAGE_KEY,
       storage: createJSONStorage(() => AsyncStorage),
 
-      // `_hasHydrated` must never round-trip: a persisted `true` would be
-      // applied on the next boot before rehydration finished, defeating the gate.
       partialize: (state) => ({
         accessToken: state.accessToken,
         user: state.user,
         onboarding: state.onboarding,
       }),
 
-      // Set on both paths — a corrupt payload must not strand the app.
       onRehydrateStorage: () => () => {
         useAuthStore.setState({ _hasHydrated: true });
       },
@@ -72,5 +59,4 @@ export const useAuthStore = create<AuthState>()(
   ),
 );
 
-/** Synchronous token read for the axios interceptor. */
 export const getAccessToken = (): string | null => useAuthStore.getState().accessToken;

@@ -9,18 +9,12 @@ import {
 } from '@/utils/phone';
 
 interface PhoneInputProps {
-  /** The raw national significant number, e.g. "8031234567". */
   value: string;
   onChange: (nationalNumber: string) => void;
   error?: string;
   autoFocus?: boolean;
 }
 
-/**
- * Phone entry with a fixed +234 chip. The country code is not editable — this
- * demo is Minna-only, and a free-text country field is a needless way for a
- * stakeholder to end up with an unparseable number on stage.
- */
 export function PhoneInput({ value, onChange, error, autoFocus }: PhoneInputProps) {
   const styles = useStyles();
   const { colors } = useTheme();
@@ -42,8 +36,6 @@ export function PhoneInput({ value, onChange, error, autoFocus }: PhoneInputProp
           placeholderTextColor={colors.textDisabled}
           keyboardType="phone-pad"
           autoFocus={autoFocus}
-          // A little slack over the 10 digits so paste of a full +234… number
-          // still lands; toNationalNumber trims it back.
           maxLength={PHONE_NSN_LENGTH + 4}
           textContentType="telephoneNumber"
           autoComplete="tel"

@@ -44,24 +44,8 @@ type Props = NativeStackScreenProps<RiderStackParamList, typeof ROUTES.RIDER_HOM
 
 type Tab = 'available' | 'active';
 
-/**
- * Below this width the grid collapses to one column — §8.
- *
- * A two-column card on a small handset leaves the price and the two addresses
- * fighting for about 150 points, which is unreadable at arm's length in a
- * moving vehicle.
- */
 const TWO_COLUMN_MIN_WIDTH = 480;
 
-/**
- * The driver dashboard.
- *
- * Three things run at once while online: a location heartbeat that keeps the
- * driver in the dispatch pool, a socket that pushes orders the moment they are
- * raised nearby, and a slow poll of the marketplace that both backstops a
- * dropped socket and supplies the per-driver compatibility scores the broadcast
- * cannot carry.
- */
 export function RiderHomeScreen({ navigation }: Props) {
   const styles = useStyles();
   const { colors } = useTheme();
@@ -73,10 +57,6 @@ export function RiderHomeScreen({ navigation }: Props) {
   const { data: driver, refetch: refetchDriver } = useGetMyDriverProfileManager();
   const { data: config } = useGetMarketplaceConfigManager();
 
-  /**
-   * The shift: state, the online switch, and the heartbeat that keeps this
-   * driver in the dispatch pool while they are not moving.
-   */
   const {
     online,
     presenceLapsed,
@@ -89,8 +69,6 @@ export function RiderHomeScreen({ navigation }: Props) {
   const { skipOrder } = SkipOrderManager();
   const { updateOrderStatus, isLoading: advancing } = UpdateOrderStatusManager();
 
-  // Publishing a position is what keeps the driver in the pool — the server
-  // drops anyone whose heartbeat lapses after DRIVER_HEARTBEAT_TTL.
   const {
     coords,
     granted,
@@ -102,14 +80,7 @@ export function RiderHomeScreen({ navigation }: Props) {
 
   const [tab, setTab] = useState<Tab>('available');
   const [reserving, setReserving] = useState<string | null>(null);
-  /**
-   * Cards dismissed locally, so a skip or a lost race disappears immediately
-   * instead of lingering until the next poll. The server is still the authority
-   * — this only hides what it is about to stop returning anyway.
-   */
   const [hidden, setHidden] = useState<Set<string>>(new Set());
-
-  // ---------------------------------------------------------- active orders
 
   const { data: active, refetch: refetchActive } = useGetActiveOrdersManager();
 
@@ -118,13 +89,10 @@ export function RiderHomeScreen({ navigation }: Props) {
   const capacity = active?.capacity ?? config?.maxReservedOrdersPerDriver ?? 3;
   const atCapacity = held >= capacity;
 
-  // --------------------------------------------------------- available grid
-
   const { data: grid, refetch: refetchGrid, isFetching: loadingGrid } =
     useGetAvailableOrdersManager({
       lat: coords?.lat,
       lng: coords?.lng,
-      // No point asking for orders the driver has no room to take.
       enabled: online && !atCapacity && coords != null,
     });
 
@@ -133,28 +101,13 @@ export function RiderHomeScreen({ navigation }: Props) {
     [grid, hidden],
   );
 
-  // ---------------------------------------------------------------- realtime
-
-  // A new request landed nearby. Refetching rather than appending keeps one
-  // source of truth — and the notification carries no compatibility score,
-  // which is most of what the card shows.
   useRideEvent('REQUEST_NEW', () => void refetchGrid(), online && !atCapacity);
 
-  /**
-   * The card is gone.
-   *
-   * Two codes, one outcome: REQUEST_LOST is another driver winning the race,
-   * REQUEST_CLOSED is the customer cancelling or the search giving up. The grid
-   * drops the card either way, and the message the server sent explains which
-   * it was — worth showing, because a card vanishing with no reason reads as a
-   * bug rather than as losing a race.
-   */
   useRideEvents(['REQUEST_LOST', 'REQUEST_CLOSED'], (payload, code, message) => {
     setHidden((current) => new Set(current).add(payload.orderId));
     if (code === 'REQUEST_LOST') showToast.info(message);
   });
 
-  // Won it. The card becomes a held order, so both lists change at once.
   useRideEvent('REQUEST_WON', (payload) => {
     setHidden((current) => new Set(current).add(payload.order.id));
     void refetchActive();
@@ -164,31 +117,18 @@ export function RiderHomeScreen({ navigation }: Props) {
   useRideEvent('ORDER_STATUS', () => {
     void refetchActive();
     void refetchGrid();
-    // Capacity moves with every status change, and it is what decides whether
-    // the driver is offered anything else.
     void refetchShift();
   });
   useRideEvent('ORDER_CANCELLED', () => void refetchActive());
 
-  /**
-   * Unread chat counts, one request for every order held.
-   *
-   * The socket keeps it honest between polls: a message arriving bumps the
-   * badge, and reading one elsewhere clears it, so the slow interval is only a
-   * backstop for a dropped connection.
-   */
   const { data: unread, refetch: refetchUnread } = useGetUnreadCountsManager();
 
   useRideEvent('MESSAGE', () => void refetchUnread());
   useRideEvent('MESSAGE_READ', () => void refetchUnread());
 
-  // ------------------------------------------------------------- analytics
-
   const { data: analytics, refetch: refetchAnalytics } = useGetDriverAnalyticsManager({
     id: driver?.id,
   });
-
-  // --------------------------------------------------------------- actions
 
   const toggleOnline = useCallback(
     async (value: boolean) => {
@@ -202,9 +142,6 @@ export function RiderHomeScreen({ navigation }: Props) {
         return;
       }
 
-      // Ask for location before going online rather than after: without a
-      // position the server cannot place this driver, so they would appear
-      // online and simply never be offered anything.
       if (value) {
         const ok = await requestLocation();
         if (!ok) {
@@ -217,21 +154,12 @@ export function RiderHomeScreen({ navigation }: Props) {
         await setOnline(value);
         await refetchDriver();
       } catch (e: any) {
-        // The server refuses for reasons the driver needs to hear — unapproved
-        // KYC, or blocked for debt.
         showToast.error(e?.message ?? 'Could not change your status.');
       }
     },
     [driver, activeOrders.length, requestLocation, setOnline, refetchDriver],
   );
 
-  /**
-   * Claim an order.
-   *
-   * Losing the race is a normal outcome, not an error — several drivers see the
-   * same card and exactly one wins. The two server codes are translated into
-   * something a driver can act on, and the card is dropped either way.
-   */
   const handleAccept = useCallback(
     async (order: MarketplaceOrder) => {
       if (reserving) return;
@@ -267,15 +195,11 @@ export function RiderHomeScreen({ navigation }: Props) {
 
   const handleSkip = useCallback(
     async (order: MarketplaceOrder) => {
-      // Hidden first: a skip is the driver saying "not this one", and making
-      // them wait on a round trip to see it go is the wrong feel.
       setHidden((current) => new Set(current).add(order.id));
 
       try {
         await skipOrder({ orderId: order.id });
       } catch {
-        // Nothing to recover — the order is still open for everyone else, and
-        // the next poll will bring it back if the skip did not land.
       }
     },
     [skipOrder],
@@ -286,7 +210,6 @@ export function RiderHomeScreen({ navigation }: Props) {
       try {
         await updateOrderStatus({ id: orderId, status });
         await Promise.all([refetchActive(), refetchAnalytics()]);
-        // A delivery frees a slot, so the grid becomes relevant again.
         if (status === 'DELIVERED') void refetchGrid();
       } catch (e: any) {
         showToast.error(e?.message ?? 'Could not update the order.');
@@ -295,15 +218,12 @@ export function RiderHomeScreen({ navigation }: Props) {
     [updateOrderStatus, refetchActive, refetchAnalytics, refetchGrid],
   );
 
-  /** Hands the stop to whatever maps app the driver actually uses. */
   const navigateTo = useCallback((lat: number, lng: number, label: string) => {
     const query = encodeURIComponent(label);
     void Linking.openURL(`geo:${lat},${lng}?q=${lat},${lng}(${query})`).catch(() =>
       Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`),
     );
   }, []);
-
-  // ----------------------------------------------------------------- render
 
   const vehicle = driver ? describeVehicle(driver.vehicleType) : null;
   const dispatchStatus = active?.status ?? (online ? 'AVAILABLE' : 'OFFLINE');
@@ -357,17 +277,6 @@ export function RiderHomeScreen({ navigation }: Props) {
         />
       </Card>
 
-      {/*
-        The shift switch says online but the server's presence key has lapsed —
-        the app was killed or frozen mid-shift. The heartbeat restores it within
-        thirty seconds on its own, so this explains a gap rather than asking the
-        driver to do anything: without it the screen reads "online" while no
-        orders arrive, which looks like the app is broken.
-      */}
-      {/*
-        Owed commission has reached the limit. Orders already held still get
-        delivered; nothing new is offered until an admin records a payment.
-      */}
       {debt?.locked ? (
         <Card style={styles.warning}>
           <Text style={styles.warningTitle}>Commission limit reached</Text>
@@ -398,13 +307,6 @@ export function RiderHomeScreen({ navigation }: Props) {
         </Card>
       ) : null}
 
-      {/*
-        The failure this prevents is invisible otherwise: without background
-        location the driver drops out of the dispatch pool the moment their
-        screen locks, while the app still shows them as online. Say so plainly
-        and explain the Settings step, because on Android 11+ the request opens
-        Settings rather than a dialog.
-      */}
       {online && granted !== false && !backgroundGranted ? (
         <Card style={styles.warning}>
           <Text style={styles.warningTitle}>Orders stop when your screen locks</Text>
@@ -427,8 +329,6 @@ export function RiderHomeScreen({ navigation }: Props) {
           value={`₦${(analytics?.todayEarnings ?? 0).toLocaleString()}`}
           highlight
         />
-        {/* Capacity is the number a driver checks constantly, so it sits beside
-            earnings rather than being buried in the active tab. */}
         <StatTile label="Orders held" value={`${held} / ${capacity}`} />
       </View>
 
@@ -471,8 +371,6 @@ export function RiderHomeScreen({ navigation }: Props) {
     </Screen>
   );
 }
-
-// ---------------------------------------------------------------- available
 
 function AvailableTab({
   online,
@@ -527,11 +425,6 @@ function AvailableTab({
     );
   }
 
-  /**
-   * A plain wrapped row rather than a FlatList: the screen already scrolls, and
-   * nesting a virtualised list inside a ScrollView produces the warning and the
-   * broken scrolling that comes with it. The grid is capped at 20 cards.
-   */
   return (
     <View style={styles.grid}>
       {offers.map((order) => (
@@ -551,8 +444,6 @@ function AvailableTab({
   );
 }
 
-// ------------------------------------------------------------------- active
-
 function ActiveTab({
   orders,
   route,
@@ -568,7 +459,6 @@ function ActiveTab({
   onAdvance: (orderId: string, status: OrderStatus) => void;
   onNavigate: (lat: number, lng: number, label: string) => void;
   onChat: (orderId: string, title: string) => void;
-  /** Unread messages keyed by order id — absent means none. */
   unreadByOrder: Record<string, number>;
 }) {
   const styles = useStyles();
@@ -585,8 +475,6 @@ function ActiveTab({
 
   return (
     <View style={styles.activeList}>
-      {/* The route first: it is the only view that spans all the orders, and it
-          is what the driver actually follows. */}
       <RouteTimeline
         route={route}
         onStopPress={(stop) => onNavigate(stop.lat, stop.lng, stop.address)}
@@ -610,8 +498,6 @@ function ActiveTab({
     </View>
   );
 }
-
-// -------------------------------------------------------------------- bits
 
 function TabButton({
   label,

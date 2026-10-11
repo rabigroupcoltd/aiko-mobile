@@ -23,20 +23,10 @@ import { makeStyles, radius, spacing, useTheme } from '@/theme';
 import showToast from '@/utils/toast';
 
 interface Props {
-  /** Both stacks register this screen, so the route type differs per side. */
   navigation: { goBack: () => void };
   route: { params: { orderId: string; title?: string } };
 }
 
-/**
- * Chat for one order.
- *
- * Scoped to the order, not to the pair of people — §29 and §45. A driver
- * carrying three orders has three separate conversations, and a message about
- * one of them cannot leak into another. The server enforces the same thing:
- * only participants of that order may read or post, and the thread closes when
- * the order does.
- */
 export function OrderChatScreen({ navigation, route }: Props) {
   const styles = useStyles();
   const { colors } = useTheme();
@@ -47,10 +37,6 @@ export function OrderChatScreen({ navigation, route }: Props) {
   const [draft, setDraft] = useState('');
   const listRef = useRef<FlatList<RideMessage>>(null);
 
-  /**
-   * Polled slowly. MESSAGE pushes each message as it lands, so this only has
-   * to cover a socket that dropped mid-conversation.
-   */
   const { data: messages, refetch } = useGetOrderMessagesManager({
     id: orderId,
     refetchInterval: 20_000,
@@ -59,23 +45,9 @@ export function OrderChatScreen({ navigation, route }: Props) {
   const { sendMessage, isLoading: sending } = SendOrderMessageManager();
   const { markRead } = MarkMessagesReadManager();
 
-  /**
-   * Held in a ref so the effects below depend on the order id alone.
-   * `markRead` is a fresh closure each render, and depending on it would fire
-   * the mark-read call on every keystroke in the composer.
-   */
   const markReadRef = useRef(markRead);
   markReadRef.current = markRead;
 
-  /**
-   * Opening the chat is what "read" means.
-   *
-   * Deliberately not tied to the polling query: that runs every twenty seconds
-   * as a backstop for a dropped socket, including while the app is backgrounded,
-   * and a background refresh is not somebody reading. Failures are swallowed —
-   * an unread badge that lingers is a far smaller problem than a chat screen
-   * that throws.
-   */
   useEffect(() => {
     if (!orderId) return;
     void markReadRef.current(orderId).catch(() => undefined);
@@ -84,17 +56,13 @@ export function OrderChatScreen({ navigation, route }: Props) {
   useRideEvent(
     'MESSAGE',
     ({ message }) => {
-      // The room is per order, but a driver holding several is joined to all of
-      // them — so the id still has to be checked.
       if (message?.orderId !== orderId) return;
       void refetch();
-      // Arrived while the thread is on screen, so it is read on arrival.
       void markReadRef.current(orderId).catch(() => undefined);
     },
     Boolean(orderId),
   );
 
-  // The other party opened the thread — repaint our own bubbles as read.
   useRideEvent(
     'MESSAGE_READ',
     (payload) => {
@@ -109,15 +77,12 @@ export function OrderChatScreen({ navigation, route }: Props) {
     if (messages?.length) listRef.current?.scrollToEnd({ animated: true });
   }, [messages?.length]);
 
-  /** The newest message I sent, which is the only one that shows a receipt. */
   const lastMineId = messages?.filter((m) => m.senderId === myUserId).at(-1)?.id;
 
   const handleSend = useCallback(async () => {
     const content = draft.trim();
     if (!content || sending) return;
 
-    // Cleared optimistically: leaving the text in place after a successful send
-    // is the more common annoyance, and a failure puts it back.
     setDraft('');
 
     try {
@@ -153,8 +118,6 @@ export function OrderChatScreen({ navigation, route }: Props) {
             <Bubble
               message={item}
               mine={item.senderId === myUserId}
-              // Only the last of your own messages carries a receipt — a "Read"
-              // under every bubble is noise, and the newest one implies the rest.
               showReceipt={item.senderId === myUserId && item.id === lastMineId}
             />
           )}

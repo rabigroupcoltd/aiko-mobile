@@ -49,14 +49,6 @@ export function HomeScreen({ navigation }: Props) {
 
   const [sheet, setSheet] = useState<SheetTarget>(null);
 
-  /**
-   * One quote per active vehicle type, priced server-side for this exact route.
-   *
-   * There is deliberately no local fare arithmetic left here. The server owns
-   * pricing — a number computed on the client could only ever disagree with
-   * what the trip actually costs, and showing a passenger a price we do not
-   * honour is worse than showing them a spinner for a moment.
-   */
   const { data: quotes, isFetching: quoting, isError } = useGetAllFareEstimatesManager({
     pickupLat: pickup?.lat,
     pickupLng: pickup?.lng,
@@ -73,9 +65,6 @@ export function HomeScreen({ navigation }: Props) {
   const phonesValid =
     isValidNigerianPhone(pickupPhone) && isValidNigerianPhone(dropoffPhone);
 
-  // Only bookable once the server has priced the selected vehicle: the order is
-  // created against that quote, so leaving before it lands would book blind.
-  // Both numbers are required — the driver has to reach someone at each end.
   const ready = hasRoute && phonesValid && Boolean(selectedQuote);
 
   const handleSelect = (place: Place) => {
@@ -93,8 +82,6 @@ export function HomeScreen({ navigation }: Props) {
               ? `Review order · ₦${selectedQuote.fare.toLocaleString()}`
               : 'Review order'
           }
-          // Confirmation is its own screen — §5. Nothing is created or
-          // dispatched until the customer taps Confirm there.
           onPress={() => navigation.navigate(ROUTES.ORDER_REVIEW)}
           disabled={!ready}
           loading={hasRoute && quoting && !selectedQuote}
@@ -232,22 +219,6 @@ function LocationRow({
   );
 }
 
-/**
- * A phone number tied to one end of the order.
- *
- * Kept inside the same card as the address it belongs to, rather than in a
- * separate contacts block: the driver calls "the person at the pickup", so the
- * number reads as part of that leg.
- */
-/**
- * What is being sent.
- *
- * Optional, and deliberately not validated. The driver reads it to decide
- * whether they can carry the thing, and the range of answers people give — "my
- * daughter's lunchbox", "50kg of rice", "documents, urgent" — is exactly what a
- * category picker would have flattened. Free text is the honest shape until
- * there is enough of it to learn categories from.
- */
 function DescriptionRow({
   value,
   onChange,
@@ -266,7 +237,6 @@ function DescriptionRow({
         onChangeText={onChange}
         placeholder="Optional — e.g. two cartons of frozen chicken"
         placeholderTextColor={colors.textDisabled}
-        // Matches the column, so the server never has to reject what was typed.
         maxLength={500}
         multiline
         accessibilityLabel="What are you sending?"
@@ -290,8 +260,6 @@ function ContactRow({
   const styles = useStyles();
   const { colors } = useTheme();
 
-  // Only complained about once there is enough typed to be wrong — nagging an
-  // empty field the moment it is focused is noise.
   const invalid = value.length >= 4 && !isValidNigerianPhone(value);
 
   return (
@@ -335,7 +303,6 @@ const useStyles = makeStyles(({ colors, type }) => ({
     alignItems: 'center',
     gap: spacing.sm,
     paddingBottom: spacing.md,
-    // Aligned with the location value above, past the 10px dot and its gap.
     paddingLeft: 42,
     paddingRight: spacing.base,
   },

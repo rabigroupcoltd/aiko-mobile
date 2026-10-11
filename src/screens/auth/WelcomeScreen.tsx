@@ -33,18 +33,6 @@ export function WelcomeScreen({ navigation }: Props) {
   const { signInWithFirebase } = FirebaseSignInManager();
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  /**
-   * Google → Firebase → our API, in that order.
-   *
-   * Three hops because each one only produces what the next needs: Google
-   * proves who they are, Firebase turns that into a token our backend trusts,
-   * and the backend turns that into a session plus the onboarding state.
-   *
-   * No navigation call on success: storing the session updates `authStore`,
-   * and RootNavigator swaps this screen out for OnboardingStack — resuming at
-   * PHONE, since Google gives no number and a dispatch app needs a reachable
-   * one — on its next render.
-   */
   const handleGoogle = async () => {
     setGoogleLoading(true);
 
@@ -52,19 +40,15 @@ export function WelcomeScreen({ navigation }: Props) {
       const result = await signInWithGoogle();
 
       if (!result.ok) {
-        // A cancellation is a deliberate user action, not an error worth a dialog.
         if (result.reason !== 'cancelled') {
           Alert.alert('Google sign-in', describeFailure(result.reason));
         }
         return;
       }
 
-      // Kept for the profile form's pre-fill, whatever happens below.
       setGoogleAccount(result.account);
 
       if (!result.idToken) {
-        // Means the web client ID is missing from the Google Sign-In config —
-        // sign-in "succeeds" but yields nothing we can exchange.
         Alert.alert('Google sign-in', 'Sign-in did not return a token. Please try again.');
         return;
       }
@@ -77,7 +61,6 @@ export function WelcomeScreen({ navigation }: Props) {
 
       await signInWithFirebase({ idToken: exchanged.idToken });
     } catch {
-      // useApiManager has already shown the reason.
     } finally {
       setGoogleLoading(false);
     }
@@ -101,7 +84,6 @@ export function WelcomeScreen({ navigation }: Props) {
           <Text style={styles.tagline}>Bikes and keke across Minna, a tap away.</Text>
         </View>
 
-        {/* Short phones keep the sign-in sheet in view instead of the illustration. */}
         {showTrip ? <TripPreview /> : null}
       </SafeAreaView>
 
@@ -120,14 +102,6 @@ export function WelcomeScreen({ navigation }: Props) {
           ))}
         </View>
 
-        {/*
-          Google is the only credential that gets a real backend session right
-          now — a dispatch app needs a reachable phone number, but there is no
-          SMS provider behind the OTP screen yet (see featureFlags.REQUIRE_OTP),
-          so a phone-only sign-in has nothing to verify against. Hidden
-          entirely when no OAuth client is configured either — a button that
-          can only ever fail is worse than no button.
-        */}
         {isGoogleSignInConfigured ? (
           <GoogleSignInButton onPress={handleGoogle} loading={googleLoading} />
         ) : (
@@ -142,11 +116,6 @@ export function WelcomeScreen({ navigation }: Props) {
   );
 }
 
-/**
- * A little illustrated trip card — pickup, drop-off and a rider on the way —
- * so the first screen shows what the app does instead of only saying it.
- * Decorative: hidden from screen readers.
- */
 function TripPreview() {
   const styles = useStyles();
 
@@ -182,7 +151,6 @@ function TripPreview() {
 }
 
 const useStyles = makeStyles(({ colors, type }) => ({
-  // The hero stays brand green in both schemes; only the sheet below flips.
   container: { flex: 1, backgroundColor: green[500] },
 
   hero: {

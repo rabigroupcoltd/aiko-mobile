@@ -11,23 +11,10 @@ interface MapPanelProps {
   pickup?: Place | null;
   dropoff?: Place | null;
   style?: ViewStyle;
-  /** Draw a straight line between the two points. */
   showRoute?: boolean;
-  /**
-   * The assigned driver's live position, streamed over the socket. When set,
-   * the camera follows it instead of framing the route — during a trip, where
-   * the driver is now is the only thing anyone is watching.
-   */
   driver?: { lat: number; lng: number; heading?: number } | null;
 }
 
-/**
- * Real Google map centred on Minna.
- *
- * Falls back to a styled placeholder when no API key is configured, so the rest
- * of the demo stays usable rather than showing a blank grey tile with an
- * "Authorization failure" in logcat.
- */
 export function MapPanel({
   pickup,
   dropoff,
@@ -39,8 +26,6 @@ export function MapPanel({
   const { colors } = useTheme();
   const mapRef = useRef<MapView>(null);
 
-  // Follow the driver once there is one. Re-framing the whole route on every
-  // position update would zoom out and lose them.
   useEffect(() => {
     if (!HAS_MAPS_KEY || !mapRef.current || !driver) return;
 
@@ -49,10 +34,8 @@ export function MapPanel({
     });
   }, [driver]);
 
-  // Keep both markers in view whenever the selection changes.
   useEffect(() => {
     if (!HAS_MAPS_KEY || !mapRef.current) return;
-    // The driver camera above owns the viewport once a trip is under way.
     if (driver) return;
 
     const points = [pickup, dropoff].filter(Boolean) as Place[];
@@ -86,12 +69,8 @@ export function MapPanel({
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
-        // Android only has Google. iOS uses Google tiles when the build carries
-        // an iOS Maps key, and Apple Maps (no key needed) otherwise.
         provider={Platform.OS === 'ios' && IOS_USES_GOOGLE_MAPS ? PROVIDER_GOOGLE : undefined}
         initialRegion={MINNA_CENTER}
-        // A default light map inside a dark screen is jarring, so the tiles
-        // follow the app's scheme too.
         customMapStyle={colors.isDark ? DARK_MAP_STYLE : undefined}
         showsUserLocation={false}
         showsMyLocationButton={false}
@@ -117,8 +96,6 @@ export function MapPanel({
           <Marker
             coordinate={{ latitude: driver.lat, longitude: driver.lng }}
             title="Your driver"
-            // Rotating the marker to the reported heading is what makes the
-            // vehicle read as travelling rather than sliding sideways.
             rotation={driver.heading ?? 0}
             flat
             anchor={{ x: 0.5, y: 0.5 }}>
@@ -141,7 +118,6 @@ export function MapPanel({
   );
 }
 
-/** Shown when GOOGLE_MAPS_ANDROID_API_KEY is not set. */
 function MapFallback({ pickup, dropoff, style }: MapPanelProps) {
   const styles = useStyles();
 
@@ -171,7 +147,6 @@ const useStyles = makeStyles(({ colors, type }) => ({
     gap: spacing.xs,
     padding: spacing.base,
   },
-  // A faint tint suggesting map paper without pretending to be real geography.
   grid: {
     position: 'absolute',
     top: 0,

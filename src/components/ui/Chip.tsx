@@ -7,7 +7,6 @@ type Tone = 'neutral' | 'success' | 'pending' | 'danger' | 'info' | 'brand';
 interface ChipProps {
   label: string;
   tone?: Tone;
-  /** Leading dot — useful for status ("Pending", "Approved"). */
   dot?: boolean;
   style?: ViewStyle;
 }

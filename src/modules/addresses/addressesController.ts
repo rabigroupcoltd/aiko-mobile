@@ -15,23 +15,8 @@ import type {
 
 export const ADDRESSES_QUERY_KEY = 'addresses';
 
-/** Below this the server rejects the query, so don't spend the round trip. */
 const MIN_SEARCH_LENGTH = 2;
 
-// ============================================
-// QUERY CONTROLLERS
-// ============================================
-
-/**
- * Cache-first place search.
- *
- * The server checks the caller's saved addresses and the shared place cache
- * before falling back to the Places API, so most keystrokes never leave the
- * database. Results are held for a few minutes because a landmark's
- * coordinates do not move.
- *
- * Debounce `q` at the call site — this fires on every change to it.
- */
 export const useSearchAddressesManager = ({
   q,
   lat,
@@ -66,7 +51,6 @@ export const useSearchAddressesManager = ({
   });
 };
 
-/** Saved addresses — default first, then newest. */
 export const useGetAddressesManager = ({ enabled = true }: QueryOptions = {}) => {
   return useQuery({
     queryKey: [ADDRESSES_QUERY_KEY],
@@ -100,11 +84,6 @@ export const useGetAddressManager = ({
   });
 };
 
-// ============================================
-// MUTATION CONTROLLERS
-// ============================================
-
-/** Addresses are unique per user, so saving the same text twice updates it. */
 export const CreateAddressManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     Address,
@@ -146,7 +125,6 @@ export const UpdateAddressManager = () => {
   return { updateAddress, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
-/** Removes the personal row only — the shared place cache is untouched. */
 export const DeleteAddressManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     DeleteAddressResult,

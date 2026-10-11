@@ -14,13 +14,6 @@ const OPTIONS: Option[] = [
   { value: 'dark', label: 'Dark', icon: '🌙' },
 ];
 
-/**
- * Appearance selector.
- *
- * Three explicit choices rather than a binary switch: with a plain on/off
- * toggle there is no way back to "follow my phone" once you've touched it, and
- * following the system is the default.
- */
 export function ThemeToggle() {
   const styles = useStyles();
   const { preference, setPreference, scheme } = useTheme();

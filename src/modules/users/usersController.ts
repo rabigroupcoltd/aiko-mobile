@@ -8,10 +8,6 @@ import type { UpdateUserVariables, User } from './usersTypes';
 
 export const USERS_QUERY_KEY = 'users';
 
-// ============================================
-// QUERY CONTROLLERS
-// ============================================
-
 export const useGetUsersManager = ({ enabled = true }: QueryOptions = {}) => {
   return useQuery({
     queryKey: [USERS_QUERY_KEY],
@@ -45,11 +41,6 @@ export const useGetUserManager = ({
   });
 };
 
-// ============================================
-// MUTATION CONTROLLERS
-// ============================================
-
-/** Updates a profile. The server rejects any id but the caller's own. */
 export const UpdateUserManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     User,

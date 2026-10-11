@@ -16,14 +16,6 @@ import showToast from '@/utils/toast';
 
 type Props = NativeStackScreenProps<PassengerStackParamList, typeof ROUTES.ORDER_REVIEW>;
 
-/**
- * The confirmation step — §5.
- *
- * Nothing exists server-side until the customer taps Confirm. The price shown
- * is re-quoted here rather than carried from the home screen: the customer is
- * about to agree to a number, and the number they agree to must be the one the
- * order is created at, not one that was fetched a minute and a price change ago.
- */
 export function OrderReviewScreen({ navigation }: Props) {
   const styles = useStyles();
   const { colors } = useTheme();
@@ -60,20 +52,14 @@ export function OrderReviewScreen({ navigation }: Props) {
         pickupLng: pickup.lng,
         dropoffLat: dropoff.lat,
         dropoffLng: dropoff.lng,
-        // Trimmed to undefined rather than sent empty: the column is nullable,
-        // and an empty string would render as a blank line on the driver's card.
         description: description.trim() || undefined,
         pickupPhone: toE164(pickupPhone),
         dropoffPhone: toE164(dropoffPhone),
         paymentMethod: 'CASH',
-        // This is the marketplace lane. The order opens at
-        // SEARCHING_FOR_DRIVER and nearby drivers claim it themselves.
         dispatch: true,
       });
 
       confirmBooking(order.id);
-      // `replace` so Back from the tracking screen does not land on a
-      // confirmation for an order that has already been placed.
       navigation.replace(ROUTES.RIDER_FOUND, { orderId: order.id });
     } catch (e: any) {
       showToast.error(e?.message ?? 'Could not place your order.');
@@ -92,8 +78,6 @@ export function OrderReviewScreen({ navigation }: Props) {
     navigation,
   ]);
 
-  // Reached only with both ends set, but a state reset mid-navigation would
-  // otherwise render an empty summary.
   if (!pickup || !dropoff) {
     return (
       <Screen>
@@ -157,11 +141,6 @@ export function OrderReviewScreen({ navigation }: Props) {
           <Text style={styles.vehicleHint}>{vehicle.localName}</Text>
         </View>
 
-        {/*
-          Every line comes from the server's own breakdown. There is no fare
-          arithmetic on this screen — a number computed here could only ever
-          disagree with what the order is actually created at.
-        */}
         <PriceRow label="Base fare" value={quote?.breakdown.baseFare} />
         <PriceRow label="Distance" value={quote?.breakdown.distanceCharge} />
         <PriceRow label="Time" value={quote?.breakdown.timeCharge} />

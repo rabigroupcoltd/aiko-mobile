@@ -8,7 +8,6 @@ import { promptFor, stepIndexFor, type Prompt } from '@/liveness/prompts';
 import { AngleSmoother, Smoother, fuseEyes } from '@/liveness/signals';
 import type { FaceSnapshot, FailReason, LivenessPhase, LivenessState } from '@/liveness/types';
 
-/** What the screen renders from. Deliberately small and change-diffed. */
 interface LivenessUiState {
   phase: LivenessPhase;
   prompt: Prompt;
@@ -45,21 +44,6 @@ function uiFrom(state: LivenessState): LivenessUiState {
   };
 }
 
-/**
- * Binds the pure liveness machine to the camera.
- *
- * Performance strategy, in three layers — the detector callback fires at camera
- * framerate (30-60Hz), so naive setState here would destroy the frame rate:
- *
- *  1. `onFacesDetected` does almost nothing: copies scalars out of the native
- *     HybridObject into a ref, stamps a timestamp, counts a frame. No React
- *     state, no allocation beyond one small object, never touches the FSM.
- *  2. A fixed 10Hz interval drives the pure reducer. Decoupling from camera fps
- *     is what makes millisecond thresholds portable across devices, makes
- *     timeouts trivial, and makes the machine testable without a camera.
- *  3. React state is committed only when a compact UI key actually changes —
- *     roughly 6-12 renders for a whole session instead of ~900.
- */
 export function useLivenessCheck(onPassed?: () => void) {
   const stateRef = useRef<LivenessState>(initialState(Date.now()));
   const latestRef = useRef<FaceSnapshot | null>(null);
@@ -70,7 +54,6 @@ export function useLivenessCheck(onPassed?: () => void) {
   const yawSmoother = useRef(new AngleSmoother());
   const rollSmoother = useRef(new AngleSmoother());
 
-  // fps accounting for the debug overlay
   const frameCountRef = useRef(0);
   const fpsRef = useRef(0);
   const fpsWindowStart = useRef(Date.now());
@@ -83,36 +66,26 @@ export function useLivenessCheck(onPassed?: () => void) {
   const onPassedRef = useRef(onPassed);
   onPassedRef.current = onPassed;
 
-  /**
-   * MUST have empty deps. If this callback is recreated on every render the
-   * detector re-registers each time and the frame rate collapses.
-   */
   const onFacesDetected = useCallback((faces: Face[]) => {
     const now = Date.now();
     frameCountRef.current += 1;
     faceCountRef.current = faces.length;
 
     if (faces.length > 0) {
-      // Copy scalars out immediately — see faceSnapshot.ts for why this cannot
-      // be deferred, spread, or stored.
       latestRef.current = toFaceSnapshot(faces[0], now);
       lastFaceAtRef.current = now;
     }
   }, []);
 
   const onError = useCallback((error: Error) => {
-    // Detector errors are transient (buffer hiccups); the face-lost timeout
-    // already covers a genuinely dead detector.
     if (__DEV__) console.warn('[liveness] detector error', error);
   }, []);
 
-  // ── the 10Hz engine ───────────────────────────────────────────────────────
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
       const snapshot = latestRef.current;
 
-      // fps, recomputed once per second
       if (now - fpsWindowStart.current >= 1000) {
         fpsRef.current = frameCountRef.current;
         frameCountRef.current = 0;
@@ -142,7 +115,6 @@ export function useLivenessCheck(onPassed?: () => void) {
       const wasPassed = stateRef.current.phase === 'PASSED';
       stateRef.current = next;
 
-      // Layer 3: commit only when something the UI shows actually changed.
       const key = `${next.phase}|${promptFor(next).id}|${Math.round(next.progress * 10)}|${next.attempt}|${next.failReason ?? ''}`;
       if (key !== uiKeyRef.current) {
         uiKeyRef.current = key;
@@ -151,7 +123,6 @@ export function useLivenessCheck(onPassed?: () => void) {
 
       if (!wasPassed && next.phase === 'PASSED') onPassedRef.current?.();
 
-      // Debug overlay throttles itself to ~5Hz.
       debugTickRef.current += 1;
       if (debugTickRef.current % 2 === 0 && snapshot) {
         const frameW = snapshot.frameW || 1;
@@ -192,11 +163,9 @@ export function useLivenessCheck(onPassed?: () => void) {
     setUi(uiFrom(stateRef.current));
   }, [reset]);
 
-
   const detectorOptions = useMemo(
     () => ({
       performanceMode: 'fast' as const,
-      // Required for leftEyeOpenProbability / rightEyeOpenProbability.
       runClassifications: true,
       cameraFacing: 'front' as const,
       minFaceSize: 0.15,

@@ -9,16 +9,10 @@ interface AppHeaderProps {
   subtitle?: string;
   onBack?: () => void;
   onMenu?: () => void;
-  /** Rendered on the right — e.g. a skip button or step dots. */
   trailing?: ReactNode;
   style?: ViewStyle;
 }
 
-/**
- * In-screen header. Navigators run with `headerShown: false` throughout, so
- * every screen composes its own header — that keeps title/back/step-dots
- * layout consistent instead of half-configuring native headers per stack.
- */
 export function AppHeader({
   title,
   subtitle,

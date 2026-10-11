@@ -14,36 +14,28 @@ import type { RootStackParamList } from './types';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 
-
 function MainSwitch() {
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
   const accessToken = useAuthStore((s) => s.accessToken);
   const onboarding = useOnboardingState();
-
 
   useGetOnboardingManager({ enabled: Boolean(accessToken) });
 
   if (!hasHydrated) return <BrandSplash />;
   if (!accessToken) return <AuthStack />;
 
-
   if (!onboarding) return <BrandSplash />;
 
   if (!onboarding.passengerReady) {
-    // PROFILE_FORM, not PHONE_ENTRY: the phone step is commented out of
-    // OnboardingStack below — Google is the only sign-in for now and never
-    // resolves to PHONE, so this fallback only covers an unexpected resumeStep.
     const initialRouteName = onboardingStepRoute(onboarding.resumeStep) ?? ROUTES.PROFILE_FORM;
     return <OnboardingStack initialRouteName={initialRouteName} />;
   }
-
 
   return <AppDrawer key={onboarding.accountType ?? 'none'} />;
 }
 
 export function RootNavigator() {
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
-
 
   useEffect(() => {
     if (hasHydrated) void SplashScreen.hideAsync().catch(() => {});
@@ -55,7 +47,6 @@ export function RootNavigator() {
     <RootStack.Navigator screenOptions={{ headerShown: false }}>
       <RootStack.Screen name="Main">{renderMain}</RootStack.Screen>
 
-      {/* Root-level so any screen — including drawer items — can open it. */}
       <RootStack.Screen
         name={ROUTES.CAMERA_CAPTURE}
         component={CameraCaptureScreen}

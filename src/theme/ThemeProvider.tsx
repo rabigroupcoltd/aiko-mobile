@@ -12,32 +12,20 @@ import { useColorScheme } from 'react-native';
 
 import { darkColors, lightColors, type Colors } from './colors';
 
-/** What the user picked. 'system' follows the OS and is the default. */
 export type ThemePreference = 'system' | 'light' | 'dark';
 
 const STORAGE_KEY = 'aiko-theme-preference';
 
 interface ThemeContextValue {
   colors: Colors;
-  /** The resolved scheme actually in use. */
   scheme: 'light' | 'dark';
-  /** What the user selected — 'system' means "follow the OS". */
   preference: ThemePreference;
   setPreference: (p: ThemePreference) => void;
-  /** True once the stored preference has been read. */
   ready: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-/**
- * Theme state.
- *
- * Defaults to `'system'`, so the app follows the device's light/dark setting
- * until the user explicitly overrides it in Settings. The preference is stored
- * separately from the main app store so that a "Reset demo" — which wipes the
- * user's profile — doesn't also throw away their display choice.
- */
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemScheme = useColorScheme();
   const [preference, setPreferenceState] = useState<ThemePreference>('system');
@@ -53,7 +41,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         }
       })
       .catch(() => {
-        // A missing or unreadable preference just means "use the system default".
       })
       .finally(() => {
         if (!cancelled) setReady(true);
@@ -64,8 +51,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setPreference = useCallback((next: ThemePreference) => {
-    // Update immediately; persistence is best-effort so the toggle never feels
-    // like it's waiting on disk.
     setPreferenceState(next);
     void AsyncStorage.setItem(STORAGE_KEY, next).catch(() => {});
   }, []);
@@ -93,7 +78,6 @@ export function useTheme(): ThemeContextValue {
   return ctx;
 }
 
-/** Shorthand for the common case of only needing the palette. */
 export function useColors(): Colors {
   return useTheme().colors;
 }

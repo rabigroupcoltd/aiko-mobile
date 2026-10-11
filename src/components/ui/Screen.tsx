@@ -12,24 +12,16 @@ import { makeStyles, screenGutter, spacing, useTheme } from '@/theme';
 
 interface ScreenProps {
   children: ReactNode;
-  /** Wrap content in a ScrollView. Off for full-bleed screens like the camera. */
   scroll?: boolean;
-  /** Apply the standard horizontal gutter. Off for edge-to-edge content. */
   padded?: boolean;
-  /** Lift content above the keyboard — on for any screen with a text input. */
   keyboardAvoiding?: boolean;
   edges?: Edge[];
   background?: string;
   style?: ViewStyle;
   contentStyle?: ViewStyle;
-  /** Pinned to the bottom, outside the scroll area — for primary CTAs. */
   footer?: ReactNode;
 }
 
-/**
- * Standard screen shell: safe area, background, optional scrolling and keyboard
- * avoidance. Using this everywhere is what keeps ~30 screens visually aligned.
- */
 export function Screen({
   children,
   scroll = false,

@@ -11,7 +11,6 @@ import { makeStyles, radius, spacing } from '@/theme';
 
 type Props = NativeStackScreenProps<RiderStackParamList, typeof ROUTES.VEHICLE_DETAILS>;
 
-/** The makes most riders in Minna actually have — one tap instead of typing. */
 const BRANDS: Record<'bike' | 'tricycle', string[]> = {
   bike: ['Bajaj', 'TVS', 'Honda', 'Qlink', 'Haojue', 'Suzuki'],
   tricycle: ['Bajaj', 'TVS', 'Piaggio', 'Lifan', 'Daylong'],
@@ -23,12 +22,6 @@ const TIPS = [
   'Take it in daylight if you can.',
 ];
 
-/**
- * Step 4: the vehicle itself — a photo, its brand and plate number.
- *
- * Every keystroke is saved to the device draft, so leaving the app or going
- * back to retake a photo never loses what was typed.
- */
 export function VehicleDetailsScreen({ navigation }: Props) {
   const styles = useStyles();
   const photo = useAppStore((s) => s.documents.vehicle);

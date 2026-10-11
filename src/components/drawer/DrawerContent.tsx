@@ -20,8 +20,6 @@ export function DrawerContent(props: DrawerContentComponentProps) {
 
   const user = useAuthStore((s) => s.user);
   const onboarding = useOnboardingState();
-  // The just-captured photo, if the user retook it this session; the
-  // persisted one otherwise.
   const localPhoto = useAppStore((s) => s.photos.profile);
   const { logout } = useLogoutManager();
   const openCamera = useOpenCamera();

@@ -6,16 +6,13 @@ import { makeStyles, radius, spacing } from '@/theme';
 interface ListRowProps {
   title: string;
   subtitle?: string;
-  /** Emoji or element shown in the leading badge. */
   icon?: ReactNode;
   trailing?: ReactNode;
   onPress?: () => void;
-  /** Show a chevron. Defaults on when the row is pressable. */
   chevron?: boolean;
   style?: ViewStyle;
 }
 
-/** Settings / menu / document row. */
 export function ListRow({
   title,
   subtitle,

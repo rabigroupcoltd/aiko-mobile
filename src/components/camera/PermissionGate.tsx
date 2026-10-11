@@ -10,19 +10,11 @@ interface PermissionGateProps {
   onCancel: () => void;
 }
 
-/**
- * Blocks the camera UI until permission is granted.
- *
- * Distinguishes "not asked yet" from "denied" — once Android marks a permission
- * as permanently denied, re-requesting silently no-ops, so the only useful
- * action left is deep-linking into Settings.
- */
 export function PermissionGate({ children, onCancel }: PermissionGateProps) {
   const styles = useStyles();
   const [permission, requestPermission] = useCameraPermissions();
 
   if (!permission) {
-    // Still resolving the current status.
     return <View style={styles.loading} />;
   }
 
@@ -57,7 +49,6 @@ export function PermissionGate({ children, onCancel }: PermissionGateProps) {
 }
 
 const useStyles = makeStyles(({ colors, type }) => ({
-  // Matches the camera surface so there's no white flash before the preview.
   loading: { flex: 1, backgroundColor: '#111917' },
   container: {
     flex: 1,

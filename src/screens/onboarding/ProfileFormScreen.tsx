@@ -35,11 +35,6 @@ interface Errors {
 
 const MIN_AGE = 18;
 
-/**
- * Held as a stable value rather than recomputed per render: it is the picker's
- * `maximumDate`, and a fresh object every render would remount the dialog's
- * bounds while the user is mid-scroll.
- */
 const LATEST_ALLOWED_DOB = latestDobForAge(MIN_AGE);
 
 export function ProfileFormScreen({ navigation }: Props) {
@@ -47,8 +42,6 @@ export function ProfileFormScreen({ navigation }: Props) {
   const googleAccount = useAppStore((s) => s.googleAccount);
   const { updateOnboarding } = UpdateOnboardingManager();
 
-  // Anything Google or a previous session gave us pre-fills the form; the
-  // user can still edit it.
   const [firstName, setFirstName] = useState(
     user?.firstName ?? googleAccount?.givenName ?? ''
   );
@@ -59,10 +52,6 @@ export function ProfileFormScreen({ navigation }: Props) {
   const [dob, setDob] = useState<Date | null>(
     user?.dob ? parseIsoDate(user.dob) : null
   );
-  // Google gives no phone number, so this screen is where every account
-  // provides one — the onboarding stack's own PHONE step is commented out
-  // for the same reason (see OnboardingStack). Unverified, same as before:
-  // there is no SMS provider behind it yet.
   const [phone, setPhone] = useState(toNationalNumber(user?.phone ?? ''));
   const [errors, setErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
@@ -79,10 +68,6 @@ export function ProfileFormScreen({ navigation }: Props) {
 
     if (!isValidNigerianPhone(phone)) next.phone = 'Enter a valid Nigerian mobile number.';
 
-    // The picker can only ever hand back a real date on or before
-    // LATEST_ALLOWED_DOB, so "did you pick one" is the only case left to check
-    // here. The age check stays as a backstop for a value restored from the
-    // store, which was written by some earlier version of this screen.
     if (!dob) {
       next.dob = 'Select your date of birth.';
     } else if (dob > LATEST_ALLOWED_DOB) {
@@ -109,8 +94,6 @@ export function ProfileFormScreen({ navigation }: Props) {
       const next = onboardingStepRoute(state.resumeStep);
       if (next) navigation.navigate(next);
     } catch {
-      // A duplicate email surfaces here as a 409 — useApiManager already
-      // toasted it, and the form stays put so the user can pick another.
     } finally {
       setSaving(false);
     }
@@ -170,8 +153,6 @@ export function ProfileFormScreen({ navigation }: Props) {
           value={dob}
           onChange={(next) => {
             setDob(next);
-            // Clear the error as soon as it stops being true, rather than
-            // leaving it up until the next Continue press.
             setErrors((prev) => ({ ...prev, dob: undefined }));
           }}
           error={errors.dob}

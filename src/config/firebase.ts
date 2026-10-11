@@ -1,7 +1,5 @@
 import googleServices from '../../google-services.json';
 
-
-
 const client = googleServices.client[0];
 const projectId = process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID ?? googleServices.project_info.project_id;
 

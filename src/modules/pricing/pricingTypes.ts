@@ -9,7 +9,6 @@ export interface PricingRule {
   minimumFare: number;
   bookingFee: number;
   surgeMultiplier: number;
-  /** Turns distance into an ETA — a bicycle and a car quote very differently. */
   avgSpeedKph: number;
   platformFeePercent: number;
   currency: string;
@@ -18,7 +17,6 @@ export interface PricingRule {
   updatedAt: string;
 }
 
-/** How a fare was arrived at. Frozen into the order at booking time. */
 export interface FareBreakdown {
   baseFare: number;
   distanceCharge: number;
@@ -26,7 +24,6 @@ export interface FareBreakdown {
   bookingFee: number;
   surgeMultiplier: number;
   minimumFareApplied: boolean;
-  /** Only present on orders created from a bid. */
   fareOverridden?: boolean;
 }
 
@@ -41,8 +38,6 @@ export interface FareQuote {
   breakdown: FareBreakdown;
 }
 
-// -------------------------------------------------------------- requests
-
 export interface FareEstimatePayload {
   vehicleType: VehicleType;
   pickupLat: number;
@@ -51,7 +46,6 @@ export interface FareEstimatePayload {
   dropoffLng: number;
 }
 
-/** `vehicleType` is ignored by estimate/all, but the DTO still requires it. */
 export type FareEstimateAllPayload = FareEstimatePayload;
 
 export interface UpsertPricingRulePayload {

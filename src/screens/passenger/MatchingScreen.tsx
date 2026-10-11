@@ -25,18 +25,6 @@ const log = createLogger('matching');
 
 type Props = NativeStackScreenProps<PassengerStackParamList, typeof ROUTES.MATCHING>;
 
-/**
- * The live search.
- *
- * Creates a real `RideRequest`, then shows bids as drivers place them. The
- * passenger picks one — nobody is auto-assigned, which is the whole point of
- * the broadcast-and-bid model the backend implements.
- *
- * Two delivery paths run at once by design: the socket pushes each bid the
- * instant it lands, and the request is polled as a fallback for a socket that
- * dropped. Both write to the same react-query cache, so a duplicate is a
- * no-op rather than a doubled entry.
- */
 export function MatchingScreen({ navigation, route }: Props) {
   const styles = useStyles();
   const { pickup, dropoff, vehicleType } = route.params;
@@ -55,11 +43,6 @@ export function MatchingScreen({ navigation, route }: Props) {
   const { acceptDriver } = AcceptDriverManager();
   const { cancelRideRequest } = CancelRideRequestManager();
 
-  /**
-   * StrictMode and a re-render both re-run effects; creating the request twice
-   * would get the second attempt rejected with "You already have an open ride
-   * request" and strand the screen. One request per mount, enforced here.
-   */
   const created = useRef(false);
 
   useEffect(() => {
@@ -84,10 +67,6 @@ export function MatchingScreen({ navigation, route }: Props) {
       } catch (e: any) {
         log.warn('Could not create the ride request', e);
 
-        // The server allows one open request per passenger. Backing out of
-        // this screen without cancelling leaves one live, so a second attempt
-        // is rejected — adopting it is right, because it is the same search
-        // the passenger thinks they are starting.
         const open = await findOpenRequest();
         if (open) {
           setRequestId(open.id);
@@ -98,15 +77,9 @@ export function MatchingScreen({ navigation, route }: Props) {
         setFailed(e?.message ?? 'Could not start the search.');
       }
     })();
-    // Intentionally runs once — see the `created` ref above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /**
-   * Polled slowly. The socket is what makes bids feel instant; this only has to
-   * catch a client whose socket dropped, and the request expires after 120s
-   * anyway so there is little to miss.
-   */
   const { data: request, refetch } = useGetRideRequestManager({
     requestId,
     refetchInterval: 5_000,
@@ -116,12 +89,6 @@ export function MatchingScreen({ navigation, route }: Props) {
   const expired = request?.status === 'EXPIRED';
   const cancelled = request?.status === 'CANCELLED';
 
-  // No socket subscriptions: the bid lane raises no notifications now that
-  // dispatch runs through the marketplace, and the 5s poll above is the whole
-  // update path for this screen.
-
-  // The stage copy is a progress indication, not a simulation of work: the
-  // search really is running server-side for RIDE_REQUEST_TTL seconds.
   useEffect(() => {
     if (bids.length > 0 || failed) return;
 
@@ -146,8 +113,6 @@ export function MatchingScreen({ navigation, route }: Props) {
         confirmBooking(order.id);
         navigation.replace(ROUTES.RIDER_FOUND, { orderId: order.id });
       } catch (e: any) {
-        // Losing the race is normal — the request may have expired, or the
-        // driver may have withdrawn. Refetching shows the passenger why.
         showToast.error(e?.message ?? 'Could not book that driver.');
         setAccepting(null);
         void refetch();
@@ -163,8 +128,6 @@ export function MatchingScreen({ navigation, route }: Props) {
         text: 'Stop',
         style: 'destructive',
         onPress: async () => {
-          // Cancelled server-side so matched drivers stop showing the offer;
-          // failure is not worth blocking on, since it expires by itself.
           if (requestId) await cancelRideRequest({ requestId }).catch(() => undefined);
           reset();
           navigation.navigate(ROUTES.PASSENGER_HOME);
@@ -177,8 +140,6 @@ export function MatchingScreen({ navigation, route }: Props) {
     reset();
     navigation.navigate(ROUTES.PASSENGER_HOME);
   }, [reset, navigation]);
-
-  // ------------------------------------------------------------- terminal
 
   if (failed || expired || cancelled) {
     const message = failed
@@ -201,8 +162,6 @@ export function MatchingScreen({ navigation, route }: Props) {
       </Screen>
     );
   }
-
-  // -------------------------------------------------------------- searching
 
   return (
     <Screen>
@@ -229,8 +188,6 @@ export function MatchingScreen({ navigation, route }: Props) {
                 bid={bid}
                 onAccept={() => handleAccept(bid)}
                 accepting={accepting === bid.driverId}
-                // One accept at a time — two in flight would race for a
-                // request only one of them can claim.
                 disabled={Boolean(accepting) && accepting !== bid.driverId}
               />
             ))}

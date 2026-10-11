@@ -3,30 +3,35 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { ROUTES } from './routes';
 import type { RootStackParamList } from './types';
+import { scanDocument } from '@/services/documentScanner';
+import { useAppStore } from '@/store/appStore';
 import type { CaptureTarget } from '@/types/models';
 
 type RootNav = NativeStackNavigationProp<RootStackParamList>;
 
-/**
- * Typed access to the root stack from anywhere in the tree.
- *
- * Screens nested in the drawer or an inner stack can't reach the root modal
- * through their own typed navigator, and the usual workaround is a pile of
- * `as never` casts that silently defeat type checking. This narrows the escape
- * hatch to one place.
- */
 export function useRootNavigation(): RootNav {
   return useNavigation<RootNav>();
 }
 
-/** Open the shared camera capture modal for a given target. */
+const SCANNED_TARGETS: CaptureTarget[] = ['license', 'nationalId'];
+
 export function useOpenCamera() {
   const navigation = useRootNavigation();
-  return (target: CaptureTarget) =>
+  const setAsset = useAppStore((s) => s.setAsset);
+
+  return async (target: CaptureTarget) => {
+    if (SCANNED_TARGETS.includes(target)) {
+      const result = await scanDocument();
+      if (result.status === 'scanned') {
+        await setAsset(target, result);
+        return;
+      }
+      if (result.status === 'cancelled') return;
+    }
     navigation.navigate(ROUTES.CAMERA_CAPTURE, { target });
+  };
 }
 
-/** Drawer screens receive `openDrawer` but aren't statically typed for it. */
 export function useOpenDrawer(): () => void {
   const navigation = useNavigation();
   return () => {

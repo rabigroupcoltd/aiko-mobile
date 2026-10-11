@@ -17,15 +17,6 @@ import type {
 
 export const WALLET_QUERY_KEY = 'wallet';
 
-/**
- * Every route here is ownership-checked server-side — a driver may read their
- * own wallet, an admin may read any. Holding a driverId is not enough.
- */
-
-// ============================================
-// QUERY CONTROLLERS
-// ============================================
-
 export const useGetWalletManager = ({
   driverId,
   enabled = true,
@@ -46,7 +37,6 @@ export const useGetWalletManager = ({
   });
 };
 
-/** The ledger, newest first. */
 export const useGetTransactionsManager = ({
   driverId,
   limit = 50,
@@ -69,7 +59,6 @@ export const useGetTransactionsManager = ({
   });
 };
 
-/** Admin only. Sorted by available balance, highest first. */
 export const useGetAllWalletsManager = ({ enabled = true }: QueryOptions = {}) => {
   return useQuery({
     queryKey: [WALLET_QUERY_KEY, 'all'],
@@ -85,17 +74,6 @@ export const useGetAllWalletsManager = ({ enabled = true }: QueryOptions = {}) =
   });
 };
 
-// ============================================
-// MUTATION CONTROLLERS
-// ============================================
-
-/**
- * Requests a payout.
- *
- * The balance guard lives inside the server's update, so two taps cannot both
- * pass the check — the second comes back as insufficient balance rather than
- * overdrawing. Outstanding debt must be cleared first.
- */
 export const WithdrawManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     DriverWallet,

@@ -13,7 +13,7 @@ type Props = NativeStackScreenProps<
 
 const TIPS = [
   'Lay the licence flat on a dark surface.',
-  'Make sure all four corners are inside the frame.',
+  'The scanner finds the edges and crops it for you — drag a corner if it misses.',
   'Avoid glare — move away from direct light.',
 ];
 

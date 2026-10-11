@@ -20,7 +20,6 @@ interface ButtonProps {
   loading?: boolean;
   disabled?: boolean;
   fullWidth?: boolean;
-  /** Rendered before the label — an emoji or icon element. */
   leading?: React.ReactNode;
   style?: ViewStyle;
   testID?: string;
@@ -98,7 +97,5 @@ const useStyles = makeStyles(({ type }) => ({
   leading: { justifyContent: 'center' },
   label: { ...type.button, fontWeight: '700' },
   pressed: { opacity: 0.85, transform: [{ scale: 0.985 }] },
-  // Dimming the whole button keeps disabled state legible without needing a
-  // separate colour for every variant.
   inert: { opacity: 0.45 },
 }));

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-/** Simple seconds countdown, used for the OTP resend timer. */
 export function useCountdown(seconds: number) {
   const [remaining, setRemaining] = useState(seconds);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -32,7 +31,6 @@ export function useCountdown(seconds: number) {
   useEffect(() => {
     restart(seconds);
     return clear;
-    // Intentionally run once — restart() is exposed for manual re-triggering.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

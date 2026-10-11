@@ -10,11 +10,6 @@ interface GoogleSignInButtonProps {
   style?: ViewStyle;
 }
 
-/**
- * Google's branding guidelines require their mark on a neutral surface with the
- * official wordmark, so this doesn't reuse the app's `Button`. The "G" is drawn
- * from text rather than an asset to avoid shipping a logo file.
- */
 export function GoogleSignInButton({
   onPress,
   loading = false,
@@ -75,7 +70,6 @@ const useStyles = makeStyles(({ colors, type }) => ({
     borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
-    // Google blue, fixed in both schemes — it's their brand colour, not ours.
     backgroundColor: '#4285F4',
   },
   markText: {

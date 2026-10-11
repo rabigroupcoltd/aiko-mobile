@@ -6,13 +6,6 @@ import type { OrderStatus } from '@/modules/shared/apiTypes';
 import { makeStyles, spacing, useTheme } from '@/theme';
 import showToast from '@/utils/toast';
 
-/**
- * What the driver presses next, per stage — one button, never a menu.
- *
- * The RESERVED → PICKED_UP step is the important one: it is the driver telling
- * the system they physically have the parcel, which is what separates "I said
- * I'd take it" from "I have it".
- */
 const NEXT_STAGE: Partial<Record<OrderStatus, { label: string; status: OrderStatus }>> = {
   RESERVED: { label: "I'm heading to pickup", status: 'DRIVER_ARRIVING_PICKUP' },
   DRIVER_ARRIVING_PICKUP: { label: 'Picked up', status: 'PICKED_UP' },
@@ -29,12 +22,6 @@ const STAGE_CHIP: Partial<
   IN_TRANSIT: { label: 'In transit', tone: 'info' },
 };
 
-/**
- * One order the driver is holding.
- *
- * Each card carries its own status, its own customer, its own price and its own
- * next action — §22 and §45. Completing this one does nothing to the others.
- */
 export function ActiveOrderCard({
   order,
   onAdvance,
@@ -47,7 +34,6 @@ export function ActiveOrderCard({
   onAdvance: (status: OrderStatus) => void;
   onNavigate: () => void;
   onChat: () => void;
-  /** Unread messages on this order's chat. Badged onto the Chat button. */
   unread?: number;
   advancing?: boolean;
 }) {
@@ -58,8 +44,6 @@ export function ActiveOrderCard({
   const chip = STAGE_CHIP[order.status] ?? { label: order.status, tone: 'info' as const };
   const collected = Boolean(order.pickedUpAt);
 
-  // Which end the driver is being sent to right now — and therefore which of
-  // the two numbers the call button should dial.
   const phone = collected ? order.dropoffPhone : order.pickupPhone;
   const eta = collected ? order.deliveryEtaMinutes : order.pickupEtaMinutes;
 
@@ -84,8 +68,6 @@ export function ActiveOrderCard({
         color={colors.primary}
         label="Pickup"
         value={order.pickupLocation}
-        // Struck through once collected: the driver has been there, and the
-        // route no longer includes it.
         done={collected}
       />
       <Leg color={colors.danger} label="Drop-off" value={order.dropoffLocation} />
@@ -102,12 +84,6 @@ export function ActiveOrderCard({
       <View style={styles.contactRow}>
         <Button label="Navigate" variant="secondary" size="sm" onPress={onNavigate} style={styles.contact} />
         <Button label="Call" variant="secondary" size="sm" onPress={call} style={styles.contact} />
-        {/*
-          The count goes in the label rather than a floating dot: a driver
-          holding three orders is scanning three identical cards at a traffic
-          light, and "Chat (2)" survives that glance where a badge in the corner
-          does not.
-        */}
         <Button
           label={unread > 0 ? `Chat (${unread > 9 ? '9+' : unread})` : 'Chat'}
           variant={unread > 0 ? 'primary' : 'secondary'}

@@ -14,21 +14,11 @@ interface DateFieldProps {
   placeholder?: string;
   minimumDate?: Date;
   maximumDate?: Date;
-  /** Where the dialog starts when the field is still empty. */
   defaultDate?: Date;
   containerStyle?: ViewStyle;
   testID?: string;
 }
 
-/**
- * Date entry backed by the system date dialog.
- *
- * Deliberately styled to match `TextField` — same label, box, focus-free border
- * and error/helper slot — so a form can mix the two without looking assembled
- * from parts. It is a `Pressable` rather than a `TextInput`: there is no free
- * text to type, which also means no keyboard, no input masking and no way to
- * enter 31/02/1990.
- */
 export function DateField({
   label,
   value,
@@ -71,16 +61,9 @@ export function DateField({
         <DateTimePicker
           value={value ?? defaultDate ?? maximumDate ?? new Date()}
           mode="date"
-          // The three-wheel spinner, not the calendar grid. A calendar opens on
-          // the current month, which is 400-odd swipes from a plausible birth
-          // year; the spinner lets the year be set directly.
           display="spinner"
           minimumDate={minimumDate}
           maximumDate={maximumDate}
-          // The split callbacks, not the older single `onChange` — that one is
-          // deprecated in v9 and logs a warning on every open. Both paths have
-          // to unmount the picker: on Android the dialog *is* the mounted
-          // component, so leaving it up makes it reopen immediately.
           onValueChange={(_event, selected) => {
             setOpen(false);
             onChange(selected);

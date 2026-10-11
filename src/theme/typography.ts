@@ -2,14 +2,6 @@ import { Platform, type TextStyle } from 'react-native';
 
 import { lightColors, type Colors } from './colors';
 
-/**
- * Type presets. Screens use these rather than hand-rolling fontSize /
- * fontWeight pairs, so headings stay consistent across ~30 screens.
- *
- * Presets carry a colour, so they are built per-palette — call
- * `typographyFor(colors)`, or take `type` from a `makeStyles` factory.
- */
-
 const fontFamily = Platform.select({
   android: 'sans-serif',
   ios: 'System',
@@ -22,10 +14,6 @@ const fontFamilyMedium = Platform.select({
   default: 'System',
 });
 
-/**
- * Android maps numeric weights unreliably across OEM fonts; pairing the
- * `-medium` family with the weight keeps bold text looking bold everywhere.
- */
 const semibold = {
   fontFamily: fontFamilyMedium,
   fontWeight: '600' as const,
@@ -33,7 +21,6 @@ const semibold = {
 
 export function typographyFor(c: Colors) {
   return {
-    /** Big brand moments only — splash, welcome hero. */
     display: {
       fontFamily: fontFamilyMedium,
       fontSize: 34,
@@ -43,7 +30,6 @@ export function typographyFor(c: Colors) {
       letterSpacing: -0.5,
     } as TextStyle,
 
-    /** Screen titles. */
     title: {
       ...semibold,
       fontSize: 24,
@@ -52,7 +38,6 @@ export function typographyFor(c: Colors) {
       letterSpacing: -0.3,
     } as TextStyle,
 
-    /** Section headers, card titles. */
     heading: {
       ...semibold,
       fontSize: 18,
@@ -60,7 +45,6 @@ export function typographyFor(c: Colors) {
       color: c.text,
     } as TextStyle,
 
-    /** Emphasised body / list item titles. */
     subheading: {
       ...semibold,
       fontSize: 16,
@@ -84,7 +68,6 @@ export function typographyFor(c: Colors) {
       color: c.textSecondary,
     } as TextStyle,
 
-    /** Form labels, overlines. */
     label: {
       ...semibold,
       fontSize: 13,
@@ -108,7 +91,6 @@ export function typographyFor(c: Colors) {
       letterSpacing: 0.2,
     } as TextStyle,
 
-    /** Tabular figures for OTP boxes, ETAs, fares. */
     mono: {
       fontFamily: Platform.select({
         android: 'monospace',
@@ -123,8 +105,4 @@ export function typographyFor(c: Colors) {
 
 export type Typography = ReturnType<typeof typographyFor>;
 
-/**
- * Light-palette presets, for the always-dark camera/liveness surfaces that
- * deliberately don't follow the scheme (they override colour explicitly).
- */
 export const typography = typographyFor(lightColors);

@@ -33,13 +33,7 @@ const TIPS = [
 ];
 
 export function ProfilePhotoScreen({ navigation }: Props) {
-  // Reads reactively from the store, so the photo appears as soon as the
-  // capture modal dismisses — no callback plumbing through route params.
-  // This is the local capture buffer only; "Continue" is what actually
-  // uploads it and saves the step server-side.
   const photo = useAppStore((s) => s.photos.profile);
-  // Already on the server — e.g. they came back from a later step. Continue
-  // should just move on rather than demand a fresh capture.
   const savedOnServer = useOnboardingState()?.requirements.photo ?? false;
   const { uploadPhoto } = UploadOnboardingPhotoManager();
   const [uploading, setUploading] = useState(false);
@@ -60,11 +54,9 @@ export function ProfilePhotoScreen({ navigation }: Props) {
         name: `profile-${Date.now()}.${known ? ext : 'jpg'}`,
         type: known ? MIME_BY_EXT[ext] : 'image/jpeg',
       });
-      // null means the shared steps are done — RootNavigator swaps to the app.
       const next = onboardingStepRoute(state.resumeStep);
       if (next && next !== ROUTES.PROFILE_PHOTO) navigation.navigate(next);
     } catch {
-      // useApiManager has already shown the reason.
     } finally {
       setUploading(false);
     }
@@ -82,7 +74,6 @@ export function ProfilePhotoScreen({ navigation }: Props) {
         />
       }>
       <AppHeader
-        // Resumed straight onto this screen, there is nothing behind it.
         onBack={() =>
           navigation.canGoBack()
             ? navigation.goBack()

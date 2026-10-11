@@ -3,23 +3,14 @@ import { initialState, start, step, type TickSignals } from '../machine';
 import { fuseEyes, median, Smoother } from '../signals';
 import type { FaceSnapshot, LivenessState } from '../types';
 
-/**
- * Replays synthetic snapshot sequences through the pure reducer.
- *
- * Building the machine against these tests before touching a camera means the
- * on-device session is spent tuning thresholds, not chasing logic bugs.
- */
-
 const T0 = 1_000_000;
 
-/** A well-framed, frontal face. */
 function makeFace(overrides: Partial<FaceSnapshot> = {}): FaceSnapshot {
   const frameW = 1000;
   const frameH = 1000;
   const w = 400; // widthRatio 0.4 — inside [MIN_FACE_RATIO, MAX_FACE_RATIO]
   const h = 500;
   return {
-    // centre at (0.5, 0.45), matching the framing targets
     x: frameW * LIVENESS.TARGET_CENTER_X - w / 2,
     y: frameH * LIVENESS.TARGET_CENTER_Y - h / 2,
     w,
@@ -45,17 +36,9 @@ interface Frame {
   roll?: number;
 }
 
-/** Repeat a frame n times. */
 const repeat = (n: number, frame: Frame): Frame[] =>
   Array.from({ length: n }, () => frame);
 
-/**
- * Drives the machine while carrying the clock forward across calls.
- *
- * The clock has to be threaded through rather than restarted per call — the FSM
- * compares absolute timestamps, so a driver that reset `now` between phases
- * would push time backwards and stall every duration check.
- */
 class Driver {
   state: LivenessState;
   private now = T0;
@@ -68,7 +51,6 @@ class Driver {
     return new Driver(start(initialState(T0), T0));
   }
 
-  /** Advance through one or more frames. */
   run(frames: Frame[]): LivenessState {
     for (const frame of frames) {
       this.now += frame.dt;
@@ -95,12 +77,10 @@ class Driver {
     return this.state;
   }
 
-  /** Repeat a single frame n times. */
   tick(n: number, frame: Frame): LivenessState {
     return this.run(repeat(n, frame));
   }
 
-  /** Restart after a failure, keeping the clock monotonic. */
   restart(): LivenessState {
     this.now += 1000;
     this.state = start(this.state, this.now);
@@ -110,13 +90,10 @@ class Driver {
 
 const TICK = LIVENESS.TICK_MS;
 
-// Enough ticks to satisfy FRAMING_HOLD_MS with margin.
 const FRAMING_TICKS = Math.ceil(LIVENESS.FRAMING_HOLD_MS / TICK) + 2;
-// Enough ticks to satisfy EYE_OPEN_BASELINE_MS.
 const OPEN_TICKS = Math.ceil(LIVENESS.EYE_OPEN_BASELINE_MS / TICK) + 2;
 const HOLD_TICKS = Math.ceil(LIVENESS.YAW_HOLD_MS / TICK) + 2;
 
-/** Drive a full successful run: framing -> blink -> turn -> recentre. */
 function completeRun(d: Driver): LivenessState {
   d.tick(FRAMING_TICKS, { dt: TICK });
   d.tick(OPEN_TICKS, { dt: TICK, eye: 0.9 });
@@ -182,15 +159,11 @@ describe('liveness machine — framing', () => {
     const ticks = Math.ceil(LIVENESS.MULTI_FACE_GRACE_MS / TICK) + 3;
     const s = Driver.started().tick(ticks, { dt: TICK, faceCount: 2 });
 
-    // Used to fail with MULTIPLE_FACES. Nothing about the face ends an attempt
-    // any more — the user can step out of shot and carry on.
     expect(s.phase).toBe('FACE_SEARCH');
     expect(s.framingIssue).toBe('multiple-faces');
   });
 
   it('ignores a momentary phantom second face', () => {
-    // ML Kit reports a spurious extra face for a frame or two; reacting inside
-    // MULTI_FACE_GRACE_MS would keep resetting the framing hold.
     const d = Driver.started();
     d.tick(1, { dt: TICK, faceCount: 2 });
     expect(d.state.framingIssue).not.toBe('multiple-faces');
@@ -215,16 +188,12 @@ describe('liveness machine — framing', () => {
   });
 
   it('does not advance while a correctly-framed face is still moving', () => {
-    // The "truly centred and settled" gate: every frame here is inside the
-    // framing tolerances, but the face is travelling faster than
-    // CENTER_DRIFT_TOL per tick, so the hold must never accumulate.
     const d = Driver.started();
     const frameW = 1000;
     const w = 400;
     const step = LIVENESS.CENTER_DRIFT_TOL * 2 * frameW;
 
     for (let i = 0; i < FRAMING_TICKS + 4; i++) {
-      // Oscillate either side of dead centre, staying within CENTER_TOL_X.
       const offset = i % 2 === 0 ? step / 2 : -step / 2;
       d.run([
         {
@@ -243,14 +212,12 @@ describe('liveness machine — framing', () => {
     const frameW = 1000;
     const w = 400;
 
-    // Moving: no progress.
     d.run([
       { dt: TICK, snapshot: makeFace({ x: 0 }) },
       { dt: TICK, snapshot: makeFace({ x: frameW * 0.3 }) },
     ]);
     expect(d.state.phase).toBe('FACE_SEARCH');
 
-    // Now parked dead centre and steady.
     d.tick(FRAMING_TICKS + 1, {
       dt: TICK,
       snapshot: makeFace({ x: frameW * LIVENESS.TARGET_CENTER_X - w / 2 }),
@@ -260,7 +227,6 @@ describe('liveness machine — framing', () => {
 });
 
 describe('liveness machine — blink', () => {
-  /** Drive to BLINK with the eyes-open baseline already established. */
   function atBlinkReady(): Driver {
     const d = Driver.started();
     d.tick(FRAMING_TICKS, { dt: TICK });
@@ -272,7 +238,6 @@ describe('liveness machine — blink', () => {
 
   it('accepts a normal blink and advances to HEAD_TURN', () => {
     const d = atBlinkReady();
-    // Closed ~200ms — comfortably inside [BLINK_MIN_MS, BLINK_MAX_MS].
     d.tick(2, { dt: TICK, eye: 0.05 });
     d.tick(LIVENESS.BLINK_REOPEN_SAMPLES + 1, { dt: TICK, eye: 0.9 });
     expect(d.state.phase).toBe('HEAD_TURN');
@@ -290,7 +255,6 @@ describe('liveness machine — blink', () => {
 
   it('rejects a closure shorter than BLINK_MIN_MS as sensor noise', () => {
     const d = atBlinkReady();
-    // 10ms closed — far below BLINK_MIN_MS, so this is detector noise.
     d.run([{ dt: 10, eye: 0.05 }]);
     d.tick(LIVENESS.BLINK_REOPEN_SAMPLES + 1, { dt: 10, eye: 0.9 });
 
@@ -338,8 +302,6 @@ describe('liveness machine — head turn', () => {
   });
 
   it('accepts a turn in the opposite direction (direction-agnostic default)', () => {
-    // Guards the ENFORCE_TURN_DIRECTION=false contract: ML Kit yaw handedness
-    // varies by device, so both signs must pass by default.
     expect(LIVENESS.ENFORCE_TURN_DIRECTION).toBe(false);
 
     const d = atHeadTurn();
@@ -372,7 +334,6 @@ describe('liveness machine — head turn', () => {
     d.tick(HOLD_TICKS, { dt: TICK, yaw: LIVENESS.YAW_DELTA_DEG + 10 });
     expect(d.state.turnStage).toBe('AWAIT_RECENTER');
 
-    // Still turned away — must not pass yet.
     d.tick(3, { dt: TICK, yaw: LIVENESS.YAW_DELTA_DEG + 10 });
     expect(d.state.phase).toBe('HEAD_TURN');
   });
@@ -389,9 +350,6 @@ describe('liveness machine — head turn', () => {
 
 describe('liveness machine — a static photo cannot pass', () => {
   it('never advances past the blink check when the eyes never close', () => {
-    // The core anti-spoof guarantee: a printed photo held up to the camera
-    // frames correctly but produces a constant eye probability and no yaw
-    // excursion, so it must time out rather than pass.
     const d = Driver.started();
     d.tick(FRAMING_TICKS, { dt: TICK });
     expect(d.state.phase).toBe('BLINK');
@@ -450,7 +408,6 @@ describe('liveness machine — face loss and retries', () => {
 
 describe('signal conditioning', () => {
   it('fuses eyes with min, not average', () => {
-    // A wink must not read as "half open" — min keeps closure crisp.
     const face = makeFace({ leftEye: 0.9, rightEye: 0.1 });
     expect(fuseEyes(face)).toBeCloseTo(0.1);
   });
@@ -468,8 +425,6 @@ describe('signal conditioning', () => {
   });
 
   it('smoother preserves a real blink dip below EYE_LOW', () => {
-    // The key tuning guarantee: over-smoothing would flatten this dip above
-    // EYE_LOW and make the blink check impossible to pass.
     const smoother = new Smoother();
     [0.9, 0.9, 0.9, 0.9].forEach((v) => smoother.push(v));
 

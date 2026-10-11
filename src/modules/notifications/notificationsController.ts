@@ -12,21 +12,6 @@ import type {
 
 export const NOTIFICATIONS_QUERY_KEY = 'notifications';
 
-/**
- * Device registration for push.
- *
- * Plain async functions rather than the usual `useApiManager` hooks: these are
- * called from FCM's token-refresh callback and from the sign-out path, neither
- * of which is a React render. A hook cannot be reached from either.
- */
-
-/**
- * Tells the server where to send this user's notifications.
- *
- * Idempotent — safe to call on every launch and on every token rotation.
- * Failures are swallowed by the caller: a device that could not register still
- * receives everything over the socket, so this is never worth blocking sign-in.
- */
 export async function registerDevice(details: RegisterDeviceVariables): Promise<void> {
   try {
     await AxiosWithToken.post<ApiResponse<RegisteredDevice>>('/notifications/devices', details);
@@ -35,7 +20,6 @@ export async function registerDevice(details: RegisterDeviceVariables): Promise<
   }
 }
 
-/** Call before clearing the session, while the token still authenticates. */
 export async function unregisterDevice(details: UnregisterDeviceVariables): Promise<void> {
   try {
     await AxiosWithToken.delete<ApiResponse<{ removed: number }>>('/notifications/devices', {
@@ -62,10 +46,6 @@ export const useGetRegisteredDevicesManager = ({ enabled = true }: QueryOptions 
   });
 };
 
-/**
- * Sends the caller a test notification. `sent: 0` without an error means the
- * server has no Firebase credentials, or this device never registered.
- */
 export async function sendTestPush(body?: {
   title?: string;
   body?: string;

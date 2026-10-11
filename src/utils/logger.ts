@@ -1,7 +1,3 @@
-/**
- * Namespaced, __DEV__-gated logger. The liveness pipeline uses this heavily
- * during threshold tuning, so it must compile away in release.
- */
 type Level = 'debug' | 'info' | 'warn' | 'error';
 
 const emit = (level: Level, ns: string, args: unknown[]) => {

@@ -6,22 +6,12 @@ import type { VehicleType } from '@/modules/shared/apiTypes';
 import { makeStyles, radius, spacing } from '@/theme';
 
 interface VehiclePickerProps {
-  /** One per active pricing rule, from `POST /api/pricing/estimate/all`. */
   quotes: FareQuote[];
   selected: VehicleType;
   onSelect: (vehicleType: VehicleType) => void;
   loading?: boolean;
 }
 
-/**
- * Vehicle choice and price, together.
- *
- * The two belong in one control: a passenger picking a keke over an okada is
- * making a price decision, and showing the options without their fares would
- * mean tapping through each one to find out what it costs. The quotes come from
- * the server for this exact route, so what is shown here is what the trip is
- * booked at.
- */
 export function VehiclePicker({ quotes, selected, onSelect, loading }: VehiclePickerProps) {
   const styles = useStyles();
 
@@ -92,8 +82,6 @@ const useStyles = makeStyles(({ colors, type }) => ({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  // Selection is carried by the border and the tinted fill, not by colour
-  // alone — the fare text stays legible either way.
   tileActive: { borderColor: colors.primary, backgroundColor: colors.primarySubtle },
   tilePressed: { opacity: 0.7 },
 

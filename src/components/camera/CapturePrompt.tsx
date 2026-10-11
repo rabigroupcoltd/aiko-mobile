@@ -9,21 +9,14 @@ import type { CaptureTarget, DocumentAsset } from '@/types/models';
 interface CapturePromptProps {
   target: CaptureTarget;
   asset?: DocumentAsset;
-  /** Bullet points explaining what makes a good photo. */
   tips?: string[];
 }
 
-/**
- * The "take / retake this photo" panel.
- *
- * Shared by the profile photo screen and all three rider document screens —
- * they differ only in target and tips, so they get one component rather than
- * four near-identical layouts.
- */
 export function CapturePrompt({ target, asset, tips }: CapturePromptProps) {
   const styles = useStyles();
   const config = CAPTURE_CONFIG[target];
   const isProfile = target === 'profile';
+  const isDocument = target === 'license' || target === 'nationalId';
 
   const open = useOpenCamera();
   const openCamera = () => open(target);
@@ -51,7 +44,9 @@ export function CapturePrompt({ target, asset, tips }: CapturePromptProps) {
         ) : (
           <View style={[styles.placeholder, isProfile && styles.frameRound]}>
             <Text style={styles.placeholderIcon}>📷</Text>
-            <Text style={styles.placeholderText}>Tap to open the camera</Text>
+            <Text style={styles.placeholderText}>
+              {isDocument ? 'Tap to scan' : 'Tap to open the camera'}
+            </Text>
           </View>
         )}
       </Pressable>

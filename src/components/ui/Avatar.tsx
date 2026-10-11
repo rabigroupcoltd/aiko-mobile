@@ -3,15 +3,12 @@ import { Image, Text, View, type ImageStyle, type ViewStyle } from 'react-native
 import { green, makeStyles } from '@/theme';
 
 interface AvatarProps {
-  /** Local file:// URI. Falls back to initials when absent or broken. */
   uri?: string | null;
   name?: string;
   size?: number;
-  /** Layout-only overrides — applies to both the image and initials variants. */
   style?: ViewStyle & ImageStyle;
 }
 
-/** Deterministic tint per name, so a given rider keeps the same colour. */
 const TINTS = [green[500], green[600], green[400], green[700], green[300]];
 
 function initialsOf(name?: string): string {
@@ -56,6 +53,5 @@ export function Avatar({ uri, name, size = 48, style }: AvatarProps) {
 const useStyles = makeStyles(({ colors }) => ({
   image: { backgroundColor: colors.surfaceAlt },
   fallback: { alignItems: 'center', justifyContent: 'center' },
-  // Always white on the green tints, regardless of scheme.
   initials: { color: '#FFFFFF', fontWeight: '700' },
 }));

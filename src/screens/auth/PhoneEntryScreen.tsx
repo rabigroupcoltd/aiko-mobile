@@ -20,9 +20,6 @@ export function PhoneEntryScreen({ navigation }: Props) {
   const [error, setError] = useState<string>();
   const [sending, setSending] = useState(false);
 
-  // The flag lives here rather than server-side: "do we verify numbers this
-  // release" is a product decision about this screen, and the account is
-  // created either way — REQUIRE_OTP only decides whether OTP runs first.
   const requireOtp = featureFlags.REQUIRE_OTP;
 
   const handleContinue = async () => {
@@ -33,8 +30,6 @@ export function PhoneEntryScreen({ navigation }: Props) {
     setError(undefined);
 
     if (requireOtp) {
-      // TODO: request the SMS code from the provider before navigating.
-      // Nothing is sent today, which is why REQUIRE_OTP is off.
       navigation.navigate(ROUTES.OTP, { phone: toE164(phone) });
       return;
     }
@@ -44,10 +39,7 @@ export function PhoneEntryScreen({ navigation }: Props) {
       const state = await updateOnboarding({ phone: toE164(phone) });
       const next = onboardingStepRoute(state.resumeStep);
       if (next) navigation.navigate(next);
-      // No route for the resolved step (RIDER_DOCS/AWAITING_APPROVAL/DONE)
-      // means onboarding just finished — RootNavigator swaps the stack itself.
     } catch {
-      // useApiManager has already shown the reason.
     } finally {
       setSending(false);
     }

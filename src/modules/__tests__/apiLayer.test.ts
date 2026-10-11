@@ -3,16 +3,6 @@ import { AxiosError, AxiosHeaders } from 'axios';
 import { omitKeys } from '@/constants/mainController';
 import { extractSoftErrorMessage, parseApiError } from '@/utils/parseApiError';
 
-/**
- * Covers the two pieces of the API layer that are pure and easy to get subtly
- * wrong: turning a backend failure into one readable line, and stripping path
- * params out of a request body.
- *
- * The body one matters because the API validates with `forbidNonWhitelisted` —
- * leaking an `id` into the body is a 400, not a field the server ignores.
- */
-
-/** Builds an AxiosError the way axios actually shapes one. */
 function axiosErrorWith(status: number, data: unknown): AxiosError {
   const error = new AxiosError('Request failed with status code ' + status);
   error.response = {

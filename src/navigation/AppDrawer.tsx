@@ -15,13 +15,6 @@ import type { DrawerParamList } from './types';
 
 const Drawer = createDrawerNavigator<DrawerParamList>();
 
-/**
- * Post-login shell.
- *
- * The home screen and the document entry differ by role. Booking routes are
- * simply not registered for riders, so they are unreachable rather than merely
- * hidden from the menu.
- */
 export function AppDrawer() {
   const onboarding = useOnboardingState();
   const { colors } = useTheme();
@@ -41,7 +34,6 @@ export function AppDrawer() {
         component={isRider ? RiderStack : PassengerStack}
       />
       <Drawer.Screen name={ROUTES.PROFILE} component={ProfileScreen} />
-      {/* Shared: a customer reads what they paid, a driver what they kept. */}
       <Drawer.Screen name={ROUTES.ORDER_HISTORY} component={OrderHistoryScreen} />
       {isRider ? (
         <>

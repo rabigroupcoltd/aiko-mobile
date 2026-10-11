@@ -34,20 +34,10 @@ import type { DriverWallet } from '@/modules/wallet/walletTypes';
 
 export const DRIVERS_QUERY_KEY = 'drivers';
 
-/**
- * React Native's FormData takes a `{ uri, name, type }` object where the web
- * would take a File, and the cast is unavoidable — the RN type definitions
- * still describe the web signature.
- */
 function appendFiles(form: FormData, field: string, files: UploadFile[] = []): void {
   files.forEach((file) => form.append(field, file as unknown as Blob));
 }
 
-// ============================================
-// QUERY CONTROLLERS
-// ============================================
-
-/** The caller's own driver profile, resolved from the token. */
 export const useGetMyDriverProfileManager = ({ enabled = true }: QueryOptions = {}) => {
   return useQuery({
     queryKey: [DRIVERS_QUERY_KEY, 'me'],
@@ -63,14 +53,6 @@ export const useGetMyDriverProfileManager = ({ enabled = true }: QueryOptions = 
   });
 };
 
-/**
- * Everything the driver app needs to draw itself, in one call.
- *
- * The reconnect path, and the first thing the shift screen asks for. Not
- * polled on a timer by default — the socket pushes what changes — but worth
- * refetching whenever the app returns to the foreground, because that is
- * exactly when the socket may have been asleep and missed something.
- */
 export const useGetDriverStateManager = ({ enabled = true }: QueryOptions = {}) => {
   return useQuery({
     queryKey: [DRIVERS_QUERY_KEY, 'state'],
@@ -86,7 +68,6 @@ export const useGetDriverStateManager = ({ enabled = true }: QueryOptions = {}) 
   });
 };
 
-/** Public. Filterable by vehicle type, KYC status and availability. */
 export const useGetDriversManager = ({
   vehicleType,
   kycStatus,
@@ -131,13 +112,6 @@ export const useGetDriverManager = ({
   });
 };
 
-/**
- * Live presence, straight from Redis — only drivers who have sent a heartbeat
- * inside DRIVER_HEARTBEAT_TTL appear. Sorted nearest first.
- *
- * `staleTime: 0` because a cached answer here is a driver drawn where they no
- * longer are; this is the one read in the app that must never be served stale.
- */
 export const useGetNearbyDriversManager = ({
   lat,
   lng,
@@ -221,17 +195,6 @@ export const useGetDriverWalletManager = ({
   });
 };
 
-// ============================================
-// MUTATION CONTROLLERS
-// ============================================
-
-/**
- * Registers the vehicle — the RIDER_DOCS onboarding step.
- *
- * Also invalidates onboarding, because succeeding here moves the account to
- * AWAITING_APPROVAL server-side; without that the app would keep resuming to
- * the document screen it just completed.
- */
 export const RegisterDriverManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     DriverDetail,
@@ -249,8 +212,6 @@ export const RegisterDriverManager = () => {
 
       return form;
     },
-    // Null so axios writes its own multipart boundary — setting it by hand
-    // omits the boundary and the server cannot parse the body.
     contentType: null,
     queryKey: [DRIVERS_QUERY_KEY, ONBOARDING_QUERY_KEY, 'auth'],
     method: 'POST',
@@ -286,7 +247,6 @@ export const UpdateDriverManager = () => {
   return { updateDriver, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
-/** Heartbeat. Publishes to Redis immediately; Postgres is flushed on a timer. */
 export const UpdateDriverLocationManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     DriverLocationAck,
@@ -295,8 +255,6 @@ export const UpdateDriverLocationManager = () => {
   >({
     endpoint: '/drivers/location',
     method: 'POST',
-    // No toast and no invalidation: this fires every few seconds, and either
-    // would make the app unusable.
     showErrorToast: false,
   });
 
@@ -308,14 +266,6 @@ export const UpdateDriverLocationManager = () => {
   return { updateLocation, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
-/**
- * Start a shift.
- *
- * Self-scoped — no driver id, because the token already identifies the driver.
- * Going online also sweeps for work already open nearby: a driver arriving
- * mid-search is offered requests raised before they came on, which the original
- * fan-out could never have reached them with.
- */
 export const GoOnlineManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     DriverProfile,
@@ -336,12 +286,6 @@ export const GoOnlineManager = () => {
   return { goOnline, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
-/**
- * End a shift.
- *
- * Orders already held are untouched — this stops new work being offered, it
- * does not abandon a delivery in progress.
- */
 export const GoOfflineManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     DriverProfile,
@@ -362,17 +306,6 @@ export const GoOfflineManager = () => {
   return { goOffline, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
-/**
- * Stay in the dispatch pool without moving.
- *
- * A position fix refreshes presence as a side effect, so this is for the driver
- * who is parked, waiting, or indoors with a poor lock and has no new fix worth
- * sending. Without it they silently drop out of the pool when the TTL expires
- * while the app still says "online".
- *
- * Silent like the location heartbeat: it fires on a timer, and a toast or a
- * cache invalidation on each one would make the app unusable.
- */
 export const DriverHeartbeatManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     HeartbeatAck,
@@ -440,7 +373,6 @@ export const RemoveVehiclePhotoManager = () => {
   return { removePhoto, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
-/** Goes online or offline. Requires an approved, unblocked profile. */
 export const SetDriverAvailabilityManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     DriverProfile,
@@ -483,11 +415,6 @@ export const PayDriverDebtManager = () => {
   return { payDebt, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
-// ============================================
-// ADMIN CONTROLLERS
-// ============================================
-
-/** Admin only. Clearing the KYC also completes the rider's onboarding. */
 export const ApproveDriverKycManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     DriverDetail,
@@ -509,7 +436,6 @@ export const ApproveDriverKycManager = () => {
   return { approveKyc, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
-/** Admin only. Sends the rider back to the document step with the reason. */
 export const RejectDriverKycManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     DriverDetail,
@@ -552,7 +478,6 @@ export const UpdateDriverDebtLimitManager = () => {
   return { updateDebtLimit, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
-/** Admin only. Blocking also forces the driver offline. */
 export const BlockDriverManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     DriverProfile,

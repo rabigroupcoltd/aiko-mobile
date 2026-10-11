@@ -6,7 +6,6 @@ import type { Place, PlaceCategory } from '@/types/models';
 interface PlaceRowProps {
   place: Place;
   onPress: () => void;
-  /** Resolving this prediction's coordinates via Place Details. */
   loading?: boolean;
 }
 
@@ -20,7 +19,6 @@ const CATEGORY_ICON: Record<PlaceCategory, string> = {
   residential: '🏘️',
 };
 
-/** Saved addresses and Google results carry no category. */
 const DEFAULT_ICON = '📍';
 const SAVED_ICON = '⭐';
 

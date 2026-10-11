@@ -7,7 +7,6 @@ import { deleteAsset, persistCapture } from '@/utils/fileStore';
 
 export const STORAGE_KEY = 'aiko-app-v1';
 
-/** What the rider types about their vehicle, kept as they type so nothing is lost. */
 export interface VehicleDetailsDraft {
   brand: string;
   model: string;
@@ -24,29 +23,14 @@ interface Documents {
   vehicleDetails?: VehicleDetailsDraft;
 }
 
-/**
- * Local scratch state — never the source of truth for who is signed in or how
- * far onboarding has gone. That lives server-side and is read through
- * `authStore`/`useOnboardingState`; see RootNavigator.
- *
- * What actually belongs here: captures in progress before they are uploaded
- * (a photo just taken, a rider document mid-review) and small per-device UI
- * preferences (settings, the Google account used to pre-fill a form). None of
- * it is safe to gate navigation on, because none of it is verified against
- * the server — it is exactly the kind of state a second device, a reinstall,
- * or an admin action on the backend would leave stale.
- */
 interface AppState {
-  /** False until AsyncStorage rehydration finishes. Deliberately NOT persisted. */
   _hasHydrated: boolean;
 
-  /** Set when the user came in via Google; pre-fills the profile form. */
   googleAccount: GoogleAccount | null;
   photos: { profile?: DocumentAsset };
   documents: Documents;
   settings: { pushEnabled: boolean; smsEnabled: boolean };
 
-  // ── actions ──────────────────────────────────────────────────────────────
   setHasHydrated: (v: boolean) => void;
   setGoogleAccount: (account: GoogleAccount) => void;
   setAsset: (
@@ -56,12 +40,6 @@ interface AppState {
   setVehicleType: (v: VehicleType) => void;
   setVehicleDetails: (patch: Partial<VehicleDetailsDraft>) => void;
   updateSettings: (patch: Partial<AppState['settings']>) => void;
-  /**
-   * Wipes every draft. Called on sign-out (see `useLogoutManager`) so a
-   * second account signing in on the same device never inherits the first
-   * one's half-finished capture — a license photo or a chosen vehicle type
-   * left over would otherwise silently attach itself to whoever signs in next.
-   */
   clearLocalDrafts: () => void;
 }
 
@@ -82,10 +60,6 @@ export const useAppStore = create<AppState>()(
 
       setGoogleAccount: (account) => set({ googleAccount: account }),
 
-      /**
-       * Copies the capture out of the evictable cache directory before storing
-       * its URI, and removes the file it replaces so re-captures don't pile up.
-       */
       setAsset: async (target, capture) => {
         const uri = await persistCapture(capture.uri, target);
         const asset: DocumentAsset = {
@@ -106,8 +80,6 @@ export const useAppStore = create<AppState>()(
           set({ documents: { ...state.documents, [target]: asset } });
         }
 
-        // Delete after the new asset is committed — losing the old file matters
-        // far less than losing the new one if this throws.
         deleteAsset(previous?.uri);
       },
 
@@ -129,8 +101,6 @@ export const useAppStore = create<AppState>()(
       version: 1,
       storage: createJSONStorage(() => AsyncStorage),
 
-      // _hasHydrated must never round-trip: a persisted `true` would be applied
-      // on the NEXT boot before rehydration finished, defeating the whole gate.
       partialize: (s) => ({
         googleAccount: s.googleAccount,
         photos: s.photos,

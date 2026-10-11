@@ -43,7 +43,6 @@ export interface DriverProfile {
   kycRejectionReason: string | null;
   isAvailable: boolean;
   isBlocked: boolean;
-  /** Own override; null follows the platform limit — see `DriverState.debt`. */
   debtLimit: number | null;
   currentDebt: number;
   rating: number;
@@ -55,7 +54,6 @@ export interface DriverProfile {
   updatedAt: string;
 }
 
-/** `GET /api/drivers/{id}` and `/me` — every relation loaded. */
 export interface DriverDetail extends DriverProfile {
   user: User;
   wallet: DriverWallet | null;
@@ -63,7 +61,6 @@ export interface DriverDetail extends DriverProfile {
   location: DriverLocation | null;
 }
 
-/** Live presence from Redis, not a database read. */
 export interface NearbyDriver {
   driverId: string;
   lat: number | null;
@@ -88,29 +85,17 @@ export interface DriverAnalytics {
   debtLimit: number;
 }
 
-// -------------------------------------------------------------- requests
-
-/**
- * Vehicle registration — the RIDER_DOCS onboarding step.
- *
- * Sent as multipart/form-data, because the photos ride along in the same
- * request. On success the account becomes a RIDER and moves to
- * AWAITING_APPROVAL.
- */
 export interface RegisterDriverPayload {
   vehicleType: VehicleType;
   vehiclePlate: string;
-  /** The make — Bajaj, TVS, Honda… */
   vehicleBrand: string;
   vehicleModel?: string;
   vehicleColor?: string;
   vehicleYear?: number;
-  /** Comma-separated labels matched positionally, e.g. "FRONT,BACK". */
   photoTypes?: string;
   photos?: UploadFile[];
 }
 
-/** A local file, in the shape React Native's FormData expects. */
 export interface UploadFile {
   uri: string;
   name: string;
@@ -137,14 +122,12 @@ export interface NearbyDriversParams {
   vehicleType?: VehicleType;
 }
 
-/** Heartbeat, expected roughly every 10s while online. */
 export interface DriverLocationPayload {
   lat: number;
   lng: number;
   heading?: number;
   speedKph?: number;
   accuracyMeters?: number;
-  /** ISO 8601. Defaults to server time. */
   recordedAt?: string;
 }
 
@@ -155,14 +138,11 @@ export interface DriverLocationAck {
   recordedAt: string;
 }
 
-/** OFFLINE / AVAILABLE / BUSY, as dispatch sees this driver right now. */
 export type DispatchStatus = 'OFFLINE' | 'AVAILABLE' | 'BUSY';
 
-/** One held order, trimmed to what the shift screen renders. */
 export interface ActiveOrderSummary {
   id: string;
   status: string;
-  /** What the passenger is sending. Null on orders raised before the field existed. */
   description: string | null;
   pickupLocation: string;
   pickupLat: number;
@@ -178,20 +158,6 @@ export interface ActiveOrderSummary {
   createdAt: string;
 }
 
-/**
- * Everything the driver app needs on open, from `GET /drivers/state`.
- *
- * This is the reconnect path. The socket only pushes notifications and holds no
- * state, so after a drop, a cold start, or a return from the background the app
- * asks once and rebuilds from the answer rather than replaying anything.
- *
- * `isAvailable` and `presence.online` are both reported because they can
- * legitimately disagree: the first is the shift switch as the driver last set
- * it, the second is whether Redis still holds a live heartbeat. A killed app
- * leaves the first true and the second false — the driver is notionally on duty
- * but has dropped out of the dispatch pool, and the fix is to resume heartbeats,
- * not to make them toggle back on.
- */
 export interface DriverState {
   driverId: string;
   vehicleType: VehicleType;
@@ -201,9 +167,7 @@ export interface DriverState {
   kycStatus: KycStatus;
   isBlocked: boolean;
   canGoOnline: boolean;
-  /** Why the driver cannot take new work, ready to show as-is. Null when they can. */
   blockReason: string | null;
-  /** Commission owed from cash trips against the limit in force. */
   debt: DriverDebtStatus;
   held: number;
   capacity: number;
@@ -214,10 +178,8 @@ export interface DriverState {
 
 export interface DriverDebtStatus {
   current: number;
-  /** 0 means no limit. */
   limit: number;
   isOverride: boolean;
-  /** At or over the limit — no new orders until an admin records a payment. */
   locked: boolean;
   remaining: number | null;
 }

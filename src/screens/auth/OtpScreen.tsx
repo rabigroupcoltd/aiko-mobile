@@ -26,10 +26,6 @@ export function OtpScreen({ navigation, route }: Props) {
   const { remaining, restart, isDone } = useCountdown(30);
   const otpRef = useRef<OtpInputHandle>(null);
 
-  // The input's own `autoFocus` fires while this screen is still animating in,
-  // and Android quietly ignores a keyboard request made mid-transition — you
-  // land on the screen with the field focused but no keypad. Ask again once the
-  // push animation has actually finished; native-stack tells us exactly when.
   useEffect(
     () => navigation.addListener('transitionEnd', () => otpRef.current?.focus()),
     [navigation]
@@ -38,20 +34,15 @@ export function OtpScreen({ navigation, route }: Props) {
   const verify = async () => {
     setVerifying(true);
     try {
-      // TODO: verify the code with the SMS provider. Nothing checks it today —
-      // any four digits pass — which is why REQUIRE_OTP is off and this screen
-      // is unreachable. Do not turn that flag on until this calls something.
       const state = await updateOnboarding({ phone });
       const next = onboardingStepRoute(state.resumeStep);
       if (next) navigation.navigate(next);
     } catch {
-      // useApiManager has already shown the reason.
     } finally {
       setVerifying(false);
     }
   };
 
-  // Auto-submit once the code is complete, which is what users expect.
   useEffect(() => {
     if (code.length === CODE_LENGTH && !verifying) void verify();
     // eslint-disable-next-line react-hooks/exhaustive-deps

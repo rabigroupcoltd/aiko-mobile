@@ -16,21 +16,11 @@ interface UsePlaceSearchResult {
   predictions: PlacePrediction[];
   state: SearchState;
   loading: boolean;
-  /** Non-null when the lookup failed, so the sheet can say why. */
   error: string | null;
-  /** Pass to getPlaceDetails when a prediction is picked, to close out the billing session. */
   sessionToken: string;
-  /** Call once a prediction has been resolved (or the sheet is closed) to start a fresh session. */
   resetSession: () => void;
 }
 
-/**
- * Address search, called straight against Google Places Autocomplete.
- *
- * No backend round trip and no cache tier — every keystroke (after debounce)
- * is a live Google lookup. `sessionToken` ties this to the Place Details call
- * that ends it, so Google bills the pair as one search rather than two.
- */
 export function usePlaceSearch(query: string): UsePlaceSearchResult {
   const debounced = useDebouncedValue(query, 300);
   const trimmed = debounced.trim();
@@ -40,8 +30,6 @@ export function usePlaceSearch(query: string): UsePlaceSearchResult {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Guards against an in-flight request from a stale keystroke overwriting a
-  // newer one that resolved first.
   const requestId = useRef(0);
 
   useEffect(() => {
@@ -98,12 +86,6 @@ export function usePlaceSearch(query: string): UsePlaceSearchResult {
   };
 }
 
-/**
- * The list shown before anything is typed.
- *
- * Saved addresses, which is what a returning user wants. These already carry
- * real coordinates, so picking one skips Place Details entirely.
- */
 export function useDefaultPlaces() {
   const { data, isPending } = useGetAddressesManager();
 

@@ -19,25 +19,6 @@ import { colors, radius, screenGutter, spacing, typography } from '@/theme';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, typeof ROUTES.LIVENESS>;
 
-/**
- * Memoised, and that memo is load-bearing — it is what keeps the detector alive.
- *
- * `useFaceDetectorOutput` builds its native detector inside
- * `useMemo(..., [options])`, where `options` is an object-rest binding — a fresh
- * identity on every render. So the memo never hits and the detector output is
- * rebuilt on EVERY render of this camera.
- *
- * This screen re-renders roughly ten times a second while the framing ring
- * fills, so the detector was being torn down and rebuilt at that rate. It
- * stopped delivering frames within a second or two — the debug overlay read
- * `0 fps` with a stale snapshot still on screen, which looked exactly like the
- * check "freezing" as the face approached the centre. FACE_SEARCH then sat there
- * until it timed out.
- *
- * Every prop below is referentially stable (`detectorOptions` is a `useMemo`
- * with stable deps, `device` comes from `useCameraDevice`), so this shallow
- * compare blocks those renders outright and the detector is built once.
- */
 const DetectorCamera = memo(FaceCamera);
 
 export function LivenessScreen({ navigation }: Props) {
@@ -49,9 +30,6 @@ export function LivenessScreen({ navigation }: Props) {
   const [started, setStarted] = useState(false);
   const [continuing, setContinuing] = useState(false);
 
-  // Fired as soon as detection passes, so the save is usually already done by
-  // the time the user taps Continue — handleContinue awaits the same promise
-  // rather than firing a second request.
   const saveResult = useRef<ReturnType<typeof updateOnboarding> | null>(null);
 
   const handlePassed = useCallback(() => {
@@ -90,7 +68,6 @@ export function LivenessScreen({ navigation }: Props) {
       const next = onboardingStepRoute(state.resumeStep);
       if (next) navigation.navigate(next);
     } catch {
-      // useApiManager has already shown the reason.
     } finally {
       setContinuing(false);
     }
@@ -135,7 +112,6 @@ export function LivenessScreen({ navigation }: Props) {
       <FaceOvalGuide phase={phase} aligned={aligned} />
 
       <SafeAreaView style={styles.chrome} edges={['top', 'bottom']} pointerEvents="box-none">
-        {/* ── top ── */}
         <View style={styles.top}>
           <View style={styles.topBar}>
             <Pressable
@@ -155,7 +131,6 @@ export function LivenessScreen({ navigation }: Props) {
           ) : null}
         </View>
 
-        {/* ── bottom ── */}
         <View style={styles.bottom}>
           <View style={[styles.promptCard, failed && styles.promptCardError, passed && styles.promptCardSuccess]}>
             <Text style={styles.promptTitle}>{prompt.title}</Text>
@@ -231,7 +206,6 @@ const styles = StyleSheet.create({
   actions: { gap: spacing.sm },
   intro: { ...typography.bodySmall, color: colors.neutral[300], textAlign: 'center' },
   exhausted: { ...typography.caption, color: colors.neutral[400], textAlign: 'center' },
-
 
   permission: {
     flex: 1,

@@ -2,13 +2,11 @@ import { LIVENESS_COPY } from '@/data/copy';
 import type { LivenessState } from './types';
 
 export interface Prompt {
-  /** Stable identity used to throttle UI updates — not shown to the user. */
   id: string;
   title: string;
   subtitle: string;
 }
 
-/** Map machine state to the coaching text on screen. */
 export function promptFor(state: LivenessState): Prompt {
   const p = LIVENESS_COPY.prompts;
 
@@ -48,8 +46,6 @@ export function promptFor(state: LivenessState): Prompt {
       return { id: 'passed', ...p.passed };
 
     case 'FAILED': {
-      // Every failure is a timeout now, so TIMEOUT_FACE is the only sensible
-      // fallback for a FAILED state that somehow arrived without a reason.
       const reason = state.failReason ?? 'TIMEOUT_FACE';
       const copy = LIVENESS_COPY.failures[reason];
       return { id: `fail-${reason}`, ...copy };
@@ -57,7 +53,6 @@ export function promptFor(state: LivenessState): Prompt {
   }
 }
 
-/** Which of the three checks the user is on, for the progress indicator. */
 export function stepIndexFor(state: LivenessState): number {
   switch (state.phase) {
     case 'FACE_SEARCH':

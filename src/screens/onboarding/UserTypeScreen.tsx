@@ -23,13 +23,8 @@ export function UserTypeScreen({ navigation }: Props) {
 
     setSaving(true);
     try {
-      // No navigation call either way: setting accountType makes
-      // `passengerReady` true, and RootNavigator swaps in the drawer (or, for
-      // a rider, RiderStack's vehicle-registration chain within it) on the
-      // next render.
       await updateOnboarding({ accountType: selected === 'rider' ? 'RIDER' : 'PASSENGER' });
     } catch {
-      // useApiManager has already shown the reason.
     } finally {
       setSaving(false);
     }

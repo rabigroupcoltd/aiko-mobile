@@ -1,5 +1,3 @@
-/** 4pt spacing scale, plus radii and the standard screen gutter. */
-
 export const spacing = {
   none: 0,
   xxs: 2,
@@ -24,10 +22,8 @@ export const radius = {
   pill: 999,
 } as const;
 
-/** Horizontal gutter every screen uses so content lines up across the app. */
 export const screenGutter = spacing.lg;
 
-/** Minimum touch target — anything tappable should meet this. */
 export const hitSize = 44;
 
 export type Spacing = typeof spacing;

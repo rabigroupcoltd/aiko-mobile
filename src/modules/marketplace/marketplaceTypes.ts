@@ -1,44 +1,22 @@
 import type { Order } from '@/modules/orders/ordersTypes';
 import type { OrderStatus, PaymentMethod, VehicleType } from '@/modules/shared/apiTypes';
 
-/** How well an order fits the driver's current route, as the grid labels it. */
 export type RouteMatch = 'GREAT' | 'GOOD' | 'FAIR' | 'POOR';
 
-/**
- * The compatibility engine's verdict on one order for one driver.
- *
- * Scored server-side and never recomputed here — the client has no idea what
- * else the driver is carrying, and a second opinion could only disagree with the
- * one that actually decides whether the reservation is allowed.
- */
 export interface OrderCompatibility {
   compatible: boolean;
   additionalDistanceKm: number;
   additionalTimeMinutes: number;
-  /** 0–100. Higher is a better fit right now. */
   routeScore: number;
   match: RouteMatch;
   pickupDistanceKm: number;
   existingDelayMinutes: number;
-  /** Plain-language explanation, shown to the driver verbatim. */
   reason: string;
 }
 
-/**
- * One card in the available-orders grid.
- *
- * Note what is missing: no customer name, no phone, no user id. None of it is
- * needed to decide whether to take the job, and it arrives with the reservation.
- */
 export interface MarketplaceOrder {
   id: string;
   vehicleType: VehicleType;
-  /**
-   * What the customer is sending, in their words.
-   *
-   * Null on orders raised before the field existed, and on customers who left
-   * it blank — the card renders it only when there is something to render.
-   */
   description: string | null;
   pickupLocation: string;
   pickupLat: number;
@@ -48,7 +26,6 @@ export interface MarketplaceOrder {
   dropoffLng: number;
   distanceKm: number;
   durationMins: number;
-  /** What the driver keeps — not what the customer pays. */
   earnings: number;
   fare: number;
   currency: string;
@@ -89,7 +66,6 @@ export interface RoutePlan {
   pickupEtaByOrder: Record<string, number>;
 }
 
-/** An order the driver is holding, with its place in the route. */
 export interface ActiveOrder extends Order {
   deliveryEtaMinutes: number | null;
   pickupEtaMinutes: number | null;
@@ -105,7 +81,6 @@ export interface ActiveOrdersResponse {
 
 export type DispatchStatus = 'OFFLINE' | 'AVAILABLE' | 'BUSY';
 
-/** The server's dispatch limits, so the client never hard-codes one. */
 export interface MarketplaceConfig {
   maxReservedOrdersPerDriver: number;
   initialDriverRadiusKm: number;
@@ -152,6 +127,5 @@ export interface SkippedOrderAction {
   };
 }
 
-/** The two errors the reserve endpoint answers with, as the server words them. */
 export const ORDER_ALREADY_RESERVED = 'ORDER_ALREADY_RESERVED';
 export const MAX_ORDER_CAPACITY_REACHED = 'MAX_ORDER_CAPACITY_REACHED';

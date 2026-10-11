@@ -13,14 +13,6 @@ interface ReviewPhotoProps {
   onConfirm: () => void;
 }
 
-/**
- * Post-capture confirmation.
- *
- * Mandatory for every capture target — a blurred licence or a badly angled
- * plate photo with no chance to retake is the fastest way to derail a demo.
- * The live preview is unmounted by the parent before this renders, so only one
- * camera client is ever open.
- */
 export function ReviewPhoto({
   uri,
   title,

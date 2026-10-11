@@ -9,18 +9,9 @@ interface BidCardProps {
   bid: RideBidWithDriver;
   onAccept: () => void;
   accepting?: boolean;
-  /** Another bid is being accepted — this one is temporarily unavailable. */
   disabled?: boolean;
 }
 
-/**
- * One driver's offer, as the passenger chooses between them.
- *
- * Replaces the demo's single "we found you a rider" card. The plural matters:
- * the backend broadcasts to every nearby driver and collects bids, so there is
- * genuinely a choice to present, and a card that showed one driver would be
- * hiding the others.
- */
 export function BidCard({ bid, onAccept, accepting, disabled }: BidCardProps) {
   const styles = useStyles();
   const { driver } = bid;

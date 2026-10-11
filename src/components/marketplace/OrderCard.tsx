@@ -4,13 +4,6 @@ import { Button, Card, Chip } from '@/components/ui';
 import type { MarketplaceOrder, RouteMatch } from '@/modules/marketplace/marketplaceTypes';
 import { makeStyles, spacing, useTheme } from '@/theme';
 
-/**
- * One order in the driver's grid.
- *
- * Built for a glance at a traffic light: price first and largest, then the two
- * ends of the trip, then the numbers that decide it. Two buttons, both large
- * enough to hit without looking closely — §42.
- */
 export function OrderCard({
   order,
   onAccept,
@@ -21,9 +14,7 @@ export function OrderCard({
   order: MarketplaceOrder;
   onAccept: () => void;
   onSkip: () => void;
-  /** This card's own reservation is in flight. */
   busy?: boolean;
-  /** Another card is being reserved, or the driver is at capacity. */
   disabled?: boolean;
 }) {
   const styles = useStyles();
@@ -41,12 +32,6 @@ export function OrderCard({
         <MatchBadge match={fit.match} />
       </View>
 
-      {/*
-        What the driver is being asked to carry. Directly under the price
-        because it is the other half of the same decision — a fare is only
-        worth taking if the parcel fits on the bike. Hidden entirely when the
-        customer said nothing, rather than shown as an empty row.
-      */}
       {order.description ? (
         <Text style={styles.description} numberOfLines={2}>
           {order.description}
@@ -62,11 +47,6 @@ export function OrderCard({
         <Metric label="Age" value={formatAge(order.ageSeconds)} />
       </View>
 
-      {/*
-        The detour is the number that actually decides a second or third order,
-        so it gets its own line rather than being buried among the metrics. It
-        is meaningless on the first order — there is no route to detour from.
-      */}
       {fit.additionalDistanceKm > 0 ? (
         <Text style={[styles.reason, !fit.compatible && styles.reasonPoor]}>
           {fit.compatible ? '+' : ''}
@@ -90,9 +70,6 @@ export function OrderCard({
           size="md"
           onPress={onAccept}
           loading={busy}
-          // Incompatible orders stay visible and stay honest about why — §16 —
-          // but the server refuses them unless ALLOW_INCOMPATIBLE_RESERVATION
-          // is on, so offering the button would be a lie.
           disabled={disabled || busy || !fit.compatible}
           style={styles.action}
         />
@@ -111,7 +88,6 @@ const MATCH_CHIP: Record<
   POOR: { label: 'Poor match', tone: 'neutral' },
 };
 
-/** GREAT / GOOD / FAIR / POOR, coloured so the grid reads at a glance. */
 export function MatchBadge({ match }: { match: RouteMatch }) {
   const chip = MATCH_CHIP[match];
   return <Chip label={chip.label} tone={chip.tone} dot />;
@@ -149,7 +125,6 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** "2m" reads faster than "just now" when you are deciding in three seconds. */
 function formatAge(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
@@ -164,8 +139,6 @@ const useStyles = makeStyles(({ colors, type }) => ({
   },
   card: { gap: spacing.sm, borderWidth: 2 },
   cardFits: { borderColor: colors.primary },
-  // Muted rather than hidden: the driver still sees the job exists and why it
-  // was not recommended.
   cardPoor: { borderColor: colors.border, opacity: 0.75 },
 
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

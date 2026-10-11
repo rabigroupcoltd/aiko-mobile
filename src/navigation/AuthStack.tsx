@@ -6,7 +6,6 @@ import type { AuthStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
-/** Pre-session. Google is the only credential that gets you out of here. */
 export function AuthStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>

@@ -4,12 +4,10 @@ import { green, makeStyles, spacing } from '@/theme';
 
 interface StepDotsProps {
   total: number;
-  /** Zero-based index of the current step. */
   current: number;
   style?: ViewStyle;
 }
 
-/** Onboarding progress. The active dot widens into a bar so it reads at a glance. */
 export function StepDots({ total, current, style }: StepDotsProps) {
   const styles = useStyles();
 

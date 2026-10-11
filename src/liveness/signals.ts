@@ -1,12 +1,6 @@
 import { LIVENESS } from './constants';
 import type { FaceSnapshot } from './types';
 
-/**
- * Signal conditioning for noisy ML Kit output. Pure functions and small
- * stateful trackers — no React, fully unit-testable.
- */
-
-/** Fixed-capacity ring buffer of numbers. */
 export class RingBuffer {
   private readonly buf: number[] = [];
 
@@ -17,7 +11,6 @@ export class RingBuffer {
     if (this.buf.length > this.capacity) this.buf.shift();
   }
 
-  /** Most recent `n` values, oldest first. */
   last(n: number): number[] {
     return this.buf.slice(Math.max(0, this.buf.length - n));
   }
@@ -38,14 +31,6 @@ export function median(values: number[]): number {
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
-/**
- * Fuse the two eye probabilities.
- *
- * Uses `min`, not the average: a genuine blink closes both eyes, so taking the
- * minimum makes closure crisp and prevents a half-open average from hovering
- * around the threshold. Returns null when neither eye reported — that is a
- * dropout and must not be treated as a closure.
- */
 export function fuseEyes(snapshot: FaceSnapshot): number | null {
   const { leftEye, rightEye } = snapshot;
   if (leftEye != null && rightEye != null) return Math.min(leftEye, rightEye);
@@ -54,13 +39,6 @@ export function fuseEyes(snapshot: FaceSnapshot): number | null {
   return null;
 }
 
-/**
- * Median-then-EMA smoother.
- *
- * The median kills single-frame outliers without adding lag; the (deliberately
- * light) EMA takes the remaining jitter off. Feeding null marks a dropout and
- * leaves the smoothed value unchanged.
- */
 export class Smoother {
   private readonly raw: RingBuffer;
   private ema: number | null = null;
@@ -72,7 +50,6 @@ export class Smoother {
     this.raw = new RingBuffer(Math.max(medianWindow, 1));
   }
 
-  /** Returns the smoothed value, or null if nothing valid has been seen yet. */
   push(value: number | null): number | null {
     if (value == null) return this.ema;
 
@@ -93,7 +70,6 @@ export class Smoother {
   }
 }
 
-/** Median-only smoother for pose angles — EMA would lag the hold detection. */
 export class AngleSmoother {
   private readonly buf = new RingBuffer(5);
 
@@ -107,19 +83,16 @@ export class AngleSmoother {
   }
 }
 
-/** Face centre and size, normalised to the frame. */
 export function normaliseFace(s: FaceSnapshot) {
   const frameW = s.frameW || 1;
   const frameH = s.frameH || 1;
   return {
     centerX: (s.x + s.w / 2) / frameW,
     centerY: (s.y + s.h / 2) / frameH,
-    // Face width relative to frame width — the "how close am I" signal.
     widthRatio: s.w / frameW,
   };
 }
 
-/** Signed shortest difference between two angles in degrees. */
 export function angleDelta(a: number, b: number): number {
   let d = a - b;
   while (d > 180) d -= 360;

@@ -1,14 +1,5 @@
 import axios from 'axios';
 
-/**
- * Direct Google Places calls from the app — no backend round trip.
- *
- * This key is looked up over plain HTTPS from JS, not through the native Maps/
- * Places SDK, so Google's "Android apps" key restriction (which only checks
- * the calling SDK's app signature) does not apply to it. Restrict it in Cloud
- * Console by API instead — "Places API" only — and treat it as public-ish: it
- * will sit inside the app bundle. See .env.example for the full setup.
- */
 const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
 const REGION = process.env.EXPO_PUBLIC_GOOGLE_PLACES_REGION ?? 'ng';
 
@@ -19,9 +10,7 @@ const DETAILS_ENDPOINT = 'https://maps.googleapis.com/maps/api/place/details/jso
 
 export interface PlacePrediction {
   placeId: string;
-  /** e.g. "Minna Central Market" */
   mainText: string;
-  /** e.g. "Minna, Niger State" */
   secondaryText: string;
   description: string;
 }
@@ -34,11 +23,6 @@ export interface ResolvedPlace {
   lng: number;
 }
 
-/**
- * Groups an autocomplete session (keystrokes) with the details call that ends
- * it, so Google bills it as one lookup instead of one per request. Start a new
- * one each time the search field is (re)opened or a place gets picked.
- */
 export function newSessionToken(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
@@ -73,7 +57,6 @@ export async function autocomplete(
   }));
 }
 
-/** Coordinates + the formatted label — autocomplete alone never carries either. */
 export async function getPlaceDetails(
   placeId: string,
   sessionToken: string,

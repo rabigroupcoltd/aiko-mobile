@@ -1,20 +1,11 @@
 import type { CaptureTarget } from '@/types/models';
 
-/**
- * Single source of truth for user-facing strings.
- *
- * CAPTURE_CONFIG in particular is what makes one CameraCapture component serve
- * four different flows — adding a fifth document type is a data change here,
- * not a new screen.
- */
-
 export interface CaptureConfig {
   title: string;
   instruction: string;
   facing: 'front' | 'back';
   overlay: 'oval' | 'card' | 'plate';
   confirmLabel: string;
-  /** Shown on the screen that owns this asset. */
   shortLabel: string;
 }
 
@@ -120,8 +111,6 @@ export const LIVENESS_COPY = {
     },
   },
 
-  // Only timeouts reach this state. Face conditions — no face, several faces, a
-  // bad pose — are coached via `prompts` while the clock runs, never failed on.
   failures: {
     TIMEOUT_FACE: {
       title: 'That took too long',

@@ -15,7 +15,6 @@ import type { RiderStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RiderStackParamList>();
 
-
 export function RiderStack() {
   const onboarding = useOnboardingState();
   const status = onboarding?.driver.status ?? 'NOT_SUBMITTED';
@@ -44,8 +43,6 @@ export function RiderStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name={ROUTES.RIDER_HOME} component={RiderHomeScreen} />
-      {/* Only registered for an approved rider, so an unapproved one cannot
-          reach a customer conversation by any navigation path. */}
       <Stack.Screen name={ROUTES.ORDER_CHAT} component={OrderChatScreen} />
     </Stack.Navigator>
   );

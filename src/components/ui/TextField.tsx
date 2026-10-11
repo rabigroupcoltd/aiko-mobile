@@ -13,7 +13,6 @@ interface TextFieldProps extends TextInputProps {
   label?: string;
   error?: string;
   helper?: string;
-  /** Rendered inside the field on the right — e.g. a unit or a toggle. */
   trailing?: React.ReactNode;
   containerStyle?: ViewStyle;
 }
@@ -53,7 +52,6 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
         {trailing ? <View style={styles.trailing}>{trailing}</View> : null}
       </View>
 
-      {/* Error takes precedence over helper so the row height stays stable. */}
       {error ? (
         <Text style={styles.error}>{error}</Text>
       ) : helper ? (

@@ -10,14 +10,6 @@ import type { Order } from '@/modules/orders/ordersTypes';
 import { useOpenDrawer } from '@/navigation/useAppNavigation';
 import { makeStyles, spacing } from '@/theme';
 
-/**
- * Driver earnings.
- *
- * Every row is one order — §34. Three orders carried on one route produce three
- * separate lines and three separate amounts, because that is how they settle:
- * the platform fee, the wallet credit and the ledger entry are all per order.
- * There is deliberately no "route earnings" figure anywhere here.
- */
 export function DriverEarningsScreen() {
   const styles = useStyles();
   const openDrawer = useOpenDrawer();
@@ -90,8 +82,6 @@ function EarningRow({ order, first }: { order: Order; first: boolean }) {
       </View>
       <View style={styles.rowAmounts}>
         <Text style={styles.rowEarnings}>₦{order.driverEarnings.toLocaleString()}</Text>
-        {/* The customer's price alongside, so the fee is visible rather than
-            an unexplained gap between what they charged and what they kept. */}
         <Text style={styles.rowFare}>of ₦{order.fare.toLocaleString()}</Text>
       </View>
     </View>

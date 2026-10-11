@@ -1,12 +1,3 @@
-/**
- * Google Maps dark styling.
- *
- * Applied via `customMapStyle` when the app is in dark mode — a default light
- * map dropped into a dark screen is the single most jarring thing about a
- * half-themed app.
- *
- * Water and parks keep a green cast so the map still reads as Aiko's.
- */
 export const DARK_MAP_STYLE = [
   { elementType: 'geometry', stylers: [{ color: '#152220' }] },
   { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },

@@ -4,7 +4,6 @@ import { Animated, Easing, Text, View } from 'react-native';
 import { makeStyles, spacing, useTheme } from '@/theme';
 
 interface MatchingAnimationProps {
-  /** Rotating status lines shown beneath the radar. */
   stages: readonly string[];
   stageIndex: number;
 }
@@ -12,15 +11,10 @@ interface MatchingAnimationProps {
 const RING_COUNT = 3;
 const RADAR_SIZE = 240;
 
-/**
- * Expanding radar rings — the visual stand-in for a Redis geo-radius query
- * fanning out to find nearby riders.
- */
 export function MatchingAnimation({ stages, stageIndex }: MatchingAnimationProps) {
   const styles = useStyles();
   const { colors } = useTheme();
 
-  // One Animated.Value per ring, started on a stagger so they chase each other.
   const rings = useRef(
     Array.from({ length: RING_COUNT }, () => new Animated.Value(0))
   ).current;

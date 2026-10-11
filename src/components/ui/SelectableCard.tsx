@@ -5,21 +5,14 @@ import { makeStyles, radius, shadows, spacing } from '@/theme';
 interface SelectableCardProps {
   title: string;
   description?: string;
-  /** Large emoji or icon shown in the leading badge. */
   icon?: string;
   selected: boolean;
   onPress: () => void;
-  /** Small text in the top-right, e.g. "Up to 3 passengers". */
   meta?: string;
   style?: ViewStyle;
   testID?: string;
 }
 
-/**
- * Radio-style card used for Passenger/Rider and Bike/Tricycle choices.
- * Selection is shown three ways at once — border, tint, and a check — so it
- * reads clearly on a projector where colour alone may not carry.
- */
 export function SelectableCard({
   title,
   description,

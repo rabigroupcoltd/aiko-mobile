@@ -1,12 +1,5 @@
 import type { KycStatus, VehicleType } from '@/modules/shared/apiTypes';
 
-/**
- * Platform-wide reporting. Admin only — a passenger or rider app will get 403
- * from every one of these. A driver's own numbers come from the drivers module.
- *
- * Rates come back as strings with one decimal place, not numbers.
- */
-
 export interface AnalyticsOverview {
   totalUsers: number;
   totalDrivers: number;
@@ -29,7 +22,6 @@ export interface DriverAnalyticsRow {
   email: string | null;
   phone: string | null;
   vehicleType: VehicleType;
-  /** Model and plate, pre-formatted. */
   vehicle: string;
   status: KycStatus;
   isAvailable: boolean;
@@ -58,12 +50,10 @@ export interface OrderAnalytics {
   today: OrderPeriodStats;
   thisWeek: OrderPeriodStats;
   thisMonth: OrderPeriodStats;
-  /** Counted in the database rather than from a capped page of rows. */
   allTime: { total: number; revenue: number };
 }
 
 export interface RevenueChartPoint {
-  /** YYYY-MM-DD. Days with no completed trip are absent, not zero-filled. */
   date: string;
   cash: number;
   transfer: number;

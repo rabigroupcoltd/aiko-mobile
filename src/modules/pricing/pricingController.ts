@@ -16,16 +16,6 @@ import type {
 
 export const PRICING_QUERY_KEY = 'pricing';
 
-// ============================================
-// QUERY CONTROLLERS
-// ============================================
-
-/**
- * The rate cards. Public, so the booking screen can render them before sign-in.
- *
- * Held fresh for five minutes — pricing changes are an admin action, not
- * something worth refetching on every mount.
- */
 export const useGetPricingRulesManager = ({
   activeOnly = false,
   enabled = true,
@@ -66,13 +56,6 @@ export const useGetPricingRuleManager = ({
   });
 };
 
-/**
- * Quotes a route as a query rather than a mutation.
- *
- * It is a POST because the coordinates go in a body, but it is a pure read —
- * modelling it as a query means the ride picker gets caching and automatic
- * refetch when the route changes, instead of firing a mutation per keystroke.
- */
 export const useGetFareEstimateManager = ({
   vehicleType,
   pickupLat,
@@ -107,7 +90,6 @@ export const useGetFareEstimateManager = ({
   });
 };
 
-/** One quote per active vehicle type for the same route — the ride picker. */
 export const useGetAllFareEstimatesManager = ({
   vehicleType = 'TRICYCLE',
   pickupLat,
@@ -128,8 +110,6 @@ export const useGetAllFareEstimatesManager = ({
       try {
         const response = await AxiosWithToken.post<ApiResponse<FareQuote[]>>(
           '/pricing/estimate/all',
-          // vehicleType is ignored by this endpoint but the DTO still demands
-          // one, so a placeholder is sent rather than failing validation.
           { vehicleType, pickupLat, pickupLng, dropoffLat, dropoffLng },
         );
         return response.data.data;
@@ -141,11 +121,6 @@ export const useGetAllFareEstimatesManager = ({
   });
 };
 
-// ============================================
-// ADMIN MUTATION CONTROLLERS
-// ============================================
-
-/** Full replacement. Past trips keep their frozen snapshot and are unaffected. */
 export const UpsertPricingRuleManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     PricingRule,
@@ -167,7 +142,6 @@ export const UpsertPricingRuleManager = () => {
   return { upsertPricingRule, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
-/** Partial update — send only the fields that change. */
 export const UpdatePricingRuleManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     PricingRule,

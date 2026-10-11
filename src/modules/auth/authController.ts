@@ -19,21 +19,6 @@ import type {
 
 export const AUTH_QUERY_KEY = 'auth';
 
-// ============================================
-// MUTATION CONTROLLERS
-// ============================================
-
-/**
- * The app's only way in.
- *
- * Sign-up and sign-in are the same call — the server finds or creates the
- * account behind the token and reports which happened via `isNewUser`. The
- * session is written to the auth store here rather than at every call site, so
- * the token is available to the next request whatever screen triggered this.
- *
- * Navigate on `onboarding.resumeStep`, not on `isNewUser`: a user who
- * abandoned setup halfway is a returning user who still owes steps.
- */
 export const FirebaseSignInManager = () => {
   const setSession = useAuthStore((state) => state.setSession);
 
@@ -63,7 +48,6 @@ export const FirebaseSignInManager = () => {
   return { signInWithFirebase, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
-/** Password sign-in for staff. App accounts have no password to check. */
 export const AdminLoginManager = () => {
   const setSession = useAuthStore((state) => state.setSession);
 
@@ -93,24 +77,6 @@ export const AdminLoginManager = () => {
   return { adminLogin, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
-/**
- * Ends the session locally.
- *
- * There is no server-side logout — the token is stateless and expires on its
- * own — so this only has to forget it. Firebase sign-out is the caller's job,
- * since not every consumer wants the Google session dropped too.
- *
- * The one thing it cannot leave until afterwards is dropping the push
- * registration: that request is authenticated by the very token being cleared,
- * so it has to go first or the next person to sign in on this handset inherits
- * the previous user's notifications. It is awaited but never allowed to fail
- * the logout — being unable to reach the server is not a reason to keep someone
- * signed in.
- *
- * Local capture drafts are cleared too — a license photo or chosen vehicle
- * type left in `appStore` must not silently attach itself to whoever signs
- * in next on this device.
- */
 export const useLogoutManager = () => {
   const clearSession = useAuthStore((state) => state.clearSession);
   const clearLocalDrafts = useAppStore((state) => state.clearLocalDrafts);
@@ -124,11 +90,6 @@ export const useLogoutManager = () => {
   return { logout };
 };
 
-// ============================================
-// QUERY CONTROLLERS
-// ============================================
-
-/** The signed-in user, their driver profile if any, and onboarding state. */
 export const useGetProfileManager = ({ enabled = true }: QueryOptions = {}) => {
   const accessToken = useAuthStore((state) => state.accessToken);
 
@@ -142,18 +103,10 @@ export const useGetProfileManager = ({ enabled = true }: QueryOptions = {}) => {
         throw new Error(parseApiError(error));
       }
     },
-    // Without a token this can only 401, and a failed query would put the UI
-    // into an error state that is really just "not signed in yet".
     enabled: enabled && Boolean(accessToken),
   });
 };
 
-/**
- * Whether the API is reachable, using a public endpoint.
- *
- * Useful on a splash or retry screen: it distinguishes "the server is down"
- * from "this user is signed out", which a 401 alone cannot.
- */
 export const useApiHealthManager = ({ enabled = true }: QueryOptions = {}) => {
   return useQuery({
     queryKey: [AUTH_QUERY_KEY, 'health'],

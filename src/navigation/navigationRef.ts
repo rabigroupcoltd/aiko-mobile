@@ -5,13 +5,10 @@ import { ROUTES } from './routes';
 
 const log = createLogger('nav');
 
-
 export const navigationRef = createNavigationContainerRef();
-
 
 let pending: (() => void) | null = null;
 
-/** Called from NavigationContainer's `onReady`. */
 export function onNavigationReady(): void {
   if (!pending) return;
 
@@ -38,7 +35,6 @@ function dispatch(name: string, params: object | undefined, what: string): void 
   });
 }
 
-
 export function openOrderTracking(orderId: string): void {
   dispatch(
     ROUTES.HOME_TAB,
@@ -47,12 +43,10 @@ export function openOrderTracking(orderId: string): void {
   );
 }
 
-/** Brings a driver to their dashboard, where the grid refetches on focus. */
 export function openDriverHome(): void {
   dispatch(ROUTES.HOME_TAB, undefined, 'the dashboard');
 }
 
-/** Opens the chat for one order, from a message notification. */
 export function openOrderChat(orderId: string): void {
   dispatch(ROUTES.HOME_TAB, { screen: ROUTES.ORDER_CHAT, params: { orderId } }, 'the chat');
 }

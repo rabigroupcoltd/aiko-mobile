@@ -1,23 +1,3 @@
-/**
- * Aiko palette — green and white, with a dark counterpart.
- *
- * The green ramp is the brand spine and stays constant across schemes; the
- * neutrals and semantic tokens flip. Screens should read semantic tokens from
- * `useTheme()` rather than importing a palette directly, so both schemes stay
- * in sync — see `ThemeProvider.tsx`.
- */
-
-/**
- * Brand green ramp, anchored on colours sampled from the official Aiko assets
- * (logo, icon and splash) rather than chosen by eye:
- *
- *   500 #0D8A41 — primary, from the splash artwork
- *   400 #1FB74B — bright accent, from the splash artwork
- *   700 #0A6727 — mid green, from the horizontal logo
- *   900 #01311D — deep forest green, the dominant logo colour
- *
- * The intermediate steps are interpolated to keep the ramp even.
- */
 export const green = {
   50: '#E8F6ED',
   100: '#C4E9D1',
@@ -57,15 +37,6 @@ const supportDark = {
   info: '#6BA6E8',
 } as const;
 
-/**
- * The semantic token set both schemes must provide.
- *
- * Declared explicitly rather than inferred from the light palette: the ramps
- * above are `as const`, so `primary: green[500]` would otherwise infer the
- * literal type `"#0E8F4E"` and the dark palette could never hold a different
- * value. Declaring it also means adding a token to one scheme fails to compile
- * until the other defines it too.
- */
 export interface Colors {
   green: typeof green;
   neutral: typeof neutral;
@@ -110,7 +81,6 @@ export interface Colors {
   livenessSuccess: string;
   livenessError: string;
 
-  /** Drives StatusBar content, navigation theme and native map styling. */
   isDark: boolean;
 }
 
@@ -118,7 +88,6 @@ export const lightColors: Colors = {
   green,
   neutral,
 
-  // ── brand ────────────────────────────────────────────────────────────────
   primary: green[500],
   primaryDark: green[600],
   primaryDarker: green[700],
@@ -126,7 +95,6 @@ export const lightColors: Colors = {
   primarySubtle: green[50],
   onPrimary: neutral[0],
 
-  // ── surfaces ─────────────────────────────────────────────────────────────
   background: neutral[50],
   surface: neutral[0],
   surfaceAlt: neutral[100],
@@ -134,7 +102,6 @@ export const lightColors: Colors = {
   overlay: 'rgba(17, 25, 23, 0.55)',
   scrim: 'rgba(17, 25, 23, 0.78)',
 
-  // ── text ─────────────────────────────────────────────────────────────────
   text: neutral[900],
   textSecondary: neutral[600],
   textMuted: neutral[500],
@@ -142,13 +109,11 @@ export const lightColors: Colors = {
   textInverse: neutral[0],
   textOnPrimary: neutral[0],
 
-  // ── lines ────────────────────────────────────────────────────────────────
   border: neutral[200],
   borderStrong: neutral[300],
   divider: neutral[200],
   focusRing: green[400],
 
-  // ── status ───────────────────────────────────────────────────────────────
   danger: support.danger,
   dangerBg: '#FCEBEB',
   warning: support.warning,
@@ -158,24 +123,18 @@ export const lightColors: Colors = {
   success: green[500],
   successBg: green[50],
 
-  // ── liveness feedback (used by the face oval + prompts) ───────────────────
   livenessIdle: neutral[300],
   livenessActive: green[400],
   livenessSuccess: green[500],
   livenessError: support.danger,
 
-  /** Drives StatusBar content and native map styling. */
   isDark: false,
-  // NOTE: deliberately no `as const` here. It would pin every value to its
-  // literal type, and `darkColors` could then never hold a different string.
 };
 
 export const darkColors: Colors = {
   green,
   neutral,
 
-  // Brand green is lifted a step in dark mode — #0E8F4E on a near-black
-  // surface fails contrast for text and reads muddy for fills.
   primary: green[400],
   primaryDark: green[500],
   primaryDarker: green[300],
@@ -219,9 +178,4 @@ export const darkColors: Colors = {
   isDark: true,
 };
 
-
-/**
- * Light palette exported directly for the handful of always-dark surfaces
- * (camera and liveness screens) that intentionally do not follow the scheme.
- */
 export const colors = lightColors;

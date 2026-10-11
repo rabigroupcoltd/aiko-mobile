@@ -4,15 +4,11 @@ import { green } from '@/theme';
 import { AikoMark } from './AikoMark';
 
 interface AikoLogoProps {
-  /** Height of the mark; the wordmark scales with it. */
   size?: number;
-  /** `onBrand` for white-on-green surfaces, `onLight` for light ones. */
   tone?: 'onBrand' | 'onLight';
-  /** Stack the wordmark under the mark instead of beside it. */
   stacked?: boolean;
 }
 
-/** Mark + wordmark lock-up. */
 export function AikoLogo({ size = 56, tone = 'onBrand', stacked = false }: AikoLogoProps) {
   const wordColor = tone === 'onBrand' ? '#FFFFFF' : green[900];
 

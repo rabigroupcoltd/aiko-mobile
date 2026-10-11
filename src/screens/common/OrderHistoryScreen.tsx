@@ -30,13 +30,6 @@ const STATUS_CHIP: Partial<
   SEARCHING_FOR_DRIVER: { label: 'Finding a driver', tone: 'info' },
 };
 
-/**
- * Order history, for either side.
- *
- * The skipped tab is driver-only and comes from a different endpoint — a skip
- * is a decision recorded against the driver, not a state of the order, which
- * stays open for everyone else.
- */
 export function OrderHistoryScreen() {
   const styles = useStyles();
   const openDrawer = useOpenDrawer();
@@ -138,7 +131,6 @@ function OrderRow({ order, isRider }: { order: Order; isRider: boolean }) {
       <View style={styles.rowHeader}>
         {chip ? <Chip label={chip.label} tone={chip.tone} dot={active} /> : null}
         <Text style={styles.amount}>
-          {/* A driver reads what they kept; a customer reads what they paid. */}
           ₦{(isRider ? order.driverEarnings : order.fare).toLocaleString()}
         </Text>
       </View>

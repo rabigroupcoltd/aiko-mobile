@@ -21,20 +21,6 @@ import type {
 
 export const RIDE_REQUESTS_QUERY_KEY = 'ride-requests';
 
-/**
- * REST mirror of the WebSocket matching flow.
- *
- * The socket is the primary path — it pushes bids as they arrive. These exist
- * for clients that cannot hold a socket open, and as the fallback when the
- * connection drops mid-search. Both raise the same server-side events, so a
- * cancel here reaches a driver listening on a socket.
- */
-
-// ============================================
-// QUERY CONTROLLERS
-// ============================================
-
-/** Requests the caller raised as a passenger, newest first. */
 export const useGetMyRideRequestsManager = ({ enabled = true }: QueryOptions = {}) => {
   return useQuery({
     queryKey: [RIDE_REQUESTS_QUERY_KEY, 'mine'],
@@ -51,13 +37,6 @@ export const useGetMyRideRequestsManager = ({ enabled = true }: QueryOptions = {
   });
 };
 
-/**
- * A driver's inbox of open offers.
- *
- * Polled rather than cached: a request expires after RIDE_REQUEST_TTL seconds,
- * so a stale inbox shows jobs that are already gone. The socket delivers these
- * live — this is the fallback.
- */
 export const useGetDriverInboxManager = ({
   enabled = true,
   refetchInterval = 10_000,
@@ -79,17 +58,6 @@ export const useGetDriverInboxManager = ({
   });
 };
 
-/**
- * Open requests around the driver, whether or not they were matched into them.
- *
- * The counterpart to the inbox. Matching only pushes — a request fans out to
- * whoever was online the moment it was raised — so a driver who came online
- * mid-search will not appear in `inbox` for work that is already in flight.
- * This is how they find it.
- *
- * Polled like the inbox, and for the same reason: an offer that has expired is
- * worse than no offer. Pass the driver's live position, not a remembered one.
- */
 export const useGetNearbyRideRequestsManager = ({
   lat,
   lng,
@@ -100,8 +68,6 @@ export const useGetNearbyRideRequestsManager = ({
 }: QueryOptions &
   Partial<NearbyRideRequestsQuery> & { refetchInterval?: number | false }) => {
   return useQuery({
-    // The position is part of the key: moving invalidates the answer, and two
-    // positions must not share one cache entry.
     queryKey: [RIDE_REQUESTS_QUERY_KEY, 'nearby', lat, lng, radiusKm],
     queryFn: async () => {
       try {
@@ -142,18 +108,6 @@ export const useGetRideRequestManager = ({
   });
 };
 
-// ============================================
-// MUTATION CONTROLLERS
-// ============================================
-
-/**
- * The caller's still-open request, if they have one.
- *
- * The server allows exactly one per passenger, so creating a second is a 409.
- * This is how a screen recovers from that: the open request is the same search
- * the passenger is trying to start, so it is adopted rather than reported as an
- * error. Not a hook — it runs inside a failed mutation's catch.
- */
 export async function findOpenRequest(): Promise<RideRequestWithBids | null> {
   try {
     const response =
@@ -167,15 +121,10 @@ export async function findOpenRequest(): Promise<RideRequestWithBids | null> {
       ) ?? null
     );
   } catch {
-    // Only ever called on a path that has already failed — reporting a second
-    // failure here would replace a useful message with a less useful one.
     return null;
   }
 }
 
-/**
- * Asks for a driver. One open request per passenger — a second returns 409.
- */
 export const CreateRideRequestManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     RideRequestCreated,
@@ -195,7 +144,6 @@ export const CreateRideRequestManager = () => {
   return { createRideRequest, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
-/** Driver-side. Bidding again replaces the previous bid. */
 export const PlaceBidManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     RideBid,
@@ -216,12 +164,6 @@ export const PlaceBidManager = () => {
   return { placeBid, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
-/**
- * Passenger-side. Turns the winning bid into a trip and returns the Order.
- *
- * The claim is conditional server-side, so a request that expired or was
- * cancelled mid-flight comes back 409 rather than creating a phantom trip.
- */
 export const AcceptDriverManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     AcceptDriverResult,
@@ -242,7 +184,6 @@ export const AcceptDriverManager = () => {
   return { acceptDriver, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
-/** Calls off the search. Once it is a trip, cancel the order instead. */
 export const CancelRideRequestManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     RideRequest,

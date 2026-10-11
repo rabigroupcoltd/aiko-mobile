@@ -11,7 +11,7 @@ type Props = NativeStackScreenProps<RiderStackParamList, typeof ROUTES.NATIONAL_
 const TIPS = [
   'Your NIN slip or national ID card both work.',
   'All text must be readable in the photo.',
-  'Keep the whole document inside the frame.',
+  'Lay it flat — the scanner finds the edges and crops it for you.',
 ];
 
 export function NationalIdScreen({ navigation }: Props) {

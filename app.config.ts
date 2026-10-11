@@ -1,35 +1,9 @@
 import type { ExpoConfig } from 'expo/config';
 
-/**
- * Aiko — dispatch/delivery demo app (Minna, Niger State).
- *
- * Expo CLI loads `.env` into process.env automatically before evaluating this
- * file, so the Google Maps key below comes from `.env` (git-ignored).
- * See `.env.example`.
- */
 const googleMapsApiKey = process.env.GOOGLE_MAPS_ANDROID_API_KEY;
 
-/**
- * Optional. Without it iOS uses Apple Maps, which needs no key; with it, iOS
- * switches to Google tiles to match Android (see MapPanel).
- */
 const googleMapsIosApiKey = process.env.GOOGLE_MAPS_IOS_API_KEY;
 
-/**
- * Notifee ships its `app.notifee:core` AAR in a local Maven repo inside its own
- * package rather than publishing to a public one. It registers that repo from
- * *inside* its own `android/build.gradle`, via `rootProject.allprojects {}`.
- *
- * `expo run:android` passes `--configure-on-demand`, under which Gradle resolves
- * `:app:debugRuntimeClasspath` without guaranteeing `:notifee_react-native` has
- * been configured first — so the repo is never registered and the build dies
- * with "Could not find any matches for app.notifee:core:+". Declaring the repo
- * here puts it on `:app` from the start, independent of configuration order.
- *
- * Resolved from the package itself rather than hardcoded so it stays correct on
- * other machines and in CI; forward slashes because Gradle parses this value out
- * of gradle.properties, where a backslash is an escape character.
- */
 const notifeeMavenRepo = require
   .resolve('@notifee/react-native/package.json')
   .replace(/[\\/]package\.json$/, '/android/libs')
@@ -43,38 +17,23 @@ const config: ExpoConfig = {
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
-  // NOTE: the New Architecture is required by the Nitro modules VisionCamera v5
-  // is built on. It is enabled by default in SDK 57, so there is no
-  // `newArchEnabled` flag here — setting it is no longer a valid config key.
 
   ios: {
     supportsTablet: false,
-    // Matches the app registered in the Firebase project (aiko-7874b).
     bundleIdentifier: 'com.aiko.app',
     googleServicesFile: './GoogleService-Info.plist',
-    // No custom crypto beyond HTTPS, so App Store Connect can skip the export
-    // compliance questionnaire on every build.
     config: { usesNonExemptEncryption: false },
-    // Push (FCM rides on APNs). Xcode switches this to `production` when the
-    // archive is exported for TestFlight/App Store.
     entitlements: { 'aps-environment': 'development' },
     infoPlist: {
       NSCameraUsageDescription:
         'Aiko uses the camera to take your profile photo, verify that you are a real person, and capture your documents.',
       NSLocationWhenInUseUsageDescription:
         'Aiko uses your location to set your pickup point and, for riders, to send you orders nearby.',
-      // `location` is added by the expo-location plugin below; this adds the
-      // silent-push mode FCM data messages need to wake the app.
       UIBackgroundModes: ['remote-notification'],
-      // NSMicrophoneUsageDescription intentionally omitted — we never record audio.
-      // NSPhotoLibraryUsageDescription intentionally omitted — there is no gallery
-      // picker anywhere in this app; all capture is camera-only by design.
     },
   },
 
   android: {
-    // MUST match the package registered in google-services.json, or the Google
-    // Services Gradle plugin fails the build outright.
     package: 'com.aiko.app',
     googleServicesFile: './google-services.json',
     predictiveBackGestureEnabled: false,
@@ -84,25 +43,6 @@ const config: ExpoConfig = {
       backgroundImage: './assets/android-icon-background.png',
       monochromeImage: './assets/android-icon-monochrome.png',
     },
-    // POST_NOTIFICATIONS is the Android 13+ runtime permission for showing a
-    // notification at all. `requestPermission()` in pushNotifications.ts is what
-    // prompts for it; declaring it here is what makes that prompt possible.
-    //
-    // The location pair: COARSE is declared alongside FINE because Android 12+
-    // lets the user grant only the approximate one, and a request that names
-    // FINE alone is rejected outright on those devices rather than downgraded.
-    //
-    // ACCESS_BACKGROUND_LOCATION and the two FOREGROUND_SERVICE permissions are
-    // what let an online driver keep receiving orders with the app closed. The
-    // dispatcher only considers drivers with a live position, so without these
-    // a driver who locks their phone silently drops out of the pool while the
-    // app still says "online".
-    //
-    // This does mean a Play Store background-location review. That is a real
-    // submission cost and it is unavoidable for a dispatch app: the declaration
-    // form wants a screen recording of the in-app disclosure, the runtime
-    // prompt, and the foreground-service notification the driver sees while
-    // it runs. All three exist — see useDriverLocation and backgroundLocation.
     permissions: [
       'android.permission.CAMERA',
       'android.permission.POST_NOTIFICATIONS',
@@ -110,21 +50,13 @@ const config: ExpoConfig = {
       'android.permission.ACCESS_COARSE_LOCATION',
       'android.permission.ACCESS_BACKGROUND_LOCATION',
       'android.permission.FOREGROUND_SERVICE',
-      // Required from Android 14 for a location-typed foreground service.
       'android.permission.FOREGROUND_SERVICE_LOCATION',
     ],
-    // VisionCamera's manifest can merge RECORD_AUDIO in, which would show a
-    // microphone prompt on a delivery app. We never use audio, so block it.
-    // The media/storage permissions are blocked to structurally enforce the
-    // "camera-only, no gallery" requirement.
     blockedPermissions: [
       'android.permission.RECORD_AUDIO',
       'android.permission.READ_MEDIA_IMAGES',
       'android.permission.READ_EXTERNAL_STORAGE',
     ],
-    // `android.config.googleMaps.apiKey` is a built-in Expo config field.
-    // Prebuild injects it into AndroidManifest.xml as com.google.android.geo.API_KEY.
-    // react-native-maps ships no config plugin of its own, so this is the route.
     ...(googleMapsApiKey
       ? { config: { googleMaps: { apiKey: googleMapsApiKey } } }
       : {}),
@@ -141,9 +73,6 @@ const config: ExpoConfig = {
     },
   },
 
-  // Set explicitly rather than relying on the default: this is what lets Metro
-  // resolve the `@/*` import alias from tsconfig.json. Without it every
-  // `@/...` import fails to resolve at runtime, even though tsc is happy.
   experiments: {
     tsconfigPaths: true,
   },
@@ -153,39 +82,15 @@ const config: ExpoConfig = {
       'expo-build-properties',
       {
         android: {
-          // react-native-vision-camera-face-detector requires API 26.
-          // Everything else in the graph is fine at 23; without this the
-          // manifest merger fails.
           minSdkVersion: 26,
           compileSdkVersion: 36,
           targetSdkVersion: 36,
-          // Modules in this graph declare different Kotlin fallbacks (the face
-          // detector 2.3.0, VisionCamera 2.2.21, Nitro 2.1.x); the root wins,
-          // so it must be pinned once for all of them.
-          //
-          // 2.2.21 specifically: it is the highest version in Expo's KSPLookup
-          // table (expo-modules-autolinking), i.e. the newest Kotlin Expo has a
-          // tested KSP pairing for, and it matches VisionCamera's own default.
-          // Going to 2.3.0 falls off that table into an untested branch and
-          // crashes react-native-safe-area-context's Kotlin compile with an
-          // internal compiler error. Do not raise this without checking
-          // KSPLookup.kt first.
           kotlinVersion: '2.2.21',
-          // ndkVersion deliberately NOT pinned — we use RN 0.86's default,
-          // which is already installed locally. Only pin if the build fails.
-          //
-          // See the notifeeMavenRepo note at the top of this file: without this
-          // the build fails under `--configure-on-demand`, which `expo
-          // run:android` always passes.
           extraMavenRepos: [notifeeMavenRepo],
         },
         ios: {
-          // SDK 57's minimum.
           deploymentTarget: '16.4',
-          // react-native-firebase only links as static frameworks on iOS.
           useFrameworks: 'static',
-          // …and its pods must be linked statically against the precompiled
-          // React Native binaries, or the build fails on non-modular headers.
           forceStaticLinking: ['RNFBApp', 'RNFBMessaging'],
         },
       },
@@ -206,19 +111,14 @@ const config: ExpoConfig = {
         imageWidth: 180,
       },
     ],
+    [
+      'react-native-document-scanner-plugin',
+      {
+        cameraPermission:
+          'Aiko uses the camera to scan your driver’s licence and ID.',
+      },
+    ],
     '@react-native-google-signin/google-signin',
-    // Push notifications. The `app` plugin wires the Google Services Gradle
-    // plugin to the googleServicesFile above; `messaging` registers the
-    // FirebaseMessagingService that receives the payload.
-    //
-    // These ARE native modules, unlike the `firebase` JS SDK used for sign-in —
-    // FCM has no JS-only path on React Native. A rebuild is required after
-    // adding them; `npx expo run:android` will not pick them up from a cached
-    // dev client.
-    //
-    // iOS: these need `useFrameworks: 'static'`, set under expo-build-properties
-    // above. The APNs key must also be uploaded to Firebase (Project settings →
-    // Cloud Messaging → iOS app) or no push ever reaches an iPhone.
     '@react-native-firebase/app',
     '@react-native-firebase/messaging',
     [
@@ -226,31 +126,15 @@ const config: ExpoConfig = {
       {
         locationAlwaysAndWhenInUsePermission:
           'Aiko sends your location to the dispatcher while you are online so orders near you can reach you, even when the app is in the background.',
-        // Both true: the background permission is what keeps an online driver
-        // in the dispatch pool with the app closed, and the foreground service
-        // is what makes Android actually deliver those fixes rather than
-        // deferring them for tens of minutes under Doze. Turning the first on
-        // without the second gives a permission that does almost nothing.
         isAndroidBackgroundLocationEnabled: true,
         isAndroidForegroundServiceEnabled: true,
-        // The iOS equivalent: adds the `location` background mode, without
-        // which an online rider drops out of dispatch when the phone locks.
         isIosBackgroundLocationEnabled: true,
       },
     ],
-    // Only when an iOS Maps key is supplied — it pulls in the Google Maps iOS
-    // SDK, which Apple Maps (the fallback) does not need.
     ...(googleMapsIosApiKey
       ? [['react-native-maps', { iosGoogleMapsApiKey: googleMapsIosApiKey }] as [string, object]]
       : []),
-    // Required: `npx expo install` could not add this itself because this config
-    // is a dynamic .ts file. The plugin pins the Android Material dependency the
-    // date dialog is built on.
     '@react-native-community/datetimepicker',
-    // NOTE: there is deliberately NO 'react-native-vision-camera' plugin entry.
-    // VisionCamera v5 dropped its Expo config plugin; adding one fails prebuild
-    // with "does not contain a valid config plugin". Its native permissions come
-    // from the raw ios.infoPlist / android.permissions keys above instead.
   ],
 };
 

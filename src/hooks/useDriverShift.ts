@@ -11,9 +11,7 @@ import { createLogger } from '@/utils/logger';
 
 const log = createLogger('shift');
 
-
 const HEARTBEAT_INTERVAL_MS = 30_000;
-
 
 export function useDriverShift() {
   const { data: state, refetch, isFetching } = useGetDriverStateManager();
@@ -23,21 +21,17 @@ export function useDriverShift() {
 
   const online = Boolean(state?.isAvailable);
 
-
   const sendHeartbeatRef = useRef(sendHeartbeat);
   sendHeartbeatRef.current = sendHeartbeat;
 
   const refetchRef = useRef(refetch);
   refetchRef.current = refetch;
 
-  // ------------------------------------------------------------- heartbeat
-
   useEffect(() => {
     if (!online) return;
 
     const beat = () => {
       void sendHeartbeatRef.current().catch((error) => {
-
         log.debug('heartbeat failed', error?.message);
       });
     };
@@ -58,8 +52,6 @@ export function useDriverShift() {
     return () => subscription.remove();
   }, []);
 
-  // --------------------------------------------------------------- actions
-
   const setOnline = useCallback(
     async (value: boolean) => {
       if (value) await goOnline();
@@ -73,7 +65,6 @@ export function useDriverShift() {
   return {
     state,
     online,
-    /** OFFLINE / AVAILABLE / BUSY, as dispatch sees this driver. */
     status: state?.status ?? 'OFFLINE',
  
     presenceLapsed: Boolean(state?.isAvailable && !state.presence.online),

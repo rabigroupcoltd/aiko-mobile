@@ -7,7 +7,6 @@ interface LoadingOverlayProps {
   message?: string;
 }
 
-/** Blocking spinner for mocked "server" waits (OTP verify, document submit). */
 export function LoadingOverlay({ visible, message }: LoadingOverlayProps) {
   const styles = useStyles();
   const { colors } = useTheme();

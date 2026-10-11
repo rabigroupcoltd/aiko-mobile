@@ -25,16 +25,6 @@ import type {
 
 export const ORDERS_QUERY_KEY = 'orders';
 
-// ============================================
-// QUERY CONTROLLERS
-// ============================================
-
-/**
- * Trips, newest first.
- *
- * Non-admins only ever see trips they are on, whichever side they were — the
- * `userId` and `driverId` filters are ignored for them server-side.
- */
 export const useGetOrdersManager = ({
   status,
   userId,
@@ -65,19 +55,10 @@ export const useGetOrdersManager = ({
       }
     },
     enabled,
-    // Off by default. The driver dashboard sets one as a fallback for a socket
-    // that dropped mid-trip; a list screen has no reason to poll.
     refetchInterval,
   });
 };
 
-/**
- * One trip.
- *
- * `refetchInterval` is opt-in for the live tracking screen: while a trip is in
- * flight the status changes underneath you, and a client without a socket
- * needs to poll to notice.
- */
 export const useGetOrderManager = ({
   id,
   enabled = true,
@@ -98,13 +79,6 @@ export const useGetOrderManager = ({
   });
 };
 
-/**
- * When the driver will reach this order.
- *
- * Computed server-side from the driver's whole planned route — a driver carrying
- * two other orders reaches this pickup after whatever the route puts in front of
- * it, and the straight line would promise a time they cannot keep.
- */
 export const useGetOrderEtaManager = ({
   id,
   enabled = true,
@@ -125,14 +99,6 @@ export const useGetOrderEtaManager = ({
   });
 };
 
-/** The trip chat, oldest first. Participants only. */
-/**
- * Unread counts for every open chat the caller is party to.
- *
- * One request for all of them: a driver holding three orders needs three badges
- * on one screen. Polled on a slow interval as a backstop — the socket clears a
- * badge the moment a message is read elsewhere, and MESSAGE bumps it up.
- */
 export const useGetUnreadCountsManager = ({
   enabled = true,
   refetchInterval = 60_000,
@@ -174,11 +140,6 @@ export const useGetOrderMessagesManager = ({
   });
 };
 
-// ============================================
-// MUTATION CONTROLLERS
-// ============================================
-
-/** Books a trip directly, bypassing the bidding flow. */
 export const CreateOrderManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     Order,
@@ -198,12 +159,6 @@ export const CreateOrderManager = () => {
   return { createOrder, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
-/**
- * Driver-side claim on a pending trip.
- *
- * The claim is a conditional update, so exactly one driver wins a race and the
- * losers get a 409 — surface that as "someone else took it", not as an error.
- */
 export const AcceptOrderManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     Order,
@@ -224,13 +179,6 @@ export const AcceptOrderManager = () => {
   return { acceptOrder, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
-/**
- * Moves the trip along.
- *
- * Transitions run PENDING → ACCEPTED → ARRIVED → IN_PROGRESS → COMPLETED, and
- * any open state may go to CANCELLED. COMPLETED settles the fare into the
- * driver's wallet, which is why that key is invalidated too.
- */
 export const UpdateOrderStatusManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     Order,
@@ -251,7 +199,6 @@ export const UpdateOrderStatusManager = () => {
   return { updateOrderStatus, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
-/** Either participant may cancel while the trip is open. */
 export const CancelOrderManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     Order,
@@ -273,14 +220,6 @@ export const CancelOrderManager = () => {
   return { cancelOrder, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
-/**
- * Mark the other party's messages as read.
- *
- * Called when the chat is on screen, never from a background refresh — the
- * server treats this as "somebody looked", and a poll is not somebody looking.
- * Silent: it fires on mount and on every incoming message, so a toast or a
- * global invalidation would be constant noise.
- */
 export const MarkMessagesReadManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     MarkReadResult,
@@ -289,8 +228,6 @@ export const MarkMessagesReadManager = () => {
   >({
     endpoint: ({ id }) => `/orders/${id}/messages/read`,
     getBody: () => ({}),
-    // Only the badge query — re-fetching every order because a chat was opened
-    // would reload the whole home screen each time.
     queryKey: [ORDERS_QUERY_KEY, 'unread'],
     method: 'POST',
     showErrorToast: false,
@@ -304,7 +241,6 @@ export const MarkMessagesReadManager = () => {
   return { markRead, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
-/** Also pushed to the other party over the socket. Closed trips reject these. */
 export const SendOrderMessageManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     RideMessage,
@@ -325,7 +261,6 @@ export const SendOrderMessageManager = () => {
   return { sendMessage, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
-/** COMPLETED trips only, once per participant. */
 export const RateOrderManager = () => {
   const { callApi, data, response, isLoading, isSuccess, isError, error, reset } = useApiManager<
     RideRating,

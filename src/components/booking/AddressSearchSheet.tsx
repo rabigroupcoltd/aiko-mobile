@@ -27,14 +27,6 @@ interface AddressSearchSheetProps {
   onClose: () => void;
 }
 
-/**
- * Full-screen address picker.
- *
- * Typing hits Google Places Autocomplete directly. Picking a result resolves
- * its coordinates with one Place Details call, saves it to the caller's
- * address book (so it shows up under "Your saved places" next time), and only
- * then hands the fully-formed `Place` back to the caller.
- */
 export function AddressSearchSheet({
   visible,
   title,
@@ -51,8 +43,6 @@ export function AddressSearchSheet({
   const { places: savedPlaces, loading: savedLoading } = useDefaultPlaces();
   const { createAddress } = CreateAddressManager();
 
-  // A fresh session each time the sheet opens, per Google's billing model —
-  // the previous session already ended in a pick, a close, or nothing at all.
   useEffect(() => {
     if (visible) resetSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -95,7 +85,6 @@ export function AddressSearchSheet({
       resetSession();
       onClose();
 
-      // Fire-and-forget: the booking flow shouldn't stall — or fail — on this.
       createAddress({
         name: place.name,
         address: place.address,
@@ -104,9 +93,6 @@ export function AddressSearchSheet({
         placeId: place.placeId ?? undefined,
       }).catch(() => undefined);
     } catch {
-      // Leave the sheet open with the existing results — the status row
-      // already surfaces a generic error state on the next render if this
-      // becomes a pattern; a one-off tap failure isn't worth a toast.
     } finally {
       setResolvingId(null);
     }

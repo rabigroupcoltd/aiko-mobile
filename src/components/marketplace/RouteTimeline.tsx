@@ -4,16 +4,6 @@ import { Card } from '@/components/ui';
 import type { PlannedStop, RoutePlan } from '@/modules/marketplace/marketplaceTypes';
 import { makeStyles, spacing, useTheme } from '@/theme';
 
-/**
- * The driver's route across every order they hold, in the order to drive it.
- *
- * Pickups and drop-offs interleave whenever that is shorter — §19 explicitly
- * does not require all pickups to come first, and the optimiser will produce
- * pickup A, pickup B, drop-off A, pickup C when the geography calls for it.
- *
- * Each row names the order it belongs to. Three parcels in one boot look
- * identical; the reference is how the driver knows which one to hand over.
- */
 export function RouteTimeline({
   route,
   onStopPress,

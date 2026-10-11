@@ -13,30 +13,15 @@ import Svg, {
 
 import { green } from '@/theme';
 
-/** The pin's highlight — the one non-green accent in the brand. */
 export const BRAND_LIME = '#D4FF3A';
 
 interface AikoMarkProps {
   size?: number;
-  /**
-   * `tile` — the app icon: gradient rounded square with the glyph on it.
-   * `glyph` — the glyph alone, for sitting directly on a green or light surface.
-   */
   variant?: 'tile' | 'glyph';
-  /** Glyph stroke colour. White on green; use brand green on light surfaces. */
   ink?: string;
 }
 
-/**
- * The Aiko mark: a road-shaped "A" converging on a destination pin, with speed
- * lines — "we get it there".
- *
- * Vector rather than the old PNG so it is crisp at every size and has no
- * baked-in background. The same geometry generates the native icon and splash
- * PNGs in /assets, so the launcher, splash and in-app logo always match.
- */
 export function AikoMark({ size = 64, variant = 'tile', ink = '#FFFFFF' }: AikoMarkProps) {
-  // Gradient ids must be unique per instance, or two marks on screen share one.
   const id = useId().replace(/[^a-zA-Z0-9]/g, '');
   const isTile = variant === 'tile';
   const scale = isTile ? 0.92 : 1;

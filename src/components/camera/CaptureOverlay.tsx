@@ -9,13 +9,6 @@ interface CaptureOverlayProps {
   instruction: string;
 }
 
-/**
- * Framing guide drawn over the camera preview.
- *
- * The "cutout" is faked with four solid bars around a transparent window rather
- * than a real mask — no SVG mask or clipping needed, and it renders identically
- * on both platforms.
- */
 export function CaptureOverlay({ shape, instruction }: CaptureOverlayProps) {
   const { width, height } = useWindowDimensions();
 
@@ -23,7 +16,6 @@ export function CaptureOverlay({ shape, instruction }: CaptureOverlayProps) {
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {/* Dimmed surround */}
       <View style={[styles.dim, { height: frame.top }]} />
       <View style={[styles.dim, { top: frame.top + frame.height, bottom: 0 }]} />
       <View
@@ -44,7 +36,6 @@ export function CaptureOverlay({ shape, instruction }: CaptureOverlayProps) {
         ]}
       />
 
-      {/* The window itself */}
       <View
         style={[
           styles.window,
@@ -79,7 +70,6 @@ function getFrame(shape: OverlayShape, width: number, height: number) {
       };
     }
     case 'card': {
-      // ID-1 card aspect ratio (85.6 x 54mm).
       const w = width * 0.86;
       const h = w * 0.63;
       return {
@@ -91,7 +81,6 @@ function getFrame(shape: OverlayShape, width: number, height: number) {
       };
     }
     case 'plate': {
-      // Nigerian plates are roughly 2.2:1.
       const w = width * 0.84;
       const h = w * 0.45;
       return {

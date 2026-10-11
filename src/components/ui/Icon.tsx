@@ -2,11 +2,6 @@ import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { useTheme } from '@/theme';
 
-/**
- * A small line-icon set (shapes from Lucide, MIT) drawn with react-native-svg,
- * so the chrome no longer leans on text glyphs and emoji, which render
- * differently on every OEM font.
- */
 export type IconName =
   | 'chevron-left'
   | 'menu'

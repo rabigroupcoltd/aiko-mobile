@@ -7,18 +7,9 @@ import { colors } from '@/theme';
 
 interface FaceOvalGuideProps {
   phase: LivenessPhase;
-  /** True while framing conditions are all met. */
   aligned: boolean;
 }
 
-/**
- * The oval framing guide, drawn with four dimmed bars around a transparent
- * window. Its colour tracks the check's state so the user gets feedback
- * without reading the prompt.
- *
- * The window position mirrors the machine's framing targets so what the user
- * lines up against is what the FSM actually tests.
- */
 export function FaceOvalGuide({ phase, aligned }: FaceOvalGuideProps) {
   const { width, height } = useWindowDimensions();
   const pulse = useRef(new Animated.Value(0)).current;
@@ -37,7 +28,6 @@ export function FaceOvalGuide({ phase, aligned }: FaceOvalGuideProps) {
           ? colors.livenessActive
           : colors.livenessIdle;
 
-  // A gentle pulse while waiting for the user to act; still when idle or done.
   useEffect(() => {
     const active = phase === 'BLINK' || phase === 'HEAD_TURN';
     if (!active) {

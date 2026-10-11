@@ -7,13 +7,6 @@ import type { StorageProviderInfo } from './storageTypes';
 
 export const STORAGE_QUERY_KEY = 'storage';
 
-/**
- * Admin-only, and included for parity with the API surface — the passenger and
- * rider app never needs it and will get 403.
- *
- * The value is fixed at server boot, so it is cached for the session rather
- * than refetched.
- */
 export const useGetStorageProviderManager = ({ enabled = true }: QueryOptions = {}) => {
   return useQuery({
     queryKey: [STORAGE_QUERY_KEY, 'provider'],

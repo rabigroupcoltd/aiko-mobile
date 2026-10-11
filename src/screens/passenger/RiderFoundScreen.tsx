@@ -26,12 +26,6 @@ import showToast from '@/utils/toast';
 
 type Props = NativeStackScreenProps<PassengerStackParamList, typeof ROUTES.RIDER_FOUND>;
 
-/**
- * Stages the customer may still call the order off from.
- *
- * Mirrors the server's own list. The server is what enforces it — this only
- * decides whether to show a button that would be refused.
- */
 const CUSTOMER_CANCELLABLE: OrderStatus[] = [
   'PENDING',
   'SEARCHING_FOR_DRIVER',
@@ -41,16 +35,8 @@ const CUSTOMER_CANCELLABLE: OrderStatus[] = [
   'DRIVER_ARRIVING_PICKUP',
 ];
 
-/** The order is finished and the customer may rate it. */
 const RATEABLE: OrderStatus[] = ['COMPLETED', 'DELIVERED'];
 
-/**
- * What the passenger is told at each stage, across both lanes.
- *
- * The marketplace lane distinguishes RESERVED from PICKED_UP because the
- * customer cares about exactly that difference: a driver who has committed to
- * their order is not the same as one who has it in hand.
- */
 const STAGE_COPY: Record<OrderStatus, { title: string; body: string; tone: 'info' | 'success' }> = {
   PENDING: { title: 'Waiting for a driver', body: 'Still looking.', tone: 'info' },
   ACCEPTED: {
@@ -97,13 +83,6 @@ const STAGE_COPY: Record<OrderStatus, { title: string; body: string; tone: 'info
   CANCELLED: { title: 'Order cancelled', body: 'This order is no longer active.', tone: 'info' },
 };
 
-/**
- * The live trip.
- *
- * Everything shown comes from `GET /api/orders/{id}` and the socket — the
- * screen holds no trip state of its own, so it renders identically whether it
- * was reached by accepting a bid or restored from a notification tap.
- */
 export function RiderFoundScreen({ navigation, route }: Props) {
   const styles = useStyles();
   const { colors } = useTheme();
@@ -114,21 +93,12 @@ export function RiderFoundScreen({ navigation, route }: Props) {
     { lat: number; lng: number; heading?: number } | null
   >(null);
 
-  /**
-   * Polled as a fallback only. ORDER_STATUS pushes every transition, so
-   * the interval exists for a socket that dropped mid-trip — 15s is frequent
-   * enough that a missed "driver arrived" is not left stale for long.
-   */
   const { data: order, refetch } = useGetOrderManager({ id: orderId, refetchInterval: 15_000 });
 
   const { cancelOrder, isLoading: cancelling } = CancelOrderManager();
   const { rateOrder, isLoading: rating } = RateOrderManager();
 
   const driverId = order?.driverId ?? null;
-
-  // No subscription call: the server joins us to the driver's position feed
-  // when the order is reserved, and re-joins on connect for a trip already in
-  // flight. DRIVER_LOCATION simply starts arriving.
 
   useRideEvent(
     'DRIVER_LOCATION',
@@ -144,13 +114,6 @@ export function RiderFoundScreen({ navigation, route }: Props) {
   const finished = CLOSED_ORDER_STATUSES.includes(status);
   const copy = STAGE_COPY[status];
 
-  /**
-   * When the driver actually reaches this order.
-   *
-   * Polled only while the order is live and assigned — a driver taking on
-   * another compatible order changes this number, and §39 is the whole reason
-   * it comes from the server rather than a straight line on the map.
-   */
   const { data: eta, refetch: refetchEta } = useGetOrderEtaManager({
     id: orderId,
     enabled: Boolean(driverId) && !finished,
@@ -160,8 +123,6 @@ export function RiderFoundScreen({ navigation, route }: Props) {
   useRideEvent('ORDER_STATUS', () => void refetch(), Boolean(orderId));
   useRideEvent('ORDER_CANCELLED', () => void refetch(), Boolean(orderId));
 
-  // A driver claimed the order. Both the order and its ETA change at once, so
-  // the ETA is refetched alongside rather than waiting for its own poll.
   useRideEvent(
     'ORDER_RESERVED',
     (payload) => {
@@ -173,13 +134,6 @@ export function RiderFoundScreen({ navigation, route }: Props) {
   );
   useRideEvent('ORDER_NO_DRIVER', () => void refetch(), Boolean(orderId));
 
-  /**
-   * Unread messages on this one order.
-   *
-   * The endpoint answers for every chat the caller is party to; a passenger has
-   * at most a handful, so this reads the one entry it needs rather than adding
-   * a per-order variant of the same query.
-   */
   const { data: unread, refetch: refetchUnread } = useGetUnreadCountsManager();
   const unreadHere = unread?.counts?.[orderId] ?? 0;
 
@@ -240,14 +194,6 @@ export function RiderFoundScreen({ navigation, route }: Props) {
     );
   }
 
-  /**
-   * Still looking.
-   *
-   * A separate return rather than a variant of the trip layout: there is no
-   * driver card, no position feed and nothing to call, so most of the screen
-   * below would render empty. The order is live server-side the whole time —
-   * this is a real search, not a spinner.
-   */
   if (searching) {
     return (
       <Screen
@@ -332,8 +278,6 @@ export function RiderFoundScreen({ navigation, route }: Props) {
                   style={styles.contactButton}
                 />
               </View>
-              {/* Only offered while it is still the customer's to cancel — once
-                  the driver physically has the order the server refuses. */}
               {CUSTOMER_CANCELLABLE.includes(status) ? (
                 <Button
                   label="Cancel order"
@@ -360,11 +304,6 @@ export function RiderFoundScreen({ navigation, route }: Props) {
         </View>
       </View>
 
-      {/*
-        §20. The customer is told their driver has other work and what it costs
-        them in minutes — and nothing at all about whose orders those are or
-        where they go.
-      */}
       {eta && !finished ? (
         <Card style={styles.etaCard}>
           <View style={styles.etaRow}>
@@ -448,7 +387,6 @@ export function RiderFoundScreen({ navigation, route }: Props) {
   );
 }
 
-/** The map takes `Place`s; an order carries the same points as flat columns. */
 function toPlace(order: Order, end: 'pickup' | 'dropoff'): Place {
   const isPickup = end === 'pickup';
   return {
@@ -510,8 +448,6 @@ const useStyles = makeStyles(({ colors, type }) => ({
   bannerTitle: { ...type.subheading, color: colors.primaryDarker },
   bannerBody: { ...type.caption, color: colors.primaryDark },
 
-  // An in-progress stage is informational, not a success state — green with a
-  // tick would read as "finished" halfway through the trip.
   bannerInfo: { backgroundColor: colors.infoBg },
   bannerIconInfo: { backgroundColor: 'transparent', color: colors.info, fontSize: 20 },
   bannerTitleInfo: { color: colors.text },

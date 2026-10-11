@@ -25,20 +25,11 @@ export interface CameraCaptureProps {
   facing: 'front' | 'back';
   overlay: OverlayShape;
   confirmLabel: string;
-  /** Awaited — the confirm button stays in a loading state until it settles. */
   onCaptured: (result: CaptureResult) => void | Promise<void>;
   onCancel: () => void;
   quality?: number;
 }
 
-/**
- * The single camera capture component, shared by the profile photo, driver's
- * licence, national ID and vehicle plate flows.
- *
- * Deliberately camera-only: there is no gallery picker here or anywhere else in
- * the app, and expo-image-picker is not a dependency, so the restriction is
- * enforced by the build rather than by convention.
- */
 export function CameraCapture({
   title,
   instruction,
@@ -64,8 +55,6 @@ export function CameraCapture({
     try {
       const picture = await cameraRef.current?.takePictureAsync({
         quality,
-        // Skipping post-processing keeps capture snappy; we don't need EXIF
-        // orientation correction because everything is displayed in-app.
         skipProcessing: true,
       });
       if (picture) setShot(picture);
@@ -90,7 +79,6 @@ export function CameraCapture({
     }
   }, [shot, onCaptured]);
 
-  // Review replaces the preview entirely, so only one camera client is ever open.
   if (shot) {
     return (
       <ReviewPhoto
@@ -114,8 +102,6 @@ export function CameraCapture({
           ref={cameraRef}
           style={StyleSheet.absoluteFill}
           facing={facing}
-          // No audio: we never record video, and requesting the mic on a
-          // delivery app is an unnecessary permission prompt.
           mode="picture"
           active={isActive}
         />
