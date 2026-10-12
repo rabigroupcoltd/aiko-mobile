@@ -11,6 +11,7 @@ import { useRideEvent } from '@/hooks/useRideSocket';
 import {
   CancelOrderManager,
   RateOrderManager,
+  useGetDriverLocationManager,
   useGetOrderEtaManager,
   useGetOrderManager,
   useGetUnreadCountsManager,
@@ -83,6 +84,23 @@ const STAGE_COPY: Record<OrderStatus, { title: string; body: string; tone: 'info
   CANCELLED: { title: 'Order cancelled', body: 'This order is no longer active.', tone: 'info' },
 };
 
+function useNow(intervalMs: number): number {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(timer);
+  }, [intervalMs]);
+  return now;
+}
+
+function sinceLabel(ms: number): string {
+  const seconds = Math.max(0, Math.round(ms / 1000));
+  if (seconds < 20) return 'just now';
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.round(seconds / 60);
+  return minutes < 60 ? `${minutes} min ago` : 'over an hour ago';
+}
+
 export function RiderFoundScreen({ navigation, route }: Props) {
   const styles = useStyles();
   const { colors } = useTheme();
@@ -90,8 +108,9 @@ export function RiderFoundScreen({ navigation, route }: Props) {
 
   const reset = useBookingStore((s) => s.reset);
   const [driverPosition, setDriverPosition] = useState<
-    { lat: number; lng: number; heading?: number } | null
+    { lat: number; lng: number; heading?: number; at: number } | null
   >(null);
+  const now = useNow(15_000);
 
   const { data: order, refetch } = useGetOrderManager({ id: orderId, refetchInterval: 15_000 });
 
@@ -104,7 +123,12 @@ export function RiderFoundScreen({ navigation, route }: Props) {
     'DRIVER_LOCATION',
     (position) => {
       if (position.driverId !== driverId) return;
-      setDriverPosition({ lat: position.lat, lng: position.lng, heading: position.heading });
+      setDriverPosition({
+        lat: position.lat,
+        lng: position.lng,
+        heading: position.heading,
+        at: Date.parse(position.recordedAt) || Date.now(),
+      });
     },
     Boolean(driverId),
   );
@@ -113,6 +137,30 @@ export function RiderFoundScreen({ navigation, route }: Props) {
   const searching = status === 'SEARCHING_FOR_DRIVER' || status === 'PENDING';
   const finished = CLOSED_ORDER_STATUSES.includes(status);
   const copy = STAGE_COPY[status];
+
+  const { data: polledPosition } = useGetDriverLocationManager({
+    id: orderId,
+    enabled: Boolean(driverId) && !finished,
+    refetchInterval: 30_000,
+  });
+
+  useEffect(() => {
+    if (!polledPosition || polledPosition.driverId !== driverId) return;
+    const at = polledPosition.recordedAt ? Date.parse(polledPosition.recordedAt) : Date.now();
+    setDriverPosition((current) =>
+      current && current.at >= at
+        ? current
+        : {
+            lat: polledPosition.lat,
+            lng: polledPosition.lng,
+            heading: polledPosition.heading ?? undefined,
+            at,
+          },
+    );
+  }, [polledPosition, driverId]);
+
+  const onTheWayToDropoff =
+    status === 'PICKED_UP' || status === 'IN_TRANSIT' || status === 'IN_PROGRESS';
 
   const { data: eta, refetch: refetchEta } = useGetOrderEtaManager({
     id: orderId,
@@ -327,8 +375,16 @@ export function RiderFoundScreen({ navigation, route }: Props) {
         pickup={toPlace(order, 'pickup')}
         dropoff={toPlace(order, 'dropoff')}
         driver={finished ? null : driverPosition}
+        driverTarget={onTheWayToDropoff ? 'dropoff' : 'pickup'}
         style={styles.map}
       />
+      {driverId && !finished ? (
+        <Text style={styles.mapCaption}>
+          {driverPosition
+            ? `Rider location updated ${sinceLabel(now - driverPosition.at)}`
+            : 'Waiting for the rider’s location…'}
+        </Text>
+      ) : null}
 
       {driver ? (
         <Card elevation="md" style={styles.driverCard}>
@@ -453,7 +509,8 @@ const useStyles = makeStyles(({ colors, type }) => ({
   bannerTitleInfo: { color: colors.text },
   bannerBodyInfo: { color: colors.textMuted },
 
-  map: { height: 200, marginBottom: spacing.base },
+  map: { height: 240, marginBottom: spacing.xs },
+  mapCaption: { ...type.caption, textAlign: 'center', marginBottom: spacing.base },
 
   driverCard: { gap: spacing.md },
   driverHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },

@@ -127,3 +127,12 @@ export interface RateOrderVariables {
   score: number;
   comment?: string;
 }
+
+export interface DriverLocation {
+  driverId: string;
+  lat: number;
+  lng: number;
+  heading: number | null;
+  recordedAt: string | null;
+  source: 'live' | 'last-known';
+}

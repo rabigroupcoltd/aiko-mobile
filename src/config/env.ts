@@ -1,17 +1,3 @@
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
-
-const androidConfig = Constants.expoConfig?.android?.config as
-  | { googleMaps?: { apiKey?: string } }
-  | undefined;
-
-export const IOS_USES_GOOGLE_MAPS = Boolean(
-  (Constants.expoConfig?.extra as { iosGoogleMaps?: boolean } | undefined)?.iosGoogleMaps,
-);
-
-export const HAS_MAPS_KEY =
-  Platform.OS === 'ios' ? true : Boolean(androidConfig?.googleMaps?.apiKey);
-
 export const HAS_PLACES_KEY = Boolean(process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY);
 
 export const API_BASE_URL =

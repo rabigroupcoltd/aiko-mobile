@@ -1,11 +1,16 @@
-import { useEffect, useRef } from 'react';
-import { Platform, StyleSheet, Text, View, type ViewStyle } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import { Camera, GeoJSONSource, Layer, Map, Marker, type CameraStop } from '@maplibre/maplibre-react-native';
+import { useMemo } from 'react';
+import { StyleSheet, View, type ViewStyle } from 'react-native';
 
-import { HAS_MAPS_KEY, IOS_USES_GOOGLE_MAPS, MINNA_CENTER } from '@/config/env';
-import { makeStyles, radius, spacing, useTheme } from '@/theme';
+import { Icon } from '@/components/ui';
+import { MINNA_CENTER } from '@/config/env';
+import { green, makeStyles, radius, useTheme } from '@/theme';
 import type { Place } from '@/types/models';
-import { DARK_MAP_STYLE } from './mapStyle';
+
+const STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/liberty';
+const STYLE_DARK = 'https://tiles.openfreemap.org/styles/dark';
+
+const PADDING = { top: 60, right: 60, bottom: 60, left: 60 };
 
 interface MapPanelProps {
   pickup?: Place | null;
@@ -13,6 +18,32 @@ interface MapPanelProps {
   style?: ViewStyle;
   showRoute?: boolean;
   driver?: { lat: number; lng: number; heading?: number } | null;
+  driverTarget?: 'pickup' | 'dropoff';
+}
+
+type LngLat = [number, number];
+
+const toLngLat = (p: { lat: number; lng: number }): LngLat => [p.lng, p.lat];
+
+function cameraFor(points: LngLat[]): CameraStop {
+  if (points.length === 0) {
+    return { center: [MINNA_CENTER.longitude, MINNA_CENTER.latitude], zoom: 12 };
+  }
+  const lngs = points.map((p) => p[0]);
+  const lats = points.map((p) => p[1]);
+  const west = Math.min(...lngs);
+  const east = Math.max(...lngs);
+  const south = Math.min(...lats);
+  const north = Math.max(...lats);
+
+  if (points.length === 1 || (east - west < 0.0005 && north - south < 0.0005)) {
+    return { center: points[0], zoom: 15, duration: 600, easing: 'ease' };
+  }
+  return { bounds: [west, south, east, north], padding: PADDING, duration: 600, easing: 'ease' };
+}
+
+function line(from: LngLat, to: LngLat): GeoJSON.Feature<GeoJSON.LineString> {
+  return { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [from, to] } };
 }
 
 export function MapPanel({
@@ -21,146 +52,102 @@ export function MapPanel({
   style,
   showRoute = true,
   driver,
+  driverTarget = 'pickup',
 }: MapPanelProps) {
   const styles = useStyles();
   const { colors } = useTheme();
-  const mapRef = useRef<MapView>(null);
 
-  useEffect(() => {
-    if (!HAS_MAPS_KEY || !mapRef.current || !driver) return;
+  const target = driverTarget === 'dropoff' ? dropoff : pickup;
 
-    mapRef.current.animateCamera({ center: { latitude: driver.lat, longitude: driver.lng } }, {
-      duration: 500,
-    });
-  }, [driver]);
+  const stop = useMemo(
+    () => cameraFor([pickup, dropoff, driver].filter(Boolean).map((p) => toLngLat(p!))),
+    [pickup?.lat, pickup?.lng, dropoff?.lat, dropoff?.lng, driver?.lat, driver?.lng],
+  );
 
-  useEffect(() => {
-    if (!HAS_MAPS_KEY || !mapRef.current) return;
-    if (driver) return;
-
-    const points = [pickup, dropoff].filter(Boolean) as Place[];
-    if (points.length === 0) return;
-
-    if (points.length === 1) {
-      mapRef.current.animateToRegion(
-        {
-          latitude: points[0].lat,
-          longitude: points[0].lng,
-          latitudeDelta: 0.02,
-          longitudeDelta: 0.02,
-        },
-        600
-      );
-      return;
-    }
-
-    mapRef.current.fitToCoordinates(
-      points.map((p) => ({ latitude: p.lat, longitude: p.lng })),
-      { edgePadding: { top: 70, right: 70, bottom: 70, left: 70 }, animated: true }
-    );
-  }, [pickup, dropoff, driver]);
-
-  if (!HAS_MAPS_KEY) {
-    return <MapFallback pickup={pickup} dropoff={dropoff} style={style} />;
-  }
+  const trip = showRoute && pickup && dropoff ? line(toLngLat(pickup), toLngLat(dropoff)) : null;
+  const approach = driver && target ? line(toLngLat(driver), toLngLat(target)) : null;
 
   return (
     <View style={[styles.container, style]}>
-      <MapView
-        ref={mapRef}
+      <Map
         style={StyleSheet.absoluteFill}
-        provider={Platform.OS === 'ios' && IOS_USES_GOOGLE_MAPS ? PROVIDER_GOOGLE : undefined}
-        initialRegion={MINNA_CENTER}
-        customMapStyle={colors.isDark ? DARK_MAP_STYLE : undefined}
-        showsUserLocation={false}
-        showsMyLocationButton={false}
-        toolbarEnabled={false}>
+        mapStyle={colors.isDark ? STYLE_DARK : STYLE_LIGHT}
+        logo={false}
+        attribution
+        attributionPosition={{ bottom: 6, right: 6 }}
+        compass={false}>
+        <Camera {...stop} />
+
+        {trip ? (
+          <GeoJSONSource id="trip" data={trip}>
+            <Layer
+              id="trip-line"
+              type="line"
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+              paint={{ 'line-color': colors.primary, 'line-width': 4, 'line-opacity': 0.85 }}
+            />
+          </GeoJSONSource>
+        ) : null}
+
+        {approach ? (
+          <GeoJSONSource id="approach" data={approach}>
+            <Layer
+              id="approach-line"
+              type="line"
+              layout={{ 'line-cap': 'round' }}
+              paint={{ 'line-color': green[900], 'line-width': 3, 'line-dasharray': [1.5, 1.5] }}
+            />
+          </GeoJSONSource>
+        ) : null}
+
         {pickup ? (
-          <Marker
-            coordinate={{ latitude: pickup.lat, longitude: pickup.lng }}
-            title={pickup.name}
-            description="Pickup"
-            pinColor={colors.primary}
-          />
-        ) : null}
-
-        {dropoff ? (
-          <Marker
-            coordinate={{ latitude: dropoff.lat, longitude: dropoff.lng }}
-            title={dropoff.name}
-            description="Drop-off"
-          />
-        ) : null}
-
-        {driver ? (
-          <Marker
-            coordinate={{ latitude: driver.lat, longitude: driver.lng }}
-            title="Your driver"
-            rotation={driver.heading ?? 0}
-            flat
-            anchor={{ x: 0.5, y: 0.5 }}>
-            <Text style={styles.driverMarker}>🛺</Text>
+          <Marker id="pickup" lngLat={toLngLat(pickup)} anchor="center">
+            <View style={[styles.pin, styles.pinPickup]} />
           </Marker>
         ) : null}
 
-        {showRoute && pickup && dropoff ? (
-          <Polyline
-            coordinates={[
-              { latitude: pickup.lat, longitude: pickup.lng },
-              { latitude: dropoff.lat, longitude: dropoff.lng },
-            ]}
-            strokeColor={colors.primary}
-            strokeWidth={4}
-          />
+        {dropoff ? (
+          <Marker id="dropoff" lngLat={toLngLat(dropoff)} anchor="bottom">
+            <View style={styles.dropoff}>
+              <Icon name="map-pin" size={30} color={green[900]} strokeWidth={2.4} />
+            </View>
+          </Marker>
         ) : null}
-      </MapView>
+
+        {driver ? (
+          <Marker id="driver" lngLat={toLngLat(driver)} anchor="center">
+            <View style={styles.driver}>
+              <Icon name="bike" size={18} color="#FFFFFF" strokeWidth={2.4} />
+            </View>
+          </Marker>
+        ) : null}
+      </Map>
     </View>
   );
 }
 
-function MapFallback({ pickup, dropoff, style }: MapPanelProps) {
-  const styles = useStyles();
-
-  return (
-    <View style={[styles.container, styles.fallback, style]}>
-      <View style={styles.grid} />
-      <Text style={styles.pin}>📍</Text>
-      <Text style={styles.fallbackTitle}>
-        {dropoff?.name ?? pickup?.name ?? 'Minna, Niger State'}
-      </Text>
-      <Text style={styles.fallbackHint}>
-        Map preview — set GOOGLE_MAPS_ANDROID_API_KEY in .env for live tiles
-      </Text>
-    </View>
-  );
-}
-
-const useStyles = makeStyles(({ colors, type }) => ({
+const useStyles = makeStyles(({ colors }) => ({
   container: {
     borderRadius: radius.lg,
     overflow: 'hidden',
     backgroundColor: colors.surfaceAlt,
   },
-  fallback: {
+  pin: { width: 18, height: 18, borderRadius: 9, borderWidth: 4, backgroundColor: '#FFFFFF' },
+  pinPickup: { borderColor: colors.primary },
+  dropoff: { alignItems: 'center' },
+  driver: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primary,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
-    padding: spacing.base,
-  },
-  grid: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: colors.primarySubtle,
-  },
-  pin: { fontSize: 36 },
-  driverMarker: { fontSize: 28 },
-  fallbackTitle: { ...type.subheading, textAlign: 'center' },
-  fallbackHint: {
-    ...type.caption,
-    textAlign: 'center',
-    maxWidth: 260,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
   },
 }));

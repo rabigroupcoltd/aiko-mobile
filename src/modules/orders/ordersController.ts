@@ -14,6 +14,7 @@ import type {
   ListOrdersParams,
   MarkReadResult,
   Order,
+  DriverLocation,
   OrderEta,
   RateOrderVariables,
   RideMessage,
@@ -96,6 +97,29 @@ export const useGetOrderEtaManager = ({
     },
     enabled: enabled && Boolean(id),
     refetchInterval,
+  });
+};
+
+export const useGetDriverLocationManager = ({
+  id,
+  enabled = true,
+  refetchInterval = 30_000,
+}: QueryOptions & { id: string | null | undefined; refetchInterval?: number | false }) => {
+  return useQuery({
+    queryKey: [ORDERS_QUERY_KEY, id, 'driver-location'],
+    queryFn: async () => {
+      try {
+        const response = await AxiosWithToken.get<ApiResponse<DriverLocation | null>>(
+          `/orders/${id}/driver-location`,
+        );
+        return response.data.data ?? null;
+      } catch (error) {
+        throw new Error(parseApiError(error));
+      }
+    },
+    enabled: enabled && Boolean(id),
+    refetchInterval,
+    refetchIntervalInBackground: false,
   });
 };
 

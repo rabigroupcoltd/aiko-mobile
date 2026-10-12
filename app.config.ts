@@ -1,9 +1,5 @@
 import type { ExpoConfig } from 'expo/config';
 
-const googleMapsApiKey = process.env.GOOGLE_MAPS_ANDROID_API_KEY;
-
-const googleMapsIosApiKey = process.env.GOOGLE_MAPS_IOS_API_KEY;
-
 const notifeeMavenRepo = require
   .resolve('@notifee/react-native/package.json')
   .replace(/[\\/]package\.json$/, '/android/libs')
@@ -57,9 +53,6 @@ const config: ExpoConfig = {
       'android.permission.READ_MEDIA_IMAGES',
       'android.permission.READ_EXTERNAL_STORAGE',
     ],
-    ...(googleMapsApiKey
-      ? { config: { googleMaps: { apiKey: googleMapsApiKey } } }
-      : {}),
   },
 
   web: {
@@ -67,7 +60,6 @@ const config: ExpoConfig = {
   },
 
   extra: {
-    iosGoogleMaps: Boolean(googleMapsIosApiKey),
     eas: {
       projectId: '4c6c28f1-6fbc-4f6c-a719-d26d5b627cfa',
     },
@@ -131,9 +123,7 @@ const config: ExpoConfig = {
         isIosBackgroundLocationEnabled: true,
       },
     ],
-    ...(googleMapsIosApiKey
-      ? [['react-native-maps', { iosGoogleMapsApiKey: googleMapsIosApiKey }] as [string, object]]
-      : []),
+    '@maplibre/maplibre-react-native',
     '@react-native-community/datetimepicker',
   ],
 };
