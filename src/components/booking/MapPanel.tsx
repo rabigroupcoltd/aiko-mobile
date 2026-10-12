@@ -1,6 +1,6 @@
 import { Camera, GeoJSONSource, Layer, Map, Marker, type CameraStop } from '@maplibre/maplibre-react-native';
 import { useMemo } from 'react';
-import { StyleSheet, View, type ViewStyle } from 'react-native';
+import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
 import { Icon } from '@/components/ui';
 import { MINNA_CENTER } from '@/config/env';
@@ -19,6 +19,7 @@ interface MapPanelProps {
   showRoute?: boolean;
   driver?: { lat: number; lng: number; heading?: number } | null;
   driverTarget?: 'pickup' | 'dropoff';
+  driverLabel?: string | null;
 }
 
 type LngLat = [number, number];
@@ -53,6 +54,7 @@ export function MapPanel({
   showRoute = true,
   driver,
   driverTarget = 'pickup',
+  driverLabel,
 }: MapPanelProps) {
   const styles = useStyles();
   const { colors } = useTheme();
@@ -115,9 +117,18 @@ export function MapPanel({
         ) : null}
 
         {driver ? (
-          <Marker id="driver" lngLat={toLngLat(driver)} anchor="center">
-            <View style={styles.driver}>
-              <Icon name="bike" size={18} color="#FFFFFF" strokeWidth={2.4} />
+          <Marker id="driver" lngLat={toLngLat(driver)} anchor={driverLabel ? 'bottom' : 'center'}>
+            <View style={styles.driverPin}>
+              {driverLabel ? (
+                <View style={styles.label}>
+                  <Text style={styles.labelText} numberOfLines={1}>
+                    {driverLabel}
+                  </Text>
+                </View>
+              ) : null}
+              <View style={styles.driver}>
+                <Icon name="bike" size={18} color="#FFFFFF" strokeWidth={2.4} />
+              </View>
             </View>
           </Marker>
         ) : null}
@@ -135,6 +146,16 @@ const useStyles = makeStyles(({ colors }) => ({
   pin: { width: 18, height: 18, borderRadius: 9, borderWidth: 4, backgroundColor: '#FFFFFF' },
   pinPickup: { borderColor: colors.primary },
   dropoff: { alignItems: 'center' },
+  driverPin: { alignItems: 'center' },
+  label: {
+    maxWidth: 180,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    backgroundColor: green[900],
+    marginBottom: 4,
+  },
+  labelText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
   driver: {
     width: 36,
     height: 36,

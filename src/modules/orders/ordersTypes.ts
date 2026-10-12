@@ -136,3 +136,27 @@ export interface DriverLocation {
   recordedAt: string | null;
   source: 'live' | 'last-known';
 }
+
+export interface TrackedOrder {
+  orderId: string;
+  status: import('@/modules/shared/apiTypes').OrderStatus;
+  description: string | null;
+  vehicleType: string;
+  fare: number;
+  currency: string;
+  pickup: { name: string; lat: number; lng: number };
+  dropoff: { name: string; lat: number; lng: number };
+  createdAt: string;
+  driver: {
+    driverId: string;
+    name: string | null;
+    phone: string | null;
+    photoUrl: string | null;
+    vehicleType: string;
+    vehiclePlate: string | null;
+    vehicleBrand: string | null;
+    vehicleModel: string | null;
+    rating: number;
+    position: DriverLocation | null;
+  } | null;
+}

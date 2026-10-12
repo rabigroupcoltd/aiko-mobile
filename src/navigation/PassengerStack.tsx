@@ -5,6 +5,7 @@ import { HomeScreen } from '@/screens/passenger/HomeScreen';
 import { MatchingScreen } from '@/screens/passenger/MatchingScreen';
 import { OrderReviewScreen } from '@/screens/passenger/OrderReviewScreen';
 import { RiderFoundScreen } from '@/screens/passenger/RiderFoundScreen';
+import { TrackOrdersScreen } from '@/screens/passenger/TrackOrdersScreen';
 import { ROUTES } from './routes';
 import type { PassengerStackParamList } from './types';
 
@@ -26,6 +27,7 @@ export function PassengerStack() {
         component={RiderFoundScreen}
         options={{ animation: 'slide_from_bottom', gestureEnabled: false }}
       />
+      <Stack.Screen name={ROUTES.TRACK_ORDERS} component={TrackOrdersScreen} />
       <Stack.Screen name={ROUTES.ORDER_CHAT} component={OrderChatScreen} />
     </Stack.Navigator>
   );

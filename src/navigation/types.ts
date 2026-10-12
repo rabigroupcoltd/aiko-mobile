@@ -22,6 +22,7 @@ export type PassengerStackParamList = {
   [ROUTES.ORDER_REVIEW]: undefined;
   [ROUTES.MATCHING]: { pickup: Place; dropoff: Place; vehicleType: VehicleType };
   [ROUTES.RIDER_FOUND]: { orderId: string };
+  [ROUTES.TRACK_ORDERS]: { orderId?: string } | undefined;
   [ROUTES.ORDER_CHAT]: { orderId: string; title?: string };
 };
 

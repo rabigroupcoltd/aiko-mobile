@@ -20,6 +20,7 @@ export const ROUTES = {
   ORDER_REVIEW: 'OrderReview',
   MATCHING: 'Matching',
   RIDER_FOUND: 'RiderFound',
+  TRACK_ORDERS: 'TrackOrders',
   PENDING_APPROVAL: 'PendingApproval',
   RIDER_HOME: 'RiderHome',
 

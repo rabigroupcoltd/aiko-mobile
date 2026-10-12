@@ -7,6 +7,7 @@ import { MapPanel } from '@/components/booking/MapPanel';
 import { VehiclePicker } from '@/components/booking/VehiclePicker';
 import { AppHeader, Avatar, Button, Card, Screen } from '@/components/ui';
 import { BOOKING_COPY } from '@/data/copy';
+import { useGetTrackingManager } from '@/modules/orders/ordersController';
 import { useGetAllFareEstimatesManager } from '@/modules/pricing/pricingController';
 import { ROUTES } from '@/navigation/routes';
 import { useOpenDrawer } from '@/navigation/useAppNavigation';
@@ -61,6 +62,10 @@ export function HomeScreen({ navigation }: Props) {
     [quotes, vehicleType],
   );
 
+  const { data: tracked } = useGetTrackingManager({ refetchInterval: 60_000 });
+  const activeOrders = tracked ?? [];
+  const withRider = activeOrders.filter((order) => order.driver).length;
+
   const hasRoute = Boolean(pickup && dropoff);
   const phonesValid =
     isValidNigerianPhone(pickupPhone) && isValidNigerianPhone(dropoffPhone);
@@ -97,6 +102,26 @@ export function HomeScreen({ navigation }: Props) {
         Hi {user?.firstName ?? 'there'} 👋
       </Text>
       <Text style={styles.prompt}>Where are you going today?</Text>
+
+      {activeOrders.length > 0 ? (
+        <Pressable
+          onPress={() => navigation.navigate(ROUTES.TRACK_ORDERS)}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.trackBanner, pressed && { opacity: 0.85 }]}>
+          <View style={styles.trackDot} />
+          <View style={styles.trackText}>
+            <Text style={styles.trackTitle}>
+              {activeOrders.length === 1 ? '1 active order' : `${activeOrders.length} active orders`}
+            </Text>
+            <Text style={styles.trackBody}>
+              {withRider > 0
+                ? `See where your ${withRider === 1 ? 'rider is' : 'riders are'} on the map`
+                : 'Finding a rider for you…'}
+            </Text>
+          </View>
+          <Text style={styles.trackCta}>Track →</Text>
+        </Pressable>
+      ) : null}
 
       <MapPanel pickup={pickup} dropoff={dropoff} style={styles.map} />
 
@@ -283,6 +308,22 @@ const useStyles = makeStyles(({ colors, type }) => ({
   greeting: { ...type.title },
   prompt: { ...type.bodySmall, marginTop: spacing.xxs, marginBottom: spacing.base },
   map: { height: 220, marginBottom: spacing.base },
+  trackBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    marginBottom: spacing.base,
+    borderRadius: 14,
+    backgroundColor: colors.primarySubtle,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+  },
+  trackDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
+  trackText: { flex: 1, gap: 2 },
+  trackTitle: { ...type.subheading, fontSize: 15 },
+  trackBody: type.caption,
+  trackCta: { ...type.subheading, fontSize: 14, color: colors.primary },
   inputs: { padding: 0, overflow: 'hidden' },
   locationRow: {
     flexDirection: 'row',

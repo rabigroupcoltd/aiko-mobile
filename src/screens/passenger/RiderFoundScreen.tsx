@@ -376,6 +376,11 @@ export function RiderFoundScreen({ navigation, route }: Props) {
         dropoff={toPlace(order, 'dropoff')}
         driver={finished ? null : driverPosition}
         driverTarget={onTheWayToDropoff ? 'dropoff' : 'pickup'}
+        driverLabel={
+          driver
+            ? [driver.user?.name?.trim().split(/\s+/)[0], driver.vehiclePlate].filter(Boolean).join(' · ')
+            : null
+        }
         style={styles.map}
       />
       {driverId && !finished ? (
