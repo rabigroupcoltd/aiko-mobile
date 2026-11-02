@@ -311,9 +311,11 @@ export function RiderHomeScreen({ navigation }: Props) {
         <Card style={styles.warning}>
           <Text style={styles.warningTitle}>Orders stop when your screen locks</Text>
           <Text style={styles.warningText}>
-            Aiko can only send you orders while it can see your location. Choose
-            “Allow all the time” to keep receiving them with your phone in your
-            pocket.
+            Aiko collects your location data to send you nearby orders and let our
+            dispatchers see where you are, even when the app is closed or not in use,
+            while you are online. Tracking stops when you go offline. Choose
+            “Allow all the time” on the next screen to keep receiving orders with
+            your phone in your pocket.
           </Text>
           <Button
             label="Keep me online in the background"

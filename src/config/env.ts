@@ -13,3 +13,7 @@ export const MINNA_CENTER = {
   latitudeDelta: 0.09,
   longitudeDelta: 0.09,
 } as const;
+
+export const SUPPORT_EMAIL = 'rabigroupcoltd@gmail.com';
+export const PRIVACY_URL = 'https://aika-admin.onrender.com/privacy';
+export const TERMS_URL = 'https://aika-admin.onrender.com/terms';

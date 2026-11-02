@@ -53,8 +53,9 @@ export const CAPTURE_CONFIG: Record<CaptureTarget, CaptureConfig> = {
 };
 
 export const LIVENESS_COPY = {
-  screenTitle: 'Liveness check',
-  screenSubtitle: 'This confirms you are a real person, not a photo.',
+  screenTitle: 'Selfie check',
+  screenSubtitle:
+    'Look at the camera, then nod once. This takes your profile photo and confirms you are a real person.',
 
   prompts: {
     idle: {
@@ -87,27 +88,19 @@ export const LIVENESS_COPY = {
     },
     holdStill: {
       title: 'Hold still',
-      subtitle: 'Almost there…',
+      subtitle: 'Taking your photo…',
     },
-    blink: {
-      title: 'Now blink',
-      subtitle: 'Blink once, naturally.',
+    nod: {
+      title: 'Now nod your head',
+      subtitle: 'Slowly nod down, then look back up.',
     },
-    blinkAgain: {
-      title: 'Blink once more',
-      subtitle: "That didn't quite register — try a normal, quick blink.",
-    },
-    headTurn: {
-      title: 'Turn your head',
-      subtitle: 'Slowly turn your head to one side.',
-    },
-    headTurnBack: {
-      title: 'Now face forward again',
+    nodBack: {
+      title: 'Look back up',
       subtitle: 'Bring your head back to the centre.',
     },
     passed: {
-      title: 'Liveness confirmed',
-      subtitle: 'You are verified as a real person.',
+      title: 'All done!',
+      subtitle: "You're verified, and we've saved your profile photo.",
     },
   },
 
@@ -117,13 +110,9 @@ export const LIVENESS_COPY = {
       subtitle:
         'Hold the phone steady at eye level, centre your face in the oval, and try again.',
     },
-    TIMEOUT_BLINK: {
-      title: "We didn't detect a blink",
-      subtitle: 'Try again in better light, and blink normally rather than slowly.',
-    },
-    TIMEOUT_TURN: {
-      title: "We didn't detect a head turn",
-      subtitle: 'Turn your head a little further to one side, then face forward again.',
+    TIMEOUT_NOD: {
+      title: "We didn't see a nod",
+      subtitle: 'Nod a little further down, then look back up. Good light helps.',
     },
   },
 } as const;

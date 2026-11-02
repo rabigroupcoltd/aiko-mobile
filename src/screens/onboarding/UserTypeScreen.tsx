@@ -45,7 +45,7 @@ export function UserTypeScreen({ navigation }: Props) {
         onBack={() => navigation.goBack()}
         title="How will you use Aiko?"
         subtitle="You can switch this later in your settings."
-        trailing={<StepDots total={ONBOARDING_TOTAL_STEPS} current={3} />}
+        trailing={<StepDots total={ONBOARDING_TOTAL_STEPS} current={2} />}
       />
 
       <View style={styles.cards}>

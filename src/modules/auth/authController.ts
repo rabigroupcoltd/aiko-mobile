@@ -5,6 +5,8 @@ import Axios from '@/constants/api_management/MyHttpHelper';
 import AxiosWithToken from '@/constants/api_management/MyHttpHelperWithToken';
 import useApiManager from '@/constants/mainController';
 import type { ApiResponse, QueryOptions } from '@/modules/shared/apiTypes';
+import { signOutOfFirebase } from '@/services/firebaseAuth';
+import { signOutOfGoogle } from '@/services/googleAuth';
 import { unregisterPushToken } from '@/services/pushNotifications';
 import { useAppStore } from '@/store/appStore';
 import { useAuthStore } from '@/store/authStore';
@@ -85,9 +87,31 @@ export const useLogoutManager = () => {
     await unregisterPushToken();
     clearSession();
     clearLocalDrafts();
+    await Promise.all([signOutOfGoogle(), signOutOfFirebase()]);
   }, [clearSession, clearLocalDrafts]);
 
   return { logout };
+};
+
+export const DeleteAccountManager = () => {
+  const clearSession = useAuthStore((state) => state.clearSession);
+  const clearLocalDrafts = useAppStore((state) => state.clearLocalDrafts);
+
+  const { callApi, isLoading } = useApiManager<{ deleted: boolean }, Error, void>({
+    endpoint: '/account',
+    method: 'DELETE',
+    getBody: () => undefined,
+    showSuccessToast: true,
+  });
+
+  const deleteAccount = useCallback(async () => {
+    await callApi(undefined);
+    clearSession();
+    clearLocalDrafts();
+    await Promise.all([signOutOfGoogle(), signOutOfFirebase()]);
+  }, [callApi, clearSession, clearLocalDrafts]);
+
+  return { deleteAccount, isLoading };
 };
 
 export const useGetProfileManager = ({ enabled = true }: QueryOptions = {}) => {

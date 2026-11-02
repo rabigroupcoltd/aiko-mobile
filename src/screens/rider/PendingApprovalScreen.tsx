@@ -1,6 +1,7 @@
-import { Text, View } from 'react-native';
+import { Linking, Text, View } from 'react-native';
 
 import { AppHeader, Button, Card, Chip, Screen } from '@/components/ui';
+import { SUPPORT_EMAIL } from '@/config/env';
 import { useOpenDrawer } from '@/navigation/useAppNavigation';
 import { useAppStore } from '@/store/appStore';
 import { makeStyles, radius, spacing } from '@/theme';
@@ -79,7 +80,12 @@ export function PendingApprovalScreen() {
       </Card>
 
       <Text style={styles.support}>
-        Something wrong? Contact support on 0800 000 0000.
+        Something wrong? Email us at{' '}
+        <Text
+          style={styles.supportLink}
+          onPress={() => void Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=Rider%20verification`)}>
+          {SUPPORT_EMAIL}
+        </Text>
       </Text>
     </Screen>
   );
@@ -136,5 +142,6 @@ const useStyles = makeStyles(({ colors, type }) => ({
     textAlign: 'center',
     marginTop: spacing.lg,
   },
+  supportLink: { color: colors.primary, fontWeight: '600' },
 
 }));

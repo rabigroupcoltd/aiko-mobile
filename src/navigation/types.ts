@@ -12,7 +12,6 @@ export type OnboardingStackParamList = {
   [ROUTES.PHONE_ENTRY]: undefined;
   [ROUTES.OTP]: { phone: string };
   [ROUTES.PROFILE_FORM]: undefined;
-  [ROUTES.PROFILE_PHOTO]: undefined;
   [ROUTES.LIVENESS]: undefined;
   [ROUTES.USER_TYPE]: undefined;
 };

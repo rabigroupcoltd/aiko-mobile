@@ -52,6 +52,7 @@ const config: ExpoConfig = {
       'android.permission.RECORD_AUDIO',
       'android.permission.READ_MEDIA_IMAGES',
       'android.permission.READ_EXTERNAL_STORAGE',
+      'com.google.android.gms.permission.AD_ID',
     ],
   },
 

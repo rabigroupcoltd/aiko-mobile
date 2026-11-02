@@ -8,7 +8,7 @@ interface LivenessProgressProps {
   failed?: boolean;
 }
 
-const STEPS = ['Position', 'Blink', 'Turn'];
+const STEPS = ['Look', 'Nod'];
 
 export function LivenessProgress({ stepIndex, progress, failed }: LivenessProgressProps) {
   return (

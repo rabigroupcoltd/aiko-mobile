@@ -7,10 +7,14 @@ export type OverlayShape = 'oval' | 'card' | 'plate';
 interface CaptureOverlayProps {
   shape: OverlayShape;
   instruction: string;
+  /** The preview's measured size; defaults to the window. */
+  size?: { width: number; height: number } | null;
 }
 
-export function CaptureOverlay({ shape, instruction }: CaptureOverlayProps) {
-  const { width, height } = useWindowDimensions();
+export function CaptureOverlay({ shape, instruction, size }: CaptureOverlayProps) {
+  const window = useWindowDimensions();
+  const width = size?.width ?? window.width;
+  const height = size?.height ?? window.height;
 
   const frame = getFrame(shape, width, height);
 
@@ -56,7 +60,7 @@ export function CaptureOverlay({ shape, instruction }: CaptureOverlayProps) {
   );
 }
 
-function getFrame(shape: OverlayShape, width: number, height: number) {
+export function getFrame(shape: OverlayShape, width: number, height: number) {
   switch (shape) {
     case 'oval': {
       const w = width * 0.68;

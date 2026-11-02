@@ -1,7 +1,9 @@
-import { Alert, Switch, Text, View } from 'react-native';
+import Constants from 'expo-constants';
+import { Alert, Linking, Switch, Text, View } from 'react-native';
 
 import { AppHeader, Button, Card, ListRow, Screen, ThemeToggle } from '@/components/ui';
-import { useLogoutManager } from '@/modules/auth/authController';
+import { PRIVACY_URL, SUPPORT_EMAIL, TERMS_URL } from '@/config/env';
+import { DeleteAccountManager, useLogoutManager } from '@/modules/auth/authController';
 import { useOpenDrawer } from '@/navigation/useAppNavigation';
 import { useAppStore } from '@/store/appStore';
 import { makeStyles, radius, spacing, useTheme } from '@/theme';
@@ -14,6 +16,24 @@ export function SettingsScreen() {
   const settings = useAppStore((s) => s.settings);
   const updateSettings = useAppStore((s) => s.updateSettings);
   const { logout } = useLogoutManager();
+  const { deleteAccount, isLoading: deleting } = DeleteAccountManager();
+
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete your account?',
+      "This permanently deletes your profile, contact details, photos and documents, and saved addresses. Records of past trips are kept without your details. This can't be undone.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete account',
+          style: 'destructive',
+          onPress: () => {
+            void deleteAccount().catch(() => {});
+          },
+        },
+      ],
+    );
+  };
 
   const confirmLogout = () => {
     Alert.alert('Log out?', 'You will need to sign in again to continue.', [
@@ -64,15 +84,32 @@ export function SettingsScreen() {
 
       <Card style={styles.section}>
         <Text style={styles.sectionTitle}>About</Text>
-        <ListRow icon="📄" title="Terms of service" onPress={() => {}} />
-        <ListRow icon="🔒" title="Privacy policy" onPress={() => {}} />
-        <ListRow icon="☎️" title="Contact support" subtitle="0800 000 0000" onPress={() => {}} />
-        <ListRow icon="ℹ️" title="Version" subtitle="1.0.0" chevron={false} />
+        <ListRow icon="📄" title="Terms of service" onPress={() => void Linking.openURL(TERMS_URL)} />
+        <ListRow icon="🔒" title="Privacy policy" onPress={() => void Linking.openURL(PRIVACY_URL)} />
+        <ListRow
+          icon="✉️"
+          title="Contact support"
+          subtitle={SUPPORT_EMAIL}
+          onPress={() => void Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=Aiko%20support`)}
+        />
+        <ListRow
+          icon="ℹ️"
+          title="Version"
+          subtitle={Constants.expoConfig?.version ?? '1.0.0'}
+          chevron={false}
+        />
       </Card>
 
       <Card style={styles.section}>
         <Text style={styles.sectionTitle}>Account</Text>
         <ListRow icon="🚪" title="Log out" onPress={confirmLogout} chevron={false} />
+        <ListRow
+          icon="🗑️"
+          title={deleting ? 'Deleting account…' : 'Delete account'}
+          subtitle="Permanently delete your account and data"
+          onPress={deleting ? undefined : confirmDelete}
+          chevron={false}
+        />
       </Card>
     </Screen>
   );

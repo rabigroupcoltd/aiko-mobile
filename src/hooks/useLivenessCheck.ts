@@ -5,7 +5,7 @@ import { LIVENESS } from '@/liveness/constants';
 import { toFaceSnapshot } from '@/liveness/faceSnapshot';
 import { canRetry, initialState, start, step, type TickSignals } from '@/liveness/machine';
 import { promptFor, stepIndexFor, type Prompt } from '@/liveness/prompts';
-import { AngleSmoother, Smoother, fuseEyes } from '@/liveness/signals';
+import { AngleSmoother, fuseEyes } from '@/liveness/signals';
 import type { FaceSnapshot, FailReason, LivenessPhase, LivenessState } from '@/liveness/types';
 
 interface LivenessUiState {
@@ -44,13 +44,13 @@ function uiFrom(state: LivenessState): LivenessUiState {
   };
 }
 
-export function useLivenessCheck(onPassed?: () => void) {
+export function useLivenessCheck(onPassed?: () => void, onFramed?: () => void) {
   const stateRef = useRef<LivenessState>(initialState(Date.now()));
   const latestRef = useRef<FaceSnapshot | null>(null);
   const faceCountRef = useRef(0);
   const lastFaceAtRef = useRef(0);
 
-  const eyeSmoother = useRef(new Smoother());
+  const pitchSmoother = useRef(new AngleSmoother());
   const yawSmoother = useRef(new AngleSmoother());
   const rollSmoother = useRef(new AngleSmoother());
 
@@ -65,6 +65,8 @@ export function useLivenessCheck(onPassed?: () => void) {
 
   const onPassedRef = useRef(onPassed);
   onPassedRef.current = onPassed;
+  const onFramedRef = useRef(onFramed);
+  onFramedRef.current = onFramed;
 
   const onFacesDetected = useCallback((faces: Face[]) => {
     const now = Date.now();
@@ -92,13 +94,14 @@ export function useLivenessCheck(onPassed?: () => void) {
         fpsWindowStart.current = now;
       }
 
-      let signals: TickSignals = { eye: eyeSmoother.current.value, yaw: 0, roll: 0 };
+      let signals: TickSignals = { yaw: 0, roll: 0, pitch: 0 };
 
       if (snapshot) {
-        const eye = eyeSmoother.current.push(fuseEyes(snapshot));
-        const yaw = yawSmoother.current.push(snapshot.yaw);
-        const roll = rollSmoother.current.push(snapshot.roll);
-        signals = { eye, yaw, roll };
+        signals = {
+          yaw: yawSmoother.current.push(snapshot.yaw),
+          roll: rollSmoother.current.push(snapshot.roll),
+          pitch: pitchSmoother.current.push(snapshot.pitch),
+        };
       }
 
       const next = step(
@@ -113,6 +116,7 @@ export function useLivenessCheck(onPassed?: () => void) {
       );
 
       const wasPassed = stateRef.current.phase === 'PASSED';
+      const wasSearching = stateRef.current.phase === 'FACE_SEARCH';
       stateRef.current = next;
 
       const key = `${next.phase}|${promptFor(next).id}|${Math.round(next.progress * 10)}|${next.attempt}|${next.failReason ?? ''}`;
@@ -121,6 +125,7 @@ export function useLivenessCheck(onPassed?: () => void) {
         setUi(uiFrom(next));
       }
 
+      if (wasSearching && next.phase === 'NOD') onFramedRef.current?.();
       if (!wasPassed && next.phase === 'PASSED') onPassedRef.current?.();
 
       debugTickRef.current += 1;
@@ -131,7 +136,7 @@ export function useLivenessCheck(onPassed?: () => void) {
           yaw: signals.yaw,
           roll: signals.roll,
           pitch: snapshot.pitch,
-          eye: signals.eye,
+          eye: fuseEyes(snapshot),
           leftEye: snapshot.leftEye,
           rightEye: snapshot.rightEye,
           widthRatio: snapshot.w / frameW,
@@ -147,7 +152,7 @@ export function useLivenessCheck(onPassed?: () => void) {
   }, []);
 
   const reset = useCallback(() => {
-    eyeSmoother.current.reset();
+    pitchSmoother.current.reset();
     yawSmoother.current.reset();
     rollSmoother.current.reset();
     latestRef.current = null;

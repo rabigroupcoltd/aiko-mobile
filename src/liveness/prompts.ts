@@ -32,15 +32,10 @@ export function promptFor(state: LivenessState): Prompt {
           return { id: 'searching', ...p.searching };
       }
 
-    case 'BLINK':
-      return state.blinkRetried
-        ? { id: 'blinkAgain', ...p.blinkAgain }
-        : { id: 'blink', ...p.blink };
-
-    case 'HEAD_TURN':
-      return state.turnStage === 'AWAIT_RECENTER'
-        ? { id: 'headTurnBack', ...p.headTurnBack }
-        : { id: 'headTurn', ...p.headTurn };
+    case 'NOD':
+      return state.nodStage === 'AWAIT_RETURN'
+        ? { id: 'nodBack', ...p.nodBack }
+        : { id: 'nod', ...p.nod };
 
     case 'PASSED':
       return { id: 'passed', ...p.passed };
@@ -57,12 +52,10 @@ export function stepIndexFor(state: LivenessState): number {
   switch (state.phase) {
     case 'FACE_SEARCH':
       return 0;
-    case 'BLINK':
+    case 'NOD':
       return 1;
-    case 'HEAD_TURN':
-      return 2;
     case 'PASSED':
-      return 3;
+      return 2;
     default:
       return 0;
   }

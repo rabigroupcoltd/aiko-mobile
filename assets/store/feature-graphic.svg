@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#21B85A"/>
+      <stop offset="0.55" stop-color="#0D8A41"/>
+      <stop offset="1" stop-color="#054A22"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.12" cy="0.05" r="0.7">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#34D46A"/>
+      <stop offset="0.55" stop-color="#0E9A47"/>
+      <stop offset="1" stop-color="#05582A"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#00160A" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="500" fill="url(#bg)"/>
+  <rect width="1024" height="500" fill="url(#glow)"/>
+  <path d="M-20 430 C 140 360, 220 300, 420 330 S 720 150, 1060 60" fill="none" stroke="#FFFFFF" stroke-opacity="0.14" stroke-width="4" stroke-dasharray="3 14" stroke-linecap="round"/>
+  <circle cx="930" cy="40" r="190" fill="#FFFFFF" fill-opacity="0.05"/>
+  <circle cx="60" cy="520" r="220" fill="#000000" fill-opacity="0.08"/>
+
+  <!-- logo lock-up -->
+  <g transform="translate(64 64)">
+    <svg width="64" height="64" viewBox="0 0 1024 1024">
+      <rect width="1024" height="1024" rx="232" fill="url(#tile)"/>
+      <g transform="translate(512 512) scale(0.92) translate(-424 -531)">
+        <g stroke="#FFFFFF" stroke-linecap="round" stroke-width="44">
+          <line x1="150" y1="586" x2="290" y2="586" opacity="0.9"/>
+          <line x1="196" y1="672" x2="270" y2="672" opacity="0.9"/>
+          <line x1="120" y1="758" x2="236" y2="758" opacity="0.65"/>
+        </g>
+        <path d="M336 800 L512 262 L688 800" fill="none" stroke="#FFFFFF" stroke-width="124" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M512 772 C512 772 420 678 420 612 A92 92 0 0 1 604 612 C604 678 512 772 512 772 Z" fill="#D4FF3A"/>
+        <circle cx="512" cy="612" r="36" fill="#0A6727"/>
+      </g>
+    </svg>
+    <text x="80" y="47" font-family="Segoe UI, Arial, sans-serif" font-weight="800" font-size="46" letter-spacing="-1.5" fill="#FFFFFF">aiko</text>
+  </g>
+
+  <!-- headline -->
+  <text font-family="Segoe UI, Arial, sans-serif" font-weight="800" font-size="58" letter-spacing="-1.5" fill="#FFFFFF">
+    <tspan x="64" y="232">Send anything.</tspan>
+    <tspan x="64" y="300" fill="#D4FF3A">We deliver fast.</tspan>
+  </text>
+  <text x="64" y="352" font-family="Segoe UI, Arial, sans-serif" font-size="24" fill="#E8F6ED" fill-opacity="0.92">Bikes and keke across Minna. Track your rider live.</text>
+
+  <!-- chips -->
+  <g font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="600" fill="#FFFFFF">
+    <rect x="64" y="384" width="168" height="40" rx="20" fill="#FFFFFF" fill-opacity="0.16"/>
+    <text x="148" y="410" text-anchor="middle">Upfront fares</text>
+    <rect x="244" y="384" width="170" height="40" rx="20" fill="#FFFFFF" fill-opacity="0.16"/>
+    <text x="329" y="410" text-anchor="middle">Verified riders</text>
+    <rect x="426" y="384" width="138" height="40" rx="20" fill="#FFFFFF" fill-opacity="0.16"/>
+    <text x="495" y="410" text-anchor="middle">Pay cash</text>
+  </g>
+
+  <!-- trip card -->
+  <g transform="translate(630 108)" filter="url(#shadow)">
+    <rect width="330" height="286" rx="26" fill="#FFFFFF"/>
+    <!-- mini map -->
+    <rect x="16" y="16" width="298" height="122" rx="16" fill="#E8F6ED"/>
+    <path d="M40 112 C 90 70, 140 120, 190 74 S 270 40, 292 44" fill="none" stroke="#0D8A41" stroke-width="5" stroke-linecap="round" stroke-dasharray="1 11"/>
+    <circle cx="40" cy="112" r="9" fill="#FFFFFF" stroke="#0D8A41" stroke-width="5"/>
+    <path d="M292 30 C292 30 280 42 280 50 A12 12 0 0 0 304 50 C304 42 292 30 292 30 Z" transform="translate(0 -6) rotate(180 292 44)" fill="#01311D"/>
+    <circle cx="190" cy="74" r="17" fill="#0D8A41" stroke="#FFFFFF" stroke-width="4"/>
+    <g transform="translate(180 64) scale(0.85)" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/>
+    </g>
+    <!-- route -->
+    <g font-family="Segoe UI, Arial, sans-serif">
+      <circle cx="34" cy="168" r="6" fill="#FFFFFF" stroke="#0D8A41" stroke-width="4"/>
+      <line x1="34" y1="178" x2="34" y2="200" stroke="#97D9B0" stroke-width="2" stroke-dasharray="3 3"/>
+      <circle cx="34" cy="210" r="6" fill="#01311D"/>
+      <text x="54" y="162" font-size="12" fill="#6E7B77">Pickup</text>
+      <text x="54" y="180" font-size="16" font-weight="700" fill="#111917">Kpakungu Roundabout</text>
+      <text x="54" y="204" font-size="12" fill="#6E7B77">Drop-off</text>
+      <text x="54" y="222" font-size="16" font-weight="700" fill="#111917">Bosso Market</text>
+      <line x1="16" y1="240" x2="314" y2="240" stroke="#EFF2F1" stroke-width="2"/>
+      <rect x="16" y="250" width="160" height="26" rx="13" fill="#D4FF3A"/>
+      <text x="96" y="268" text-anchor="middle" font-size="13" font-weight="700" fill="#01311D">Rider 3 min away</text>
+      <text x="314" y="269" text-anchor="end" font-size="20" font-weight="800" fill="#111917">₦1,200</text>
+    </g>
+  </g>
+</svg>

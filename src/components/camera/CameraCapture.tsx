@@ -6,7 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCameraActive } from '@/hooks/useCameraActive';
 import { colors, hitSize, screenGutter, spacing, typography } from '@/theme';
 import { createLogger } from '@/utils/logger';
-import { CaptureOverlay, type OverlayShape } from './CaptureOverlay';
+import { CaptureOverlay, getFrame, type OverlayShape } from './CaptureOverlay';
+import { cropToFrame } from './cropToFrame';
 import { PermissionGate } from './PermissionGate';
 import { ReviewPhoto } from './ReviewPhoto';
 import { ShutterButton } from './ShutterButton';
@@ -47,25 +48,36 @@ export function CameraCapture({
   const [capturing, setCapturing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [viewSize, setViewSize] = useState<{ width: number; height: number } | null>(null);
 
   const takePhoto = useCallback(async () => {
     if (capturing) return;
     setCapturing(true);
     setError(null);
     try {
-      const picture = await cameraRef.current?.takePictureAsync({
-        quality,
-        skipProcessing: true,
-      });
-      if (picture) setShot(picture);
-      else setError('Could not take the photo. Try again.');
+      const picture = await cameraRef.current?.takePictureAsync({ quality });
+      if (!picture) {
+        setError('Could not take the photo. Try again.');
+        return;
+      }
+      if (overlay !== 'oval' && viewSize) {
+        const cropped = await cropToFrame(
+          picture.uri,
+          { width: picture.width, height: picture.height },
+          getFrame(overlay, viewSize.width, viewSize.height),
+          viewSize,
+        );
+        setShot({ ...picture, ...cropped });
+      } else {
+        setShot(picture);
+      }
     } catch (err) {
       log.error('capture failed', err);
       setError('Could not take the photo. Try again.');
     } finally {
       setCapturing(false);
     }
-  }, [capturing, quality]);
+  }, [capturing, quality, overlay, viewSize]);
 
   const confirm = useCallback(async () => {
     if (!shot) return;
@@ -97,7 +109,12 @@ export function CameraCapture({
 
   return (
     <PermissionGate onCancel={onCancel}>
-      <View style={styles.container}>
+      <View
+        style={styles.container}
+        onLayout={(event) => {
+          const { width, height } = event.nativeEvent.layout;
+          setViewSize({ width, height });
+        }}>
         <CameraView
           ref={cameraRef}
           style={StyleSheet.absoluteFill}
@@ -106,7 +123,7 @@ export function CameraCapture({
           active={isActive}
         />
 
-        <CaptureOverlay shape={overlay} instruction={instruction} />
+        <CaptureOverlay shape={overlay} instruction={instruction} size={viewSize} />
 
         <SafeAreaView style={styles.chrome} edges={['top', 'bottom']} pointerEvents="box-none">
           <View style={styles.topBar}>

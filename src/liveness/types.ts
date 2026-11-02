@@ -1,16 +1,8 @@
-export type LivenessPhase =
-  | 'IDLE'
-  | 'FACE_SEARCH'
-  | 'BLINK'
-  | 'HEAD_TURN'
-  | 'PASSED'
-  | 'FAILED';
+export type LivenessPhase = 'IDLE' | 'FACE_SEARCH' | 'NOD' | 'PASSED' | 'FAILED';
 
-export type BlinkStage = 'AWAIT_OPEN_BASELINE' | 'AWAIT_CLOSE' | 'AWAIT_REOPEN';
+export type NodStage = 'AWAIT_NOD' | 'AWAIT_RETURN';
 
-export type TurnStage = 'AWAIT_TURN' | 'AWAIT_RECENTER';
-
-export type FailReason = 'TIMEOUT_FACE' | 'TIMEOUT_BLINK' | 'TIMEOUT_TURN';
+export type FailReason = 'TIMEOUT_FACE' | 'TIMEOUT_NOD';
 
 export type FramingIssue =
   | 'none'
@@ -54,18 +46,12 @@ export interface LivenessState {
   lastCenterX: number | null;
   lastCenterY: number | null;
   multiFaceSince: number | null;
+
+  pitchBaseline: number | null;
   yawBaseline: number | null;
-  rollBaseline: number | null;
-
-  blinkStage: BlinkStage;
-  eyesOpenSince: number | null;
-  eyesClosedAt: number | null;
-  reopenSamples: number;
-  blinkRetried: boolean;
-
-  turnStage: TurnStage;
-  turnHeldSince: number | null;
-  peakYawDelta: number;
+  nodStage: NodStage;
+  nodHeldSince: number | null;
+  peakPitchDelta: number;
 
   progress: number;
 }

@@ -4,7 +4,6 @@ export const ROUTES = {
   OTP: 'Otp',
 
   PROFILE_FORM: 'ProfileForm',
-  PROFILE_PHOTO: 'ProfilePhoto',
   LIVENESS: 'Liveness',
   USER_TYPE: 'UserType',
 
@@ -41,7 +40,6 @@ export type RouteName = (typeof ROUTES)[keyof typeof ROUTES];
 
 export type OnboardingRouteName =
   | typeof ROUTES.PROFILE_FORM
-  | typeof ROUTES.PROFILE_PHOTO
   | typeof ROUTES.LIVENESS
   | typeof ROUTES.USER_TYPE;
 
@@ -60,7 +58,7 @@ export function onboardingStepRoute(
     case 'PROFILE':
       return ROUTES.PROFILE_FORM;
     case 'PHOTO':
-      return ROUTES.PROFILE_PHOTO;
+      return ROUTES.LIVENESS;
     case 'LIVENESS':
       return ROUTES.LIVENESS;
     case 'USER_TYPE':

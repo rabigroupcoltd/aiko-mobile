@@ -29,7 +29,7 @@ export function FaceOvalGuide({ phase, aligned }: FaceOvalGuideProps) {
           : colors.livenessIdle;
 
   useEffect(() => {
-    const active = phase === 'BLINK' || phase === 'HEAD_TURN';
+    const active = phase === 'NOD';
     if (!active) {
       pulse.stopAnimation();
       pulse.setValue(0);

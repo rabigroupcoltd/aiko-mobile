@@ -60,6 +60,9 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
 
   try {
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    // Forget the last account first, so Google always shows its account
+    // chooser — otherwise it silently signs back into whoever used it last.
+    await GoogleSignin.signOut().catch(() => undefined);
     const response = await GoogleSignin.signIn();
 
     if (!isSuccessResponse(response)) {

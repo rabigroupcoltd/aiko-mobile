@@ -1,12 +1,13 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Alert, Text, View, useWindowDimensions } from 'react-native';
+import { Alert, Linking, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AikoLogo } from '@/components/brand/AikoLogo';
 import { BRAND_LIME } from '@/components/brand/AikoMark';
 import { BrandBackdrop } from '@/components/brand/BrandBackdrop';
 import { GoogleSignInButton, Icon, type IconName } from '@/components/ui';
+import { PRIVACY_URL, TERMS_URL } from '@/config/env';
 import { FirebaseSignInManager } from '@/modules/auth/authController';
 import { ROUTES } from '@/navigation/routes';
 import type { AuthStackParamList } from '@/navigation/types';
@@ -109,7 +110,15 @@ export function WelcomeScreen({ navigation }: Props) {
         )}
 
         <Text style={styles.legal}>
-          By continuing you agree to Aiko&apos;s Terms of Service and Privacy Policy.
+          By continuing you agree to Aiko&apos;s{' '}
+          <Text style={styles.legalLink} onPress={() => void Linking.openURL(TERMS_URL)}>
+            Terms of Service
+          </Text>{' '}
+          and{' '}
+          <Text style={styles.legalLink} onPress={() => void Linking.openURL(PRIVACY_URL)}>
+            Privacy Policy
+          </Text>
+          .
         </Text>
       </SafeAreaView>
     </View>
@@ -237,5 +246,6 @@ const useStyles = makeStyles(({ colors, type }) => ({
   highlightText: { flex: 1, gap: 1 },
   highlightTitle: { ...type.subheading, fontSize: 15 },
   highlightBody: type.caption,
-  legal: { ...type.caption, textAlign: 'center', marginTop: spacing.xxs },
+  legal: { ...type.caption, textAlign: 'center', marginTop: spacing.xxs, lineHeight: 18 },
+  legalLink: { color: colors.primary, fontWeight: '600', textDecorationLine: 'underline' },
 }));

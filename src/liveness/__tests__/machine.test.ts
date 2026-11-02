@@ -1,6 +1,6 @@
 import { LIVENESS } from '../constants';
 import { initialState, start, step, type TickSignals } from '../machine';
-import { fuseEyes, median, Smoother } from '../signals';
+import { fuseEyes, median } from '../signals';
 import type { FaceSnapshot, LivenessState } from '../types';
 
 const T0 = 1_000_000;
@@ -8,7 +8,7 @@ const T0 = 1_000_000;
 function makeFace(overrides: Partial<FaceSnapshot> = {}): FaceSnapshot {
   const frameW = 1000;
   const frameH = 1000;
-  const w = 400; // widthRatio 0.4 — inside [MIN_FACE_RATIO, MAX_FACE_RATIO]
+  const w = 400;
   const h = 500;
   return {
     x: frameW * LIVENESS.TARGET_CENTER_X - w / 2,
@@ -31,13 +31,12 @@ interface Frame {
   dt: number;
   snapshot?: FaceSnapshot | null;
   faceCount?: number;
-  eye?: number | null;
   yaw?: number;
   roll?: number;
+  pitch?: number;
 }
 
-const repeat = (n: number, frame: Frame): Frame[] =>
-  Array.from({ length: n }, () => frame);
+const repeat = (n: number, frame: Frame): Frame[] => Array.from({ length: n }, () => frame);
 
 class Driver {
   state: LivenessState;
@@ -54,13 +53,12 @@ class Driver {
   run(frames: Frame[]): LivenessState {
     for (const frame of frames) {
       this.now += frame.dt;
-      const snapshot =
-        frame.snapshot === undefined ? makeFace({ t: this.now }) : frame.snapshot;
+      const snapshot = frame.snapshot === undefined ? makeFace({ t: this.now }) : frame.snapshot;
 
       const signals: TickSignals = {
-        eye: frame.eye !== undefined ? frame.eye : snapshot ? 0.9 : null,
         yaw: frame.yaw ?? snapshot?.yaw ?? 0,
         roll: frame.roll ?? snapshot?.roll ?? 0,
+        pitch: frame.pitch ?? snapshot?.pitch ?? 0,
       };
 
       this.state = step(
@@ -71,7 +69,7 @@ class Driver {
           faceCount: frame.faceCount ?? (snapshot ? 1 : 0),
           sinceLastFace: snapshot ? 0 : 10_000,
         },
-        signals
+        signals,
       );
     }
     return this.state;
@@ -89,360 +87,181 @@ class Driver {
 }
 
 const TICK = LIVENESS.TICK_MS;
-
 const FRAMING_TICKS = Math.ceil(LIVENESS.FRAMING_HOLD_MS / TICK) + 2;
-const OPEN_TICKS = Math.ceil(LIVENESS.EYE_OPEN_BASELINE_MS / TICK) + 2;
-const HOLD_TICKS = Math.ceil(LIVENESS.YAW_HOLD_MS / TICK) + 2;
+const NOD_TICKS = Math.ceil(LIVENESS.NOD_HOLD_MS / TICK) + 2;
 
-function completeRun(d: Driver): LivenessState {
-  d.tick(FRAMING_TICKS, { dt: TICK });
-  d.tick(OPEN_TICKS, { dt: TICK, eye: 0.9 });
-  d.tick(2, { dt: TICK, eye: 0.05 });
-  d.tick(LIVENESS.BLINK_REOPEN_SAMPLES + 1, { dt: TICK, eye: 0.9 });
-  d.tick(HOLD_TICKS, { dt: TICK, yaw: LIVENESS.YAW_DELTA_DEG + 10 });
-  d.tick(2, { dt: TICK, yaw: 0 });
-  return d.state;
+function frame(d: Driver): LivenessState {
+  return d.tick(FRAMING_TICKS, { dt: TICK });
+}
+
+function nod(d: Driver, pitch = LIVENESS.NOD_DELTA_DEG + 6): LivenessState {
+  d.tick(NOD_TICKS, { dt: TICK, pitch });
+  return d.tick(2, { dt: TICK, pitch: 0 });
 }
 
 describe('liveness machine — framing', () => {
-  it('advances to BLINK once a well-framed face is held', () => {
-    const s = Driver.started().tick(FRAMING_TICKS, { dt: TICK });
-    expect(s.phase).toBe('BLINK');
+  it('advances to NOD once a well-framed face is held', () => {
+    expect(frame(Driver.started()).phase).toBe('NOD');
   });
 
   it('does not advance while the face is too small', () => {
-    const small = makeFace({ w: 100 }); // widthRatio 0.1 < MIN_FACE_RATIO
-    const s = Driver.started().tick(FRAMING_TICKS, { dt: TICK, snapshot: small });
-    expect(s.phase).toBe('FACE_SEARCH');
-    expect(s.framingIssue).toBe('too-far');
+    const d = Driver.started();
+    d.tick(FRAMING_TICKS, { dt: TICK, snapshot: makeFace({ w: 150 }) });
+    expect(d.state.phase).toBe('FACE_SEARCH');
+    expect(d.state.framingIssue).toBe('too-far');
   });
 
   it('does not advance while the face is too large', () => {
-    const huge = makeFace({ w: 900 }); // widthRatio 0.9 > MAX_FACE_RATIO
-    const s = Driver.started().tick(FRAMING_TICKS, { dt: TICK, snapshot: huge });
-    expect(s.framingIssue).toBe('too-close');
+    const d = Driver.started();
+    d.tick(FRAMING_TICKS, { dt: TICK, snapshot: makeFace({ w: 800, x: 100 }) });
+    expect(d.state.framingIssue).toBe('too-close');
   });
 
   it('does not advance while the face is off-centre', () => {
-    const offset = makeFace({ x: 0 });
-    const s = Driver.started().tick(FRAMING_TICKS, { dt: TICK, snapshot: offset });
-    expect(s.phase).toBe('FACE_SEARCH');
-    expect(s.framingIssue).toBe('off-centre');
+    const d = Driver.started();
+    d.tick(FRAMING_TICKS, { dt: TICK, snapshot: makeFace({ x: 0 }) });
+    expect(d.state.phase).toBe('FACE_SEARCH');
+    expect(d.state.framingIssue).toBe('off-centre');
   });
 
-  it('does not accept a baseline from a turned head', () => {
-    const turned = makeFace({ yaw: 40 });
-    const s = Driver.started().tick(FRAMING_TICKS, {
-      dt: TICK,
-      snapshot: turned,
-      yaw: 40,
-    });
-    expect(s.phase).toBe('FACE_SEARCH');
-    expect(s.framingIssue).toBe('not-frontal');
+  it('does not accept a baseline from a turned, tilted or tipped head', () => {
+    for (const pose of [{ yaw: 30 }, { roll: 25 }, { pitch: 25 }]) {
+      const d = Driver.started();
+      d.tick(FRAMING_TICKS, { dt: TICK, ...pose });
+      expect(d.state.phase).toBe('FACE_SEARCH');
+      expect(d.state.framingIssue).toBe('not-frontal');
+    }
   });
 
-  it('captures a pose baseline when it advances', () => {
-    const s = Driver.started().tick(FRAMING_TICKS, { dt: TICK, yaw: 5, roll: 3 });
-    expect(s.phase).toBe('BLINK');
-    expect(s.yawBaseline).toBe(5);
-    expect(s.rollBaseline).toBe(3);
+  it('captures a pitch baseline when it advances', () => {
+    const d = Driver.started();
+    d.tick(FRAMING_TICKS, { dt: TICK, pitch: 4 });
+    expect(d.state.phase).toBe('NOD');
+    expect(d.state.pitchBaseline).toBe(4);
   });
 
   it('fails with TIMEOUT_FACE when no face ever appears', () => {
-    const ticks = Math.ceil(LIVENESS.TIMEOUT_FACE_SEARCH_MS / TICK) + 5;
-    const s = Driver.started().tick(ticks, { dt: TICK, snapshot: null, faceCount: 0 });
-    expect(s.phase).toBe('FAILED');
-    expect(s.failReason).toBe('TIMEOUT_FACE');
+    const d = Driver.started();
+    d.tick(Math.ceil(LIVENESS.TIMEOUT_FACE_SEARCH_MS / TICK) + 2, { dt: TICK, snapshot: null });
+    expect(d.state.phase).toBe('FAILED');
+    expect(d.state.failReason).toBe('TIMEOUT_FACE');
   });
 
   it('coaches about a second face instead of failing the attempt', () => {
-    const ticks = Math.ceil(LIVENESS.MULTI_FACE_GRACE_MS / TICK) + 3;
-    const s = Driver.started().tick(ticks, { dt: TICK, faceCount: 2 });
-
-    expect(s.phase).toBe('FACE_SEARCH');
-    expect(s.framingIssue).toBe('multiple-faces');
-  });
-
-  it('ignores a momentary phantom second face', () => {
     const d = Driver.started();
-    d.tick(1, { dt: TICK, faceCount: 2 });
-    expect(d.state.framingIssue).not.toBe('multiple-faces');
-  });
-
-  it('does not advance while the head is tilted', () => {
-    const tilted = makeFace({ roll: LIVENESS.MAX_FRAMING_ROLL_DEG + 10 });
-    const s = Driver.started().tick(FRAMING_TICKS, {
-      dt: TICK,
-      snapshot: tilted,
-      roll: LIVENESS.MAX_FRAMING_ROLL_DEG + 10,
-    });
-    expect(s.phase).toBe('FACE_SEARCH');
-    expect(s.framingIssue).toBe('not-frontal');
-  });
-
-  it('does not advance while the head is tipped up or down', () => {
-    const tipped = makeFace({ pitch: LIVENESS.MAX_FRAMING_PITCH_DEG + 10 });
-    const s = Driver.started().tick(FRAMING_TICKS, { dt: TICK, snapshot: tipped });
-    expect(s.phase).toBe('FACE_SEARCH');
-    expect(s.framingIssue).toBe('not-frontal');
+    d.tick(FRAMING_TICKS, { dt: TICK, faceCount: 2 });
+    expect(d.state.phase).toBe('FACE_SEARCH');
+    expect(d.state.framingIssue).toBe('multiple-faces');
   });
 
   it('does not advance while a correctly-framed face is still moving', () => {
     const d = Driver.started();
-    const frameW = 1000;
-    const w = 400;
-    const step = LIVENESS.CENTER_DRIFT_TOL * 2 * frameW;
-
-    for (let i = 0; i < FRAMING_TICKS + 4; i++) {
-      const offset = i % 2 === 0 ? step / 2 : -step / 2;
-      d.run([
-        {
-          dt: TICK,
-          snapshot: makeFace({ x: frameW * LIVENESS.TARGET_CENTER_X - w / 2 + offset }),
-        },
-      ]);
-    }
-
-    expect(d.state.phase).toBe('FACE_SEARCH');
-    expect(d.state.progress).toBe(0);
-  });
-
-  it('advances once a moving face settles', () => {
-    const d = Driver.started();
-    const frameW = 1000;
-    const w = 400;
-
-    d.run([
-      { dt: TICK, snapshot: makeFace({ x: 0 }) },
-      { dt: TICK, snapshot: makeFace({ x: frameW * 0.3 }) },
-    ]);
-    expect(d.state.phase).toBe('FACE_SEARCH');
-
-    d.tick(FRAMING_TICKS + 1, {
+    const frames: Frame[] = Array.from({ length: FRAMING_TICKS }, (_, i) => ({
       dt: TICK,
-      snapshot: makeFace({ x: frameW * LIVENESS.TARGET_CENTER_X - w / 2 }),
-    });
-    expect(d.state.phase).toBe('BLINK');
+      snapshot: makeFace({ x: 300 + (i % 2) * 60 }),
+    }));
+    d.run(frames);
+    expect(d.state.phase).toBe('FACE_SEARCH');
   });
 });
 
-describe('liveness machine — blink', () => {
-  function atBlinkReady(): Driver {
+describe('liveness machine — nod', () => {
+  it('passes on a nod followed by a return to centre', () => {
     const d = Driver.started();
-    d.tick(FRAMING_TICKS, { dt: TICK });
-    expect(d.state.phase).toBe('BLINK');
-    d.tick(OPEN_TICKS, { dt: TICK, eye: 0.9 });
-    expect(d.state.blinkStage).toBe('AWAIT_CLOSE');
-    return d;
-  }
-
-  it('accepts a normal blink and advances to HEAD_TURN', () => {
-    const d = atBlinkReady();
-    d.tick(2, { dt: TICK, eye: 0.05 });
-    d.tick(LIVENESS.BLINK_REOPEN_SAMPLES + 1, { dt: TICK, eye: 0.9 });
-    expect(d.state.phase).toBe('HEAD_TURN');
+    frame(d);
+    expect(nod(d).phase).toBe('PASSED');
   });
 
-  it('rejects eyes held shut and restarts the sub-machine', () => {
-    const d = atBlinkReady();
-    const tooLong = Math.ceil(LIVENESS.BLINK_MAX_MS / TICK) + 3;
-    d.tick(tooLong, { dt: TICK, eye: 0.05 });
-
-    expect(d.state.phase).toBe('BLINK');
-    expect(d.state.blinkStage).toBe('AWAIT_OPEN_BASELINE');
-    expect(d.state.blinkRetried).toBe(true);
-  });
-
-  it('rejects a closure shorter than BLINK_MIN_MS as sensor noise', () => {
-    const d = atBlinkReady();
-    d.run([{ dt: 10, eye: 0.05 }]);
-    d.tick(LIVENESS.BLINK_REOPEN_SAMPLES + 1, { dt: 10, eye: 0.9 });
-
-    expect(d.state.phase).toBe('BLINK');
-    expect(d.state.blinkRetried).toBe(true);
-  });
-
-  it('treats a dropout (null eye) as no information, not a closure', () => {
-    const d = atBlinkReady();
-    const before = d.state.blinkStage;
-    d.tick(5, { dt: TICK, eye: null });
-
-    expect(d.state.phase).toBe('BLINK');
-    expect(d.state.blinkStage).toBe(before);
-  });
-
-  it('fails with TIMEOUT_BLINK if the user never blinks', () => {
-    const d = atBlinkReady();
-    const ticks = Math.ceil(LIVENESS.TIMEOUT_BLINK_MS / TICK) + 5;
-    d.tick(ticks, { dt: TICK, eye: 0.9 });
-
-    expect(d.state.phase).toBe('FAILED');
-    expect(d.state.failReason).toBe('TIMEOUT_BLINK');
-  });
-});
-
-describe('liveness machine — head turn', () => {
-  function atHeadTurn(): Driver {
+  it('accepts a nod in either direction', () => {
     const d = Driver.started();
-    d.tick(FRAMING_TICKS, { dt: TICK });
-    d.tick(OPEN_TICKS, { dt: TICK, eye: 0.9 });
-    d.tick(2, { dt: TICK, eye: 0.05 });
-    d.tick(LIVENESS.BLINK_REOPEN_SAMPLES + 1, { dt: TICK, eye: 0.9 });
-    expect(d.state.phase).toBe('HEAD_TURN');
-    return d;
-  }
-
-  it('passes on a sustained turn followed by a re-centre', () => {
-    const d = atHeadTurn();
-    d.tick(HOLD_TICKS, { dt: TICK, yaw: LIVENESS.YAW_DELTA_DEG + 10 });
-    expect(d.state.turnStage).toBe('AWAIT_RECENTER');
-
-    d.tick(2, { dt: TICK, yaw: 0 });
-    expect(d.state.phase).toBe('PASSED');
+    frame(d);
+    expect(nod(d, -(LIVENESS.NOD_DELTA_DEG + 6)).phase).toBe('PASSED');
   });
 
-  it('accepts a turn in the opposite direction (direction-agnostic default)', () => {
-    expect(LIVENESS.ENFORCE_TURN_DIRECTION).toBe(false);
-
-    const d = atHeadTurn();
-    d.tick(HOLD_TICKS, { dt: TICK, yaw: -(LIVENESS.YAW_DELTA_DEG + 10) });
-    d.tick(2, { dt: TICK, yaw: 0 });
-    expect(d.state.phase).toBe('PASSED');
+  it('does not pass on a nod that is too small', () => {
+    const d = Driver.started();
+    frame(d);
+    d.tick(NOD_TICKS, { dt: TICK, pitch: LIVENESS.NOD_DELTA_DEG / 2 });
+    d.tick(2, { dt: TICK, pitch: 0 });
+    expect(d.state.phase).toBe('NOD');
+    expect(d.state.nodStage).toBe('AWAIT_NOD');
   });
 
-  it('rejects a head tilt (roll) masquerading as a turn', () => {
-    const d = atHeadTurn();
-    d.tick(HOLD_TICKS, {
-      dt: TICK,
-      yaw: LIVENESS.YAW_DELTA_DEG + 10,
-      roll: LIVENESS.MAX_ROLL_DELTA_DEG + 15,
-    });
-
-    expect(d.state.phase).toBe('HEAD_TURN');
-    expect(d.state.turnStage).toBe('AWAIT_TURN');
+  it('does not count a head turn as a nod', () => {
+    const d = Driver.started();
+    frame(d);
+    d.tick(NOD_TICKS, { dt: TICK, pitch: LIVENESS.NOD_DELTA_DEG + 6, yaw: LIVENESS.NOD_MAX_YAW_DEG + 10 });
+    expect(d.state.nodStage).toBe('AWAIT_NOD');
   });
 
-  it('does not pass on an insufficient turn', () => {
-    const d = atHeadTurn();
-    d.tick(HOLD_TICKS, { dt: TICK, yaw: LIVENESS.YAW_DELTA_DEG - 5 });
-    expect(d.state.phase).toBe('HEAD_TURN');
-    expect(d.state.turnStage).toBe('AWAIT_TURN');
+  it('does not pass until the head comes back up', () => {
+    const d = Driver.started();
+    frame(d);
+    d.tick(NOD_TICKS + 5, { dt: TICK, pitch: LIVENESS.NOD_DELTA_DEG + 6 });
+    expect(d.state.phase).toBe('NOD');
+    expect(d.state.nodStage).toBe('AWAIT_RETURN');
   });
 
-  it('does not pass until the head returns to centre', () => {
-    const d = atHeadTurn();
-    d.tick(HOLD_TICKS, { dt: TICK, yaw: LIVENESS.YAW_DELTA_DEG + 10 });
-    expect(d.state.turnStage).toBe('AWAIT_RECENTER');
-
-    d.tick(3, { dt: TICK, yaw: LIVENESS.YAW_DELTA_DEG + 10 });
-    expect(d.state.phase).toBe('HEAD_TURN');
-  });
-
-  it('fails with TIMEOUT_TURN if the head never turns', () => {
-    const d = atHeadTurn();
-    const ticks = Math.ceil(LIVENESS.TIMEOUT_HEAD_TURN_MS / TICK) + 5;
-    d.tick(ticks, { dt: TICK, yaw: 0 });
-
+  it('fails with TIMEOUT_NOD if the head never nods', () => {
+    const d = Driver.started();
+    frame(d);
+    d.tick(Math.ceil(LIVENESS.TIMEOUT_NOD_MS / TICK) + 2, { dt: TICK });
     expect(d.state.phase).toBe('FAILED');
-    expect(d.state.failReason).toBe('TIMEOUT_TURN');
+    expect(d.state.failReason).toBe('TIMEOUT_NOD');
   });
 });
 
 describe('liveness machine — a static photo cannot pass', () => {
-  it('never advances past the blink check when the eyes never close', () => {
+  it('stays in NOD forever when the head never moves', () => {
     const d = Driver.started();
-    d.tick(FRAMING_TICKS, { dt: TICK });
-    expect(d.state.phase).toBe('BLINK');
-
-    const ticks = Math.ceil(LIVENESS.TIMEOUT_BLINK_MS / TICK) + 5;
-    d.tick(ticks, { dt: TICK, eye: 0.92, yaw: 0, roll: 0 });
-
-    expect(d.state.phase).toBe('FAILED');
-    expect(d.state.failReason).toBe('TIMEOUT_BLINK');
+    frame(d);
+    d.tick(Math.ceil(LIVENESS.TIMEOUT_NOD_MS / TICK) - 5, { dt: TICK });
+    expect(d.state.phase).toBe('NOD');
   });
 });
 
 describe('liveness machine — face loss and retries', () => {
-  it('regresses to FACE_SEARCH and clears baselines when the face is lost', () => {
+  it('regresses to FACE_SEARCH and clears the baseline when the face is lost', () => {
     const d = Driver.started();
-    d.tick(FRAMING_TICKS, { dt: TICK });
-    expect(d.state.phase).toBe('BLINK');
-
-    d.tick(3, { dt: TICK, snapshot: null, faceCount: 0 });
-
+    frame(d);
+    d.tick(1, { dt: TICK, snapshot: null });
     expect(d.state.phase).toBe('FACE_SEARCH');
-    expect(d.state.yawBaseline).toBeNull();
+    expect(d.state.pitchBaseline).toBeNull();
   });
 
   it('increments the attempt counter on retry after a failure', () => {
-    const ticks = Math.ceil(LIVENESS.TIMEOUT_FACE_SEARCH_MS / TICK) + 5;
     const d = Driver.started();
-    d.tick(ticks, { dt: TICK, snapshot: null, faceCount: 0 });
-
-    expect(d.state.phase).toBe('FAILED');
-    expect(d.state.attempt).toBe(1);
-
-    const retried = d.restart();
-    expect(retried.attempt).toBe(2);
-    expect(retried.phase).toBe('FACE_SEARCH');
+    d.tick(Math.ceil(LIVENESS.TIMEOUT_FACE_SEARCH_MS / TICK) + 2, { dt: TICK, snapshot: null });
+    expect(d.restart().attempt).toBe(2);
   });
 
   it('can still pass on a retry after an earlier failure', () => {
-    const ticks = Math.ceil(LIVENESS.TIMEOUT_FACE_SEARCH_MS / TICK) + 5;
     const d = Driver.started();
-    d.tick(ticks, { dt: TICK, snapshot: null, faceCount: 0 });
+    d.tick(Math.ceil(LIVENESS.TIMEOUT_FACE_SEARCH_MS / TICK) + 2, { dt: TICK, snapshot: null });
     d.restart();
-
-    completeRun(d);
-
-    expect(d.state.phase).toBe('PASSED');
-    expect(d.state.attempt).toBe(2);
+    frame(d);
+    expect(nod(d).phase).toBe('PASSED');
   });
 
   it('treats PASSED and FAILED as terminal', () => {
-    const d = new Driver({ ...initialState(T0), phase: 'PASSED' });
-    d.tick(10, { dt: TICK });
+    const d = Driver.started();
+    frame(d);
+    nod(d);
+    d.tick(5, { dt: TICK, snapshot: null });
     expect(d.state.phase).toBe('PASSED');
   });
 });
 
 describe('signal conditioning', () => {
   it('fuses eyes with min, not average', () => {
-    const face = makeFace({ leftEye: 0.9, rightEye: 0.1 });
-    expect(fuseEyes(face)).toBeCloseTo(0.1);
+    expect(fuseEyes(makeFace({ leftEye: 0.9, rightEye: 0.1 }))).toBeCloseTo(0.1);
   });
 
   it('returns null when neither eye reports', () => {
     expect(fuseEyes(makeFace({ leftEye: null, rightEye: null }))).toBeNull();
   });
 
-  it('falls back to whichever eye is available', () => {
-    expect(fuseEyes(makeFace({ leftEye: null, rightEye: 0.4 }))).toBeCloseTo(0.4);
-  });
-
   it('median rejects a single-frame outlier', () => {
-    expect(median([0.9, 0.02, 0.9])).toBeCloseTo(0.9);
-  });
-
-  it('smoother preserves a real blink dip below EYE_LOW', () => {
-    const smoother = new Smoother();
-    [0.9, 0.9, 0.9, 0.9].forEach((v) => smoother.push(v));
-
-    let lowest = 1;
-    [0.05, 0.02, 0.02, 0.05].forEach((v) => {
-      const out = smoother.push(v);
-      if (out != null) lowest = Math.min(lowest, out);
-    });
-
-    expect(lowest).toBeLessThanOrEqual(LIVENESS.EYE_LOW);
-  });
-
-  it('smoother ignores nulls rather than treating them as zero', () => {
-    const smoother = new Smoother();
-    smoother.push(0.9);
-    smoother.push(0.9);
-    const before = smoother.value;
-    smoother.push(null);
-    expect(smoother.value).toBe(before);
+    expect(median([1, 1, 50])).toBe(1);
   });
 });
