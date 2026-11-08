@@ -9,16 +9,27 @@ export type IconName =
   | 'shield-check'
   | 'bike'
   | 'zap'
-  | 'package';
+  | 'package'
+  | 'check'
+  | 'x'
+  | 'phone'
+  | 'star'
+  | 'chevron-right'
+  | 'chevrons-right'
+  | 'navigation'
+  | 'clock'
+  | 'message';
 
 interface IconProps {
   name: IconName;
   size?: number;
   color?: string;
   strokeWidth?: number;
+  /** Fill the shape (e.g. a chosen star). Outline only by default. */
+  fill?: string;
 }
 
-export function Icon({ name, size = 22, color, strokeWidth = 2 }: IconProps) {
+export function Icon({ name, size = 22, color, strokeWidth = 2, fill = 'none' }: IconProps) {
   const { colors } = useTheme();
   const stroke = color ?? colors.text;
 
@@ -27,7 +38,7 @@ export function Icon({ name, size = 22, color, strokeWidth = 2 }: IconProps) {
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="none"
+      fill={fill}
       stroke={stroke}
       strokeWidth={strokeWidth}
       strokeLinecap="round"
@@ -38,6 +49,35 @@ export function Icon({ name, size = 22, color, strokeWidth = 2 }: IconProps) {
 }
 
 const GLYPHS: Record<IconName, React.ReactNode> = {
+  check: <Path d="M20 6 9 17l-5-5" />,
+  x: (
+    <>
+      <Path d="M18 6 6 18" />
+      <Path d="m6 6 12 12" />
+    </>
+  ),
+  phone: (
+    <Path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+  ),
+  star: (
+    <Path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z" />
+  ),
+  'chevron-right': <Path d="m9 18 6-6-6-6" />,
+  'chevrons-right': (
+    <>
+      <Path d="m6 17 5-5-5-5" />
+      <Path d="m13 17 5-5-5-5" />
+    </>
+  ),
+  // Points up; rotate by the heading to show travel direction.
+  navigation: <Path d="M12 2 19 21l-7-4-7 4 7-19z" />,
+  clock: (
+    <>
+      <Circle cx="12" cy="12" r="10" />
+      <Path d="M12 6v6l4 2" />
+    </>
+  ),
+  message: <Path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />,
   'chevron-left': <Path d="m15 18-6-6 6-6" />,
   menu: (
     <>

@@ -1,11 +1,13 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
+import Animated, { FadeInDown, LinearTransition } from 'react-native-reanimated';
 
 import { AddressSearchSheet } from '@/components/booking/AddressSearchSheet';
+import { PressableScale, PulseDot } from '@/components/motion';
 import { MapPanel } from '@/components/booking/MapPanel';
 import { VehiclePicker } from '@/components/booking/VehiclePicker';
-import { AppHeader, Avatar, Button, Card, Screen } from '@/components/ui';
+import { AppHeader, Avatar, Button, Card, Icon, Screen } from '@/components/ui';
 import { BOOKING_COPY } from '@/data/copy';
 import { useGetTrackingManager } from '@/modules/orders/ordersController';
 import { useGetAllFareEstimatesManager } from '@/modules/pricing/pricingController';
@@ -98,33 +100,46 @@ export function HomeScreen({ navigation }: Props) {
         trailing={<Avatar uri={profilePhotoUri} name={user?.firstName ?? undefined} size={36} />}
       />
 
-      <Text style={styles.greeting}>
+      <Animated.Text entering={FadeInDown.springify().damping(16)} style={styles.greeting}>
         Hi {user?.firstName ?? 'there'} 👋
-      </Text>
-      <Text style={styles.prompt}>Where are you going today?</Text>
+      </Animated.Text>
+      <Animated.Text entering={FadeInDown.delay(60).springify().damping(16)} style={styles.prompt}>
+        What are we delivering today?
+      </Animated.Text>
 
       {activeOrders.length > 0 ? (
-        <Pressable
-          onPress={() => navigation.navigate(ROUTES.TRACK_ORDERS)}
-          accessibilityRole="button"
-          style={({ pressed }) => [styles.trackBanner, pressed && { opacity: 0.85 }]}>
-          <View style={styles.trackDot} />
-          <View style={styles.trackText}>
-            <Text style={styles.trackTitle}>
-              {activeOrders.length === 1 ? '1 active order' : `${activeOrders.length} active orders`}
-            </Text>
-            <Text style={styles.trackBody}>
-              {withRider > 0
-                ? `See where your ${withRider === 1 ? 'rider is' : 'riders are'} on the map`
-                : 'Finding a rider for you…'}
-            </Text>
-          </View>
-          <Text style={styles.trackCta}>Track →</Text>
-        </Pressable>
+        <Animated.View entering={FadeInDown.delay(100).springify().damping(16)} layout={LinearTransition}>
+          <PressableScale
+            onPress={() => navigation.navigate(ROUTES.TRACK_ORDERS)}
+            accessibilityRole="button"
+            scaleTo={0.98}
+            style={styles.trackBanner}>
+            <PulseDot color={colors.primary} size={10} />
+            <View style={styles.trackText}>
+              <Text style={styles.trackTitle}>
+                {activeOrders.length === 1
+                  ? '1 order on the way'
+                  : `${activeOrders.length} orders on the way`}
+              </Text>
+              <Text style={styles.trackBody}>
+                {withRider > 0
+                  ? `Watch your ${withRider === 1 ? 'rider' : 'riders'} live on the map`
+                  : 'Finding you a rider…'}
+              </Text>
+            </View>
+            <View style={styles.trackCta}>
+              <Text style={styles.trackCtaText}>Track</Text>
+              <Icon name="chevron-right" size={16} color={colors.primary} strokeWidth={2.6} />
+            </View>
+          </PressableScale>
+        </Animated.View>
       ) : null}
 
-      <MapPanel pickup={pickup} dropoff={dropoff} style={styles.map} />
+      <Animated.View entering={FadeInDown.delay(140).springify().damping(16)}>
+        <MapPanel pickup={pickup} dropoff={dropoff} style={styles.map} />
+      </Animated.View>
 
+      <Animated.View entering={FadeInDown.delay(200).springify().damping(16)} layout={LinearTransition}>
       <Card style={styles.inputs}>
         <LocationRow
           dotColor={colors.primary}
@@ -156,10 +171,11 @@ export function HomeScreen({ navigation }: Props) {
         <View style={styles.rowDivider} />
         <DescriptionRow value={description} onChange={setDescription} />
       </Card>
+      </Animated.View>
 
       {hasRoute ? (
-        <View style={styles.picker}>
-          <Text style={styles.pickerLabel}>Choose a ride</Text>
+        <Animated.View entering={FadeInDown.springify().damping(16)} layout={LinearTransition} style={styles.picker}>
+          <Text style={styles.pickerLabel}>Choose a vehicle</Text>
           <VehiclePicker
             quotes={quotes ?? []}
             selected={vehicleType}
@@ -168,13 +184,14 @@ export function HomeScreen({ navigation }: Props) {
           />
           {isError ? (
             <Text style={styles.pickerError}>
-              Could not get prices. Check your connection and try again.
+              We could not get prices. Check your connection and try again.
             </Text>
           ) : null}
-        </View>
+        </Animated.View>
       ) : null}
 
       {selectedQuote ? (
+        <Animated.View entering={FadeInDown.springify().damping(16)} layout={LinearTransition}>
         <Card style={styles.estimate}>
           <View style={styles.estimateItem}>
             <Text style={styles.estimateLabel}>Distance</Text>
@@ -195,11 +212,12 @@ export function HomeScreen({ navigation }: Props) {
             </Text>
           </View>
         </Card>
+        </Animated.View>
       ) : null}
 
       <AddressSearchSheet
         visible={sheet !== null}
-        title={sheet === 'pickup' ? 'Set pickup location' : 'Where to?'}
+        title={sheet === 'pickup' ? 'Where should we pick it up?' : 'Where is it going?'}
         placeholder={
           sheet === 'pickup' ? BOOKING_COPY.pickupPlaceholder : BOOKING_COPY.searchPlaceholder
         }
@@ -224,12 +242,15 @@ function LocationRow({
   onPress: () => void;
 }) {
   const styles = useStyles();
+  const { colors } = useTheme();
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
+      haptic="select"
+      scaleTo={0.98}
       accessibilityRole="button"
       accessibilityLabel={`${label}: ${value ?? placeholder}`}
-      style={({ pressed }) => [styles.locationRow, pressed && styles.locationPressed]}>
+      style={styles.locationRow}>
       <View style={[styles.dot, { backgroundColor: dotColor }]} />
       <View style={styles.locationBody}>
         <Text style={styles.locationLabel}>{label}</Text>
@@ -239,8 +260,8 @@ function LocationRow({
           {value ?? placeholder}
         </Text>
       </View>
-      <Text style={styles.chevron}>›</Text>
-    </Pressable>
+      <Icon name="chevron-right" size={18} color={colors.textDisabled} strokeWidth={2.2} />
+    </PressableScale>
   );
 }
 
@@ -260,7 +281,7 @@ function DescriptionRow({
       <TextInput
         value={value}
         onChangeText={onChange}
-        placeholder="Optional — e.g. two cartons of frozen chicken"
+        placeholder="Optional, e.g. two cartons of frozen chicken"
         placeholderTextColor={colors.textDisabled}
         maxLength={500}
         multiline
@@ -319,11 +340,11 @@ const useStyles = makeStyles(({ colors, type }) => ({
     borderWidth: 1,
     borderColor: colors.primaryLight,
   },
-  trackDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
   trackText: { flex: 1, gap: 2 },
   trackTitle: { ...type.subheading, fontSize: 15 },
   trackBody: type.caption,
-  trackCta: { ...type.subheading, fontSize: 14, color: colors.primary },
+  trackCta: { flexDirection: 'row', alignItems: 'center' },
+  trackCtaText: { ...type.subheading, fontSize: 14, color: colors.primary },
   inputs: { padding: 0, overflow: 'hidden' },
   locationRow: {
     flexDirection: 'row',
@@ -332,13 +353,11 @@ const useStyles = makeStyles(({ colors, type }) => ({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.base,
   },
-  locationPressed: { backgroundColor: colors.surfaceAlt },
   dot: { width: 10, height: 10, borderRadius: 5 },
   locationBody: { flex: 1, gap: 1 },
   locationLabel: { ...type.caption },
   locationValue: { ...type.body, fontSize: 15 },
   locationPlaceholder: { color: colors.textDisabled },
-  chevron: { fontSize: 22, color: colors.textDisabled },
   contactRow: {
     flexDirection: 'row',
     alignItems: 'center',

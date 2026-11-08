@@ -1,9 +1,9 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Avatar, Button, Card, Chip } from '@/components/ui';
+import { Avatar, Button, Card, Chip, Icon } from '@/components/ui';
 import { describeVehicle } from '@/data/vehicleTypes';
 import type { RideBidWithDriver } from '@/modules/rideRequests/rideRequestsTypes';
-import { makeStyles, spacing } from '@/theme';
+import { makeStyles, spacing, useTheme } from '@/theme';
 
 interface BidCardProps {
   bid: RideBidWithDriver;
@@ -14,9 +14,10 @@ interface BidCardProps {
 
 export function BidCard({ bid, onAccept, accepting, disabled }: BidCardProps) {
   const styles = useStyles();
+  const { colors } = useTheme();
   const { driver } = bid;
   const vehicle = describeVehicle(driver.vehicleType);
-  const name = driver.user?.name ?? 'Driver';
+  const name = driver.user?.name ?? 'Rider';
 
   const vehicleLine = [driver.vehicleColor, driver.vehicleModel].filter(Boolean).join(' ');
 
@@ -28,8 +29,9 @@ export function BidCard({ bid, onAccept, accepting, disabled }: BidCardProps) {
         <View style={styles.identity}>
           <Text style={styles.name}>{name}</Text>
           <View style={styles.ratingRow}>
-            <Text style={styles.rating}>★ {driver.rating.toFixed(1)}</Text>
-            <Text style={styles.trips}>· {driver.totalTrips.toLocaleString()} trips</Text>
+            <Icon name="star" size={14} color={colors.warning} strokeWidth={2.6} />
+            <Text style={styles.rating}>{driver.rating.toFixed(1)}</Text>
+            <Text style={styles.trips}>· {driver.totalTrips.toLocaleString()} deliveries</Text>
           </View>
           <Chip label={`${vehicle.emoji} ${vehicle.label} · ${vehicle.localName}`} tone="brand" />
         </View>
@@ -49,7 +51,7 @@ export function BidCard({ bid, onAccept, accepting, disabled }: BidCardProps) {
       </View>
 
       <Button
-        label={accepting ? 'Booking…' : 'Choose this driver'}
+        label={accepting ? 'Booking…' : `Choose ${name.split(' ')[0]}`}
         onPress={onAccept}
         loading={accepting}
         disabled={disabled || accepting}

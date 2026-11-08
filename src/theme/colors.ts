@@ -47,6 +47,9 @@ export interface Colors {
   primaryLight: string;
   primarySubtle: string;
   onPrimary: string;
+  /** Brand lime, for celebration and "live" moments — never body text. */
+  accent: string;
+  onAccent: string;
 
   background: string;
   surface: string;
@@ -94,6 +97,8 @@ export const lightColors: Colors = {
   primaryLight: green[100],
   primarySubtle: green[50],
   onPrimary: neutral[0],
+  accent: '#D4FF3A',
+  onAccent: green[900],
 
   background: neutral[50],
   surface: neutral[0],
@@ -141,6 +146,8 @@ export const darkColors: Colors = {
   primaryLight: '#173A2A',
   primarySubtle: '#12241C',
   onPrimary: '#04140C',
+  accent: '#D4FF3A',
+  onAccent: green[900],
 
   background: '#0B1210',
   surface: '#151E1B',

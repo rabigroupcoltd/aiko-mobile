@@ -1,5 +1,6 @@
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 
+import { PressableScale } from '@/components/motion';
 import { makeStyles, radius, spacing, useTheme } from '@/theme';
 import type { Place, PlaceCategory } from '@/types/models';
 
@@ -32,11 +33,13 @@ export function PlaceRow({ place, onPress, loading }: PlaceRowProps) {
   const { colors } = useTheme();
 
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
       disabled={loading}
+      haptic="select"
+      scaleTo={0.98}
       accessibilityRole="button"
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+      style={styles.row}>
       <View style={styles.icon}>
         <Text style={styles.iconText}>{iconFor(place)}</Text>
       </View>
@@ -51,7 +54,7 @@ export function PlaceRow({ place, onPress, loading }: PlaceRowProps) {
       </View>
 
       {loading ? <ActivityIndicator size="small" color={colors.primary} /> : null}
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -63,7 +66,6 @@ const useStyles = makeStyles(({ colors, type }) => ({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xs,
   },
-  pressed: { backgroundColor: colors.surfaceAlt, borderRadius: radius.md },
   icon: {
     width: 40,
     height: 40,

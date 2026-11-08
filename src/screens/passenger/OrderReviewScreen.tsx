@@ -1,8 +1,10 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { MapPanel } from '@/components/booking/MapPanel';
+import { CountUpText } from '@/components/motion';
 import { Button, Card, Chip, Screen } from '@/components/ui';
 import { describeVehicle } from '@/data/vehicleTypes';
 import { CreateOrderManager } from '@/modules/orders/ordersController';
@@ -11,6 +13,7 @@ import { ROUTES } from '@/navigation/routes';
 import type { PassengerStackParamList } from '@/navigation/types';
 import { useBookingStore } from '@/store/bookingStore';
 import { makeStyles, spacing, useTheme } from '@/theme';
+import { haptics } from '@/utils/haptics';
 import { formatE164ForDisplay, toE164 } from '@/utils/phone';
 import showToast from '@/utils/toast';
 
@@ -42,6 +45,7 @@ export function OrderReviewScreen({ navigation }: Props) {
   const handleConfirm = useCallback(async () => {
     if (!pickup || !dropoff || confirming) return;
     setConfirming(true);
+    haptics.commit();
 
     try {
       const order = await createOrder({
@@ -62,7 +66,8 @@ export function OrderReviewScreen({ navigation }: Props) {
       confirmBooking(order.id);
       navigation.replace(ROUTES.RIDER_FOUND, { orderId: order.id });
     } catch (e: any) {
-      showToast.error(e?.message ?? 'Could not place your order.');
+      haptics.error();
+      showToast.error(e?.message ?? 'We could not place your order. Please try again.');
       setConfirming(false);
     }
   }, [
@@ -82,7 +87,7 @@ export function OrderReviewScreen({ navigation }: Props) {
     return (
       <Screen>
         <View style={styles.empty}>
-          <Text style={styles.emptyText}>Your order details are missing.</Text>
+          <Text style={styles.emptyText}>We lost your order details. Let us start again.</Text>
           <Button label="Start again" onPress={() => navigation.navigate(ROUTES.PASSENGER_HOME)} />
         </View>
       </Screen>
@@ -98,7 +103,7 @@ export function OrderReviewScreen({ navigation }: Props) {
       footer={
         <View style={styles.footer}>
           <Button
-            label={quote ? `Confirm order · ₦${total.toLocaleString()}` : 'Confirm order'}
+            label={quote ? `Find a rider · ₦${total.toLocaleString()}` : 'Find a rider'}
             onPress={handleConfirm}
             loading={confirming || quoting}
             disabled={!quote || confirming}
@@ -112,13 +117,18 @@ export function OrderReviewScreen({ navigation }: Props) {
           />
         </View>
       }>
-      <Text style={styles.title}>Order summary</Text>
-      <Text style={styles.subtitle}>
-        Nothing is sent to drivers until you confirm.
-      </Text>
+      <Animated.Text entering={FadeInDown.springify().damping(16)} style={styles.title}>
+        Check your order
+      </Animated.Text>
+      <Animated.Text entering={FadeInDown.delay(60).springify().damping(16)} style={styles.subtitle}>
+        Riders only see it after you tap Find a rider.
+      </Animated.Text>
 
-      <MapPanel pickup={pickup} dropoff={dropoff} style={styles.map} />
+      <Animated.View entering={FadeInDown.delay(120).springify().damping(16)}>
+        <MapPanel pickup={pickup} dropoff={dropoff} style={styles.map} />
+      </Animated.View>
 
+      <Animated.View entering={FadeInDown.delay(180).springify().damping(16)}>
       <Card style={styles.section}>
         <Leg
           dotColor={colors.primary}
@@ -134,7 +144,9 @@ export function OrderReviewScreen({ navigation }: Props) {
           phone={dropoffPhone}
         />
       </Card>
+      </Animated.View>
 
+      <Animated.View entering={FadeInDown.delay(240).springify().damping(16)}>
       <Card style={styles.section}>
         <View style={styles.vehicleRow}>
           <Chip label={`${vehicle.emoji} ${vehicle.label}`} tone="brand" />
@@ -165,14 +177,19 @@ export function OrderReviewScreen({ navigation }: Props) {
         </View>
         <View style={styles.metaRow}>
           <Text style={styles.metaLabel}>Payment</Text>
-          <Text style={styles.metaValue}>Cash</Text>
+          <Text style={styles.metaValue}>Cash on pickup</Text>
         </View>
 
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValue}>₦{total.toLocaleString()}</Text>
+          <CountUpText
+            value={total}
+            format={(n) => `₦${Math.round(n).toLocaleString()}`}
+            style={styles.totalValue}
+          />
         </View>
       </Card>
+      </Animated.View>
     </Screen>
   );
 }

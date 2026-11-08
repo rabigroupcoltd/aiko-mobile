@@ -2,8 +2,10 @@ import { Camera, GeoJSONSource, Layer, Map, Marker, type CameraStop } from '@map
 import { useMemo } from 'react';
 import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
+import { PulseDot } from '@/components/motion';
 import { Icon } from '@/components/ui';
 import { MINNA_CENTER } from '@/config/env';
+import { useGlidingPosition } from '@/hooks/useGlidingPosition';
 import { green, makeStyles, radius, useTheme } from '@/theme';
 import type { Place } from '@/types/models';
 
@@ -60,6 +62,8 @@ export function MapPanel({
   const { colors } = useTheme();
 
   const target = driverTarget === 'dropoff' ? dropoff : pickup;
+  // Pings arrive every few seconds; glide between them so the rider moves.
+  const { point: rider, heading } = useGlidingPosition(driver ?? null);
 
   const stop = useMemo(
     () => cameraFor([pickup, dropoff, driver].filter(Boolean).map((p) => toLngLat(p!))),
@@ -67,7 +71,7 @@ export function MapPanel({
   );
 
   const trip = showRoute && pickup && dropoff ? line(toLngLat(pickup), toLngLat(dropoff)) : null;
-  const approach = driver && target ? line(toLngLat(driver), toLngLat(target)) : null;
+  const approach = rider && target ? line(toLngLat(rider), toLngLat(target)) : null;
 
   return (
     <View style={[styles.container, style]}>
@@ -116,18 +120,28 @@ export function MapPanel({
           </Marker>
         ) : null}
 
-        {driver ? (
-          <Marker id="driver" lngLat={toLngLat(driver)} anchor={driverLabel ? 'bottom' : 'center'}>
+        {rider ? (
+          <Marker id="driver" lngLat={toLngLat(rider)} anchor={driverLabel ? 'bottom' : 'center'}>
             <View style={styles.driverPin}>
               {driverLabel ? (
                 <View style={styles.label}>
+                  <PulseDot color={colors.accent} size={7} />
                   <Text style={styles.labelText} numberOfLines={1}>
                     {driverLabel}
                   </Text>
                 </View>
               ) : null}
-              <View style={styles.driver}>
-                <Icon name="bike" size={18} color="#FFFFFF" strokeWidth={2.4} />
+              <View style={styles.driverWrap}>
+                {heading != null ? (
+                  <View style={[styles.headingWrap, { transform: [{ rotate: `${heading}deg` }] }]}>
+                    <View style={styles.headingTip}>
+                      <Icon name="navigation" size={12} color={green[900]} strokeWidth={2.6} />
+                    </View>
+                  </View>
+                ) : null}
+                <View style={styles.driver}>
+                  <Icon name="bike" size={18} color="#FFFFFF" strokeWidth={2.4} />
+                </View>
               </View>
             </View>
           </Marker>
@@ -149,6 +163,9 @@ const useStyles = makeStyles(({ colors }) => ({
   driverPin: { alignItems: 'center' },
   label: {
     maxWidth: 180,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radius.pill,
@@ -156,6 +173,16 @@ const useStyles = makeStyles(({ colors }) => ({
     marginBottom: 4,
   },
   labelText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
+  driverWrap: { width: 52, height: 52, alignItems: 'center', justifyContent: 'center' },
+  headingWrap: { position: 'absolute', width: 52, height: 52, alignItems: 'center' },
+  headingTip: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   driver: {
     width: 36,
     height: 36,

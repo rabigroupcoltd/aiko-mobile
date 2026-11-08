@@ -3,14 +3,15 @@ import {
   ActivityIndicator,
   FlatList,
   Modal,
-  Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { EmptyState, TextField } from '@/components/ui';
+import { PressableScale, Shimmer } from '@/components/motion';
+import { EmptyState, Icon, TextField } from '@/components/ui';
 import { BOOKING_COPY } from '@/data/copy';
 import { useDefaultPlaces, usePlaceSearch } from '@/hooks/usePlaceSearch';
 import { CreateAddressManager } from '@/modules/addresses/addressesController';
@@ -102,9 +103,9 @@ export function AddressSearchSheet({
     <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.header}>
-          <Pressable onPress={handleClose} hitSlop={12} accessibilityLabel="Close">
-            <Text style={styles.close}>✕</Text>
-          </Pressable>
+          <PressableScale onPress={handleClose} hitSlop={12} accessibilityLabel="Close" style={styles.closeButton}>
+            <Icon name="x" size={22} color={colors.text} />
+          </PressableScale>
           <Text style={styles.title}>{title}</Text>
           <View style={styles.closeSpacer} />
         </View>
@@ -125,7 +126,7 @@ export function AddressSearchSheet({
           <View style={styles.statusRow}>
             {!searching ? (
               <Text style={styles.status}>
-                {savedLoading ? 'Loading your places…' : 'Your saved places'}
+                {savedLoading ? 'Loading your places…' : 'Places you have used'}
               </Text>
             ) : state === 'error' ? (
               <Text style={styles.statusMiss}>{error}</Text>
@@ -133,7 +134,7 @@ export function AddressSearchSheet({
               <Text style={styles.status}>{BOOKING_COPY.remoteSearching}</Text>
             ) : state === 'results' ? (
               <Text style={styles.status}>
-                {predictions.length} found
+                {predictions.length} {predictions.length === 1 ? 'place' : 'places'} found
               </Text>
             ) : (
               <Text style={styles.statusMiss}>{BOOKING_COPY.noResults}</Text>
@@ -147,7 +148,8 @@ export function AddressSearchSheet({
             keyExtractor={(item) => item.placeId}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.list}
-            renderItem={({ item }) => (
+            renderItem={({ item, index }) => (
+              <Animated.View entering={FadeIn.delay(Math.min(index, 8) * 30)}>
               <PlaceRow
                 place={{
                   id: item.placeId,
@@ -163,10 +165,13 @@ export function AddressSearchSheet({
                 onPress={() => handleSelectPrediction(item)}
                 loading={resolvingId === item.placeId}
               />
+              </Animated.View>
             )}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
             ListEmptyComponent={
-              loading ? null : (
+              loading ? (
+                <PlaceSkeleton />
+              ) : (
                 <EmptyState
                   icon="🔍"
                   title={BOOKING_COPY.noResults}
@@ -181,16 +186,20 @@ export function AddressSearchSheet({
             keyExtractor={(item) => item.id}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.list}
-            renderItem={({ item }) => (
-              <PlaceRow place={item} onPress={() => handleSelectSaved(item)} />
+            renderItem={({ item, index }) => (
+              <Animated.View entering={FadeIn.delay(Math.min(index, 8) * 30)}>
+                <PlaceRow place={item} onPress={() => handleSelectSaved(item)} />
+              </Animated.View>
             )}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
             ListEmptyComponent={
-              savedLoading ? null : (
+              savedLoading ? (
+                <PlaceSkeleton />
+              ) : (
                 <EmptyState
                   icon="🔍"
-                  title="No saved places yet"
-                  body="Search for a landmark, market or area to get started."
+                  title="No places yet"
+                  body="Search for a landmark, market or street, like Kpakungu or Bosso Market."
                 />
               )
             }
@@ -198,6 +207,23 @@ export function AddressSearchSheet({
         )}
       </SafeAreaView>
     </Modal>
+  );
+}
+
+function PlaceSkeleton() {
+  const styles = useStyles();
+  return (
+    <View style={styles.skeleton} accessibilityLabel="Loading places">
+      {[0, 1, 2, 3].map((i) => (
+        <View key={i} style={styles.skeletonRow}>
+          <Shimmer width={40} height={40} />
+          <View style={styles.skeletonText}>
+            <Shimmer width="55%" height={14} />
+            <Shimmer width="80%" height={11} />
+          </View>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -210,7 +236,10 @@ const useStyles = makeStyles(({ colors, type }) => ({
     paddingHorizontal: screenGutter,
     paddingVertical: spacing.md,
   },
-  close: { fontSize: 20, color: colors.text, width: 32 },
+  closeButton: { width: 32 },
+  skeleton: { gap: spacing.md, paddingTop: spacing.sm },
+  skeletonRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  skeletonText: { flex: 1, gap: 6 },
   closeSpacer: { width: 32 },
   title: type.subheading,
   searchWrap: { paddingHorizontal: screenGutter },

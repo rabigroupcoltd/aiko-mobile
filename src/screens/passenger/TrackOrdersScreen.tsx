@@ -11,12 +11,15 @@ import {
   useWindowDimensions,
   type ListRenderItemInfo,
 } from 'react-native';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PressableScale, PulseDot, Shimmer } from '@/components/motion';
 import { Avatar, Chip, Icon } from '@/components/ui';
 import { MINNA_CENTER } from '@/config/env';
+import { useGlidingPosition } from '@/hooks/useGlidingPosition';
 import { useRideEvent } from '@/hooks/useRideSocket';
-import { useGetTrackingManager } from '@/modules/orders/ordersController';
+import { useGetOrderEtaManager, useGetTrackingManager } from '@/modules/orders/ordersController';
 import type { TrackedOrder } from '@/modules/orders/ordersTypes';
 import type { OrderStatus } from '@/modules/shared/apiTypes';
 import { ROUTES } from '@/navigation/routes';
@@ -33,13 +36,13 @@ type Tone = 'neutral' | 'success' | 'pending' | 'danger' | 'info' | 'brand';
 const STATUS: Partial<Record<OrderStatus, { label: string; tone: Tone }>> = {
   PENDING: { label: 'Finding a rider', tone: 'pending' },
   SEARCHING_FOR_DRIVER: { label: 'Finding a rider', tone: 'pending' },
-  RESERVED: { label: 'Rider on the way', tone: 'brand' },
-  ACCEPTED: { label: 'Rider on the way', tone: 'brand' },
-  DRIVER_ARRIVING_PICKUP: { label: 'Arriving at pickup', tone: 'info' },
+  RESERVED: { label: 'Coming to pickup', tone: 'brand' },
+  ACCEPTED: { label: 'Coming to pickup', tone: 'brand' },
+  DRIVER_ARRIVING_PICKUP: { label: 'Almost at pickup', tone: 'info' },
   ARRIVED: { label: 'At pickup', tone: 'info' },
-  PICKED_UP: { label: 'Picked up', tone: 'success' },
+  PICKED_UP: { label: 'Package collected', tone: 'success' },
   IN_PROGRESS: { label: 'On the way', tone: 'success' },
-  IN_TRANSIT: { label: 'On the way to drop-off', tone: 'success' },
+  IN_TRANSIT: { label: 'Heading to drop-off', tone: 'success' },
 };
 
 const HEADING_TO_DROPOFF: OrderStatus[] = ['PICKED_UP', 'IN_TRANSIT', 'IN_PROGRESS'];
@@ -139,9 +142,11 @@ export function TrackOrdersScreen({ navigation, route }: Props) {
   const selected = orders.find((o) => o.orderId === selectedId) ?? null;
   const selectedPosition = selected ? positionOf(selected) : null;
 
+  // Follow the selected rider with a gentle ease, timed to the marker's glide
+  // between pings, instead of a fly-to on every update.
   const stop = useMemo<CameraStop>(() => {
     if (selectedPosition) {
-      return { center: toLngLat(selectedPosition), zoom: 15, duration: 700, easing: 'fly' };
+      return { center: toLngLat(selectedPosition), zoom: 15, duration: 1000, easing: 'ease' };
     }
     if (selected) return boundsOf([toLngLat(selected.pickup), toLngLat(selected.dropoff)]);
     return boundsOf(
@@ -170,59 +175,19 @@ export function TrackOrdersScreen({ navigation, route }: Props) {
     if (scroll && index >= 0) listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
   }
 
-  const renderCard = ({ item }: ListRenderItemInfo<TrackedOrder>) => {
-    const status = STATUS[item.status] ?? { label: item.status, tone: 'neutral' as Tone };
-    const position = positionOf(item);
-    const active = item.orderId === selectedId;
-    const driver = item.driver;
-    const vehicle = driver
-      ? [driver.vehicleBrand, driver.vehicleModel].filter(Boolean).join(' ') || driver.vehicleType
-      : null;
-
-    return (
-      <Pressable
+  const renderCard = ({ item, index }: ListRenderItemInfo<TrackedOrder>) => (
+    <Animated.View entering={FadeInDown.delay(index * 80).springify().damping(16)}>
+      <OrderCard
+        order={item}
+        position={positionOf(item)}
+        active={item.orderId === selectedId}
+        width={cardWidth}
+        now={now}
         onPress={() => select(item.orderId, false)}
-        style={[styles.card, { width: cardWidth }, active && styles.cardActive]}>
-        <View style={styles.cardTop}>
-          <Avatar uri={driver?.photoUrl} name={driver?.name ?? undefined} size={44} />
-          <View style={styles.cardInfo}>
-            <Text style={styles.cardName} numberOfLines={1}>
-              {driver?.name ?? 'Waiting for a rider'}
-            </Text>
-            <Text style={styles.cardMeta} numberOfLines={1}>
-              {driver ? `${vehicle}${driver.vehiclePlate ? ` · ${driver.vehiclePlate}` : ''}` : item.pickup.name}
-            </Text>
-          </View>
-          {driver?.phone ? (
-            <Pressable
-              onPress={() => void Linking.openURL(`tel:${driver.phone}`)}
-              hitSlop={8}
-              accessibilityLabel={`Call ${driver.name ?? 'rider'}`}
-              style={styles.callButton}>
-              <Text style={styles.callText}>Call</Text>
-            </Pressable>
-          ) : null}
-        </View>
-
-        <View style={styles.cardBottom}>
-          <Chip label={status.label} tone={status.tone} dot />
-          <Text style={styles.cardSince}>
-            {driver ? (position ? `Seen ${since(position.at, now)}` : 'No location yet') : ''}
-          </Text>
-        </View>
-
-        <Text style={styles.cardRoute} numberOfLines={1}>
-          {item.pickup.name} → {item.dropoff.name}
-        </Text>
-
-        <Pressable
-          onPress={() => navigation.navigate(ROUTES.RIDER_FOUND, { orderId: item.orderId })}
-          hitSlop={6}>
-          <Text style={styles.cardLink}>Order details</Text>
-        </Pressable>
-      </Pressable>
-    );
-  };
+        onDetails={() => navigation.navigate(ROUTES.RIDER_FOUND, { orderId: item.orderId })}
+      />
+    </Animated.View>
+  );
 
   return (
     <View style={styles.container}>
@@ -260,27 +225,17 @@ export function TrackOrdersScreen({ navigation, route }: Props) {
         {orders.map((order) => {
           const position = positionOf(order);
           if (!order.driver || !position) return null;
-          const active = order.orderId === selectedId;
-          const stale = now - position.at > 5 * 60 * 1000;
+          const plate = order.driver.vehiclePlate ? ' · ' + order.driver.vehiclePlate : '';
           return (
-            <Marker
+            <RiderMarker
               key={order.orderId}
-              id={`driver-${order.orderId}`}
-              lngLat={toLngLat(position)}
-              anchor="bottom"
-              onPress={() => select(order.orderId)}>
-              <View style={[styles.driverPin, { opacity: stale ? 0.55 : 1 }]}>
-                <View style={[styles.label, active && styles.labelActive]}>
-                  <Text style={[styles.labelText, active && styles.labelTextActive]} numberOfLines={1}>
-                    {firstName(order.driver.name)}
-                    {order.driver.vehiclePlate ? ` · ${order.driver.vehiclePlate}` : ''}
-                  </Text>
-                </View>
-                <View style={[styles.driverDot, active && styles.driverDotActive]}>
-                  <Icon name="bike" size={active ? 18 : 15} color="#FFFFFF" strokeWidth={2.4} />
-                </View>
-              </View>
-            </Marker>
+              orderId={order.orderId}
+              position={position}
+              label={firstName(order.driver.name) + plate}
+              active={order.orderId === selectedId}
+              stale={now - position.at > 5 * 60 * 1000}
+              onPress={() => select(order.orderId)}
+            />
           );
         })}
       </Map>
@@ -293,15 +248,16 @@ export function TrackOrdersScreen({ navigation, route }: Props) {
           style={styles.back}>
           <Icon name="chevron-left" size={22} strokeWidth={2.4} />
         </Pressable>
-        <View style={styles.titlePill}>
+        <Animated.View entering={FadeInDown.springify().damping(16)} style={styles.titlePill}>
+          {orders.some((o) => o.driver) ? <PulseDot color={colors.primary} size={8} /> : null}
           <Text style={styles.title}>
             {isLoading
               ? 'Loading your orders…'
               : orders.length === 0
-                ? 'No active orders'
-                : `${orders.length} active order${orders.length > 1 ? 's' : ''}`}
+                ? 'Nothing on the way'
+                : `${orders.length} order${orders.length > 1 ? 's' : ''} on the way`}
           </Text>
-        </View>
+        </Animated.View>
       </SafeAreaView>
 
       <SafeAreaView edges={['bottom']} style={styles.bottom} pointerEvents="box-none">
@@ -324,14 +280,161 @@ export function TrackOrdersScreen({ navigation, route }: Props) {
               if (order && order.orderId !== selectedId) setSelectedId(order.orderId);
             }}
           />
-        ) : !isLoading ? (
+        ) : isLoading ? (
           <View style={[styles.card, styles.emptyCard]}>
-            <Text style={styles.cardName}>Nothing to track right now</Text>
-            <Text style={styles.cardMeta}>Your orders in progress will show up here.</Text>
+            <View style={styles.cardTop}>
+              <Shimmer width={44} height={44} rounded={22} />
+              <View style={styles.cardInfo}>
+                <Shimmer width="60%" height={14} />
+                <Shimmer width="40%" height={12} />
+              </View>
+            </View>
+            <Shimmer width="80%" height={12} />
           </View>
-        ) : null}
+        ) : (
+          <Animated.View entering={FadeInUp.springify().damping(16)} style={[styles.card, styles.emptyCard]}>
+            <Text style={styles.cardName}>Nothing to track right now</Text>
+            <Text style={styles.cardMeta}>When you send a package, you can watch your rider here.</Text>
+          </Animated.View>
+        )}
       </SafeAreaView>
     </View>
+  );
+}
+
+function RiderMarker({
+  orderId,
+  position,
+  label,
+  active,
+  stale,
+  onPress,
+}: {
+  orderId: string;
+  position: Position;
+  label: string;
+  active: boolean;
+  stale: boolean;
+  onPress: () => void;
+}) {
+  const styles = useStyles();
+  const { colors } = useTheme();
+  const { point, heading } = useGlidingPosition(position);
+  if (!point) return null;
+
+  return (
+    <Marker id={'driver-' + orderId} lngLat={toLngLat(point)} anchor="bottom" onPress={onPress}>
+      <View style={[styles.driverPin, { opacity: stale ? 0.55 : 1 }]}>
+        <View style={[styles.label, active && styles.labelActive]}>
+          {active && !stale ? <PulseDot color={colors.accent} size={7} /> : null}
+          <Text style={[styles.labelText, active && styles.labelTextActive]} numberOfLines={1}>
+            {label}
+          </Text>
+        </View>
+        <View style={styles.dotWrap}>
+          {heading != null && !stale ? (
+            <View style={[styles.headingWrap, { transform: [{ rotate: heading + 'deg' }] }]}>
+              <View style={styles.headingTip}>
+                <Icon name="navigation" size={11} color={green[900]} strokeWidth={2.6} />
+              </View>
+            </View>
+          ) : null}
+          <View style={[styles.driverDot, active && styles.driverDotActive]}>
+            <Icon name="bike" size={active ? 18 : 15} color="#FFFFFF" strokeWidth={2.4} />
+          </View>
+        </View>
+      </View>
+    </Marker>
+  );
+}
+
+function OrderCard({
+  order,
+  position,
+  active,
+  width,
+  now,
+  onPress,
+  onDetails,
+}: {
+  order: TrackedOrder;
+  position: Position | null;
+  active: boolean;
+  width: number;
+  now: number;
+  onPress: () => void;
+  onDetails: () => void;
+}) {
+  const styles = useStyles();
+  const { colors } = useTheme();
+  const status = STATUS[order.status] ?? { label: order.status, tone: 'neutral' as Tone };
+  const driver = order.driver;
+  const vehicle = driver
+    ? [driver.vehicleBrand, driver.vehicleModel].filter(Boolean).join(' ') || driver.vehicleType
+    : null;
+  const toDropoff = HEADING_TO_DROPOFF.includes(order.status);
+
+  const { data: eta } = useGetOrderEtaManager({
+    id: order.orderId,
+    enabled: Boolean(driver),
+    refetchInterval: 30_000,
+  });
+  const minutes = eta ? (toDropoff ? eta.deliveryMinutes : eta.pickupMinutes) : null;
+
+  return (
+    <PressableScale
+      haptic="select"
+      scaleTo={0.98}
+      onPress={onPress}
+      style={[styles.card, { width }, active && styles.cardActive]}>
+      <View style={styles.cardTop}>
+        <Avatar uri={driver?.photoUrl} name={driver?.name ?? undefined} size={44} />
+        <View style={styles.cardInfo}>
+          <Text style={styles.cardName} numberOfLines={1}>
+            {driver?.name ?? 'Finding you a rider…'}
+          </Text>
+          <Text style={styles.cardMeta} numberOfLines={1}>
+            {driver ? vehicle + (driver.vehiclePlate ? ' · ' + driver.vehiclePlate : '') : order.pickup.name}
+          </Text>
+        </View>
+        {driver?.phone ? (
+          <PressableScale
+            onPress={() => void Linking.openURL('tel:' + driver.phone)}
+            hitSlop={8}
+            accessibilityLabel={'Call ' + (driver.name ?? 'rider')}
+            style={styles.callButton}>
+            <Icon name="phone" size={16} color={colors.primary} strokeWidth={2.4} />
+            <Text style={styles.callText}>Call</Text>
+          </PressableScale>
+        ) : null}
+      </View>
+
+      {minutes != null ? (
+        <View style={styles.etaRow}>
+          <Icon name="clock" size={15} color={colors.primary} strokeWidth={2.4} />
+          <Text style={styles.etaText}>
+            {minutes <= 1 ? 'Less than a minute' : 'About ' + minutes + ' min'}
+            <Text style={styles.etaSub}>{toDropoff ? ' to drop-off' : ' to your pickup'}</Text>
+          </Text>
+        </View>
+      ) : null}
+
+      <View style={styles.cardBottom}>
+        <Chip label={status.label} tone={status.tone} dot />
+        <Text style={styles.cardSince}>
+          {driver ? (position ? 'Updated ' + since(position.at, now) : 'Waiting for location') : ''}
+        </Text>
+      </View>
+
+      <Text style={styles.cardRoute} numberOfLines={1}>
+        {order.pickup.name} → {order.dropoff.name}
+      </Text>
+
+      <PressableScale onPress={onDetails} hitSlop={6} style={styles.detailsLink}>
+        <Text style={styles.cardLink}>See order details</Text>
+        <Icon name="chevron-right" size={16} color={colors.primary} strokeWidth={2.4} />
+      </PressableScale>
+    </PressableScale>
   );
 }
 
@@ -358,6 +461,9 @@ const useStyles = makeStyles(({ colors, type }) => ({
     ...shadows.md,
   },
   titlePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     paddingHorizontal: spacing.base,
     paddingVertical: spacing.sm,
     borderRadius: radius.pill,
@@ -377,12 +483,15 @@ const useStyles = makeStyles(({ colors, type }) => ({
     ...shadows.lg,
   },
   cardActive: { borderColor: colors.primary },
-  emptyCard: { marginHorizontal: spacing.xl },
+  emptyCard: { marginHorizontal: spacing.xl, gap: spacing.md },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   cardInfo: { flex: 1, gap: 2 },
   cardName: { ...type.subheading, fontSize: 16 },
   cardMeta: type.caption,
   callButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.pill,
@@ -393,6 +502,18 @@ const useStyles = makeStyles(({ colors, type }) => ({
   cardSince: type.caption,
   cardRoute: { ...type.bodySmall, color: colors.textSecondary },
   cardLink: { ...type.subheading, fontSize: 14, color: colors.primary },
+  detailsLink: { flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-start' },
+  etaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.primarySubtle,
+  },
+  etaText: { ...type.subheading, fontSize: 15, color: colors.primaryDarker },
+  etaSub: { ...type.bodySmall, color: colors.textSecondary },
   pickupDot: {
     width: 16,
     height: 16,
@@ -403,6 +524,9 @@ const useStyles = makeStyles(({ colors, type }) => ({
   },
   driverPin: { alignItems: 'center' },
   label: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     maxWidth: 170,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -415,6 +539,16 @@ const useStyles = makeStyles(({ colors, type }) => ({
   labelActive: { backgroundColor: green[900], borderColor: green[900] },
   labelText: { fontSize: 12, fontWeight: '700', color: '#111917' },
   labelTextActive: { color: '#FFFFFF' },
+  dotWrap: { width: 52, height: 52, alignItems: 'center', justifyContent: 'center' },
+  headingWrap: { position: 'absolute', width: 52, height: 52, alignItems: 'center' },
+  headingTip: {
+    width: 17,
+    height: 17,
+    borderRadius: 9,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   driverDot: {
     width: 30,
     height: 30,

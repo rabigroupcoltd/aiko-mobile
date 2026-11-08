@@ -1,11 +1,12 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, Text, View } from 'react-native';
+import Animated, { FadeInDown, LinearTransition } from 'react-native-reanimated';
 
 import { MatchingAnimation } from '@/components/booking/MatchingAnimation';
 import { BidCard } from '@/components/booking/BidCard';
+import { MATCHING_LINES, useMatchingLine } from '@/components/booking/matchingCopy';
 import { Button, Screen } from '@/components/ui';
-import { BOOKING_COPY } from '@/data/copy';
 import {
   AcceptDriverManager,
   CancelRideRequestManager,
@@ -17,7 +18,8 @@ import type { RideBidWithDriver } from '@/modules/rideRequests/rideRequestsTypes
 import { ROUTES } from '@/navigation/routes';
 import type { PassengerStackParamList } from '@/navigation/types';
 import { useBookingStore } from '@/store/bookingStore';
-import { makeStyles, spacing } from '@/theme';
+import { makeStyles, spacing, useTheme } from '@/theme';
+import { haptics } from '@/utils/haptics';
 import { createLogger } from '@/utils/logger';
 import showToast from '@/utils/toast';
 
@@ -27,6 +29,7 @@ type Props = NativeStackScreenProps<PassengerStackParamList, typeof ROUTES.MATCH
 
 export function MatchingScreen({ navigation, route }: Props) {
   const styles = useStyles();
+  const { colors } = useTheme();
   const { pickup, dropoff, vehicleType } = route.params;
 
   const requestId = useBookingStore((s) => s.requestId);
@@ -35,7 +38,7 @@ export function MatchingScreen({ navigation, route }: Props) {
   const confirmBooking = useBookingStore((s) => s.confirmBooking);
   const reset = useBookingStore((s) => s.reset);
 
-  const [stageIndex, setStageIndex] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   const [accepting, setAccepting] = useState<string | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
 
@@ -74,7 +77,7 @@ export function MatchingScreen({ navigation, route }: Props) {
           return;
         }
 
-        setFailed(e?.message ?? 'Could not start the search.');
+        setFailed(e?.message ?? 'We could not start looking for a rider. Please try again.');
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -89,19 +92,20 @@ export function MatchingScreen({ navigation, route }: Props) {
   const expired = request?.status === 'EXPIRED';
   const cancelled = request?.status === 'CANCELLED';
 
-  useEffect(() => {
-    if (bids.length > 0 || failed) return;
-
-    const timer = setInterval(
-      () => setStageIndex((index) => Math.min(index + 1, BOOKING_COPY.matchingStages.length - 1)),
-      4_000,
-    );
-    return () => clearInterval(timer);
-  }, [bids.length, failed]);
+  const stageIndex = useMatchingLine(bids.length === 0 && !failed);
 
   useEffect(() => {
     if (bids.length > 0) setMatchState('matched');
   }, [bids.length, setMatchState]);
+
+  // The first offer is the moment the search pays off — make it felt.
+  const hadBids = useRef(false);
+  useEffect(() => {
+    if (bids.length > 0 && !hadBids.current) {
+      hadBids.current = true;
+      haptics.alert();
+    }
+  }, [bids.length]);
 
   const handleAccept = useCallback(
     async (bid: RideBidWithDriver) => {
@@ -113,7 +117,7 @@ export function MatchingScreen({ navigation, route }: Props) {
         confirmBooking(order.id);
         navigation.replace(ROUTES.RIDER_FOUND, { orderId: order.id });
       } catch (e: any) {
-        showToast.error(e?.message ?? 'Could not book that driver.');
+        showToast.error(e?.message ?? 'We could not book that rider. Try another one.');
         setAccepting(null);
         void refetch();
       }
@@ -122,7 +126,7 @@ export function MatchingScreen({ navigation, route }: Props) {
   );
 
   const handleCancel = useCallback(() => {
-    Alert.alert('Stop looking?', 'Your request will be withdrawn.', [
+    Alert.alert('Stop looking for a rider?', 'Riders will stop seeing your request.', [
       { text: 'Keep looking', style: 'cancel' },
       {
         text: 'Stop',
@@ -145,14 +149,14 @@ export function MatchingScreen({ navigation, route }: Props) {
     const message = failed
       ? failed
       : expired
-        ? 'No driver accepted your request in time.'
+        ? 'No rider was free in time. Riders come online all the time, so try again in a minute.'
         : 'This request was cancelled.';
 
     return (
       <Screen>
         <View style={styles.container}>
           <View style={styles.header}>
-            <Text style={styles.title}>No luck this time</Text>
+            <Text style={styles.title}>No rider this time</Text>
             <Text style={styles.route}>{message}</Text>
           </View>
           <View style={styles.terminalActions}>
@@ -168,7 +172,9 @@ export function MatchingScreen({ navigation, route }: Props) {
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>
-            {bids.length > 0 ? 'Choose your driver' : 'Finding you a rider'}
+            {bids.length > 0
+              ? `${bids.length} rider${bids.length > 1 ? 's' : ''} ready to go`
+              : 'Finding you a rider'}
           </Text>
           <Text style={styles.route} numberOfLines={2}>
             {pickup.name} → {dropoff.name}
@@ -176,26 +182,43 @@ export function MatchingScreen({ navigation, route }: Props) {
         </View>
 
         {bids.length === 0 ? (
-          <MatchingAnimation stages={BOOKING_COPY.matchingStages} stageIndex={stageIndex} />
+          <MatchingAnimation stages={MATCHING_LINES} stageIndex={stageIndex} />
         ) : (
           <ScrollView
             style={styles.bids}
             contentContainerStyle={styles.bidsContent}
-            showsVerticalScrollIndicator={false}>
-            {bids.map((bid) => (
-              <BidCard
-                key={bid.id}
-                bid={bid}
-                onAccept={() => handleAccept(bid)}
-                accepting={accepting === bid.driverId}
-                disabled={Boolean(accepting) && accepting !== bid.driverId}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                tintColor={colors.primary}
+                colors={[colors.primary]}
+                onRefresh={async () => {
+                  setRefreshing(true);
+                  await refetch().catch(() => undefined);
+                  setRefreshing(false);
+                }}
               />
+            }>
+            <Text style={styles.hint}>Pick the rider you like. Prices are what you pay in cash.</Text>
+            {bids.map((bid, i) => (
+              <Animated.View
+                key={bid.id}
+                entering={FadeInDown.delay(i * 70).springify().damping(16)}
+                layout={LinearTransition.springify().damping(18)}>
+                <BidCard
+                  bid={bid}
+                  onAccept={() => handleAccept(bid)}
+                  accepting={accepting === bid.driverId}
+                  disabled={Boolean(accepting) && accepting !== bid.driverId}
+                />
+              </Animated.View>
             ))}
           </ScrollView>
         )}
 
         <Button
-          label={creating ? 'Starting…' : 'Cancel'}
+          label={creating ? 'Starting…' : 'Stop looking'}
           variant="ghost"
           onPress={handleCancel}
           disabled={creating}
@@ -217,5 +240,6 @@ const useStyles = makeStyles(({ type }) => ({
   route: { ...type.bodySmall, textAlign: 'center', maxWidth: 300, alignSelf: 'center' },
   bids: { flex: 1, marginVertical: spacing.base },
   bidsContent: { gap: spacing.md, paddingBottom: spacing.base },
+  hint: { ...type.caption, textAlign: 'center' },
   terminalActions: { gap: spacing.sm },
 }));

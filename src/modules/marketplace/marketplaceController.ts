@@ -139,6 +139,28 @@ export const SkipOrderManager = () => {
   return { skipOrder, data, response, isLoading, isSuccess, isError, error, reset };
 };
 
+/** Hand back an order an admin assigned, within the server's short window. */
+export const ReleaseOrderManager = () => {
+  const { callApi, isLoading } = useApiManager<
+    { orderId: string; released: boolean },
+    Error,
+    { orderId: string }
+  >({
+    endpoint: ({ orderId }) => `/marketplace/orders/${orderId}/release`,
+    getBody: () => undefined,
+    queryKey: [MARKETPLACE_QUERY_KEY],
+    method: 'POST',
+    showErrorToast: false,
+  });
+
+  const releaseOrder = async (details: { orderId: string }) => {
+    const result = await callApi(details);
+    return result.data;
+  };
+
+  return { releaseOrder, isLoading };
+};
+
 function roundKey(value?: number): number | undefined {
   return value == null ? undefined : Math.round(value * 10_000) / 10_000;
 }

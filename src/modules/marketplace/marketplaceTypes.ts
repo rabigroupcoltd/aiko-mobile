@@ -90,6 +90,8 @@ export interface MarketplaceConfig {
   maxExistingOrderDelayMinutes: number;
   allowIncompatibleReservation: boolean;
   skipCooldownMinutes: number;
+  /** Minutes a rider has to hand back an order an admin assigned to them. */
+  assignmentDeclineMinutes?: number;
 }
 
 export interface ReserveOrderResult {

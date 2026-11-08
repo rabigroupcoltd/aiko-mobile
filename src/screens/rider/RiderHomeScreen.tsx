@@ -1,16 +1,22 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useMemo, useState } from 'react';
-import { Alert, Linking, Pressable, Switch, Text, View, useWindowDimensions } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, Linking, Platform, Pressable, Text, View, useWindowDimensions } from 'react-native';
+import Animated, { FadeInDown, FadeOutLeft, FadeOutRight, LinearTransition } from 'react-native-reanimated';
 
 import { ActiveOrderCard } from '@/components/marketplace/ActiveOrderCard';
+import { DeliveredCelebration } from '@/components/marketplace/DeliveredCelebration';
 import { OrderCard } from '@/components/marketplace/OrderCard';
 import { RouteTimeline } from '@/components/marketplace/RouteTimeline';
+import { ShiftToggle } from '@/components/marketplace/ShiftToggle';
+import { CountUpText } from '@/components/motion';
 import { AppHeader, Avatar, Button, Card, Chip, EmptyState, Screen } from '@/components/ui';
 import { describeVehicle } from '@/data/vehicleTypes';
 import { useDriverLocation } from '@/hooks/useDriverLocation';
 import { useDriverShift } from '@/hooks/useDriverShift';
 import { useRideEvent, useRideEvents } from '@/hooks/useRideSocket';
 import {
+  ReleaseOrderManager,
   ReserveOrderManager,
   SkipOrderManager,
   useGetActiveOrdersManager,
@@ -37,18 +43,50 @@ import { ROUTES } from '@/navigation/routes';
 import type { RiderStackParamList } from '@/navigation/types';
 import { useOpenDrawer } from '@/navigation/useAppNavigation';
 import { useAppStore } from '@/store/appStore';
-import { makeStyles, spacing, useTheme } from '@/theme';
+import { makeStyles, spacing } from '@/theme';
+import { haptics } from '@/utils/haptics';
 import showToast from '@/utils/toast';
 
 type Props = NativeStackScreenProps<RiderStackParamList, typeof ROUTES.RIDER_HOME>;
 
 type Tab = 'available' | 'active';
 
+const BATTERY_TIP_KEY = 'aiko:rider:battery-tip-dismissed';
+
+/**
+ * Many Android phones (Tecno, Infinix, itel, Xiaomi…) close background apps to
+ * save battery even with "Allow all the time" location, which drops the rider
+ * to disconnected a few minutes after they minimise Aiko. There is no reliable
+ * way to detect it, so riders are shown this once and can dismiss it.
+ */
+function useBatteryTip(enabled: boolean) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (!enabled || Platform.OS !== 'android') return;
+    let cancelled = false;
+    AsyncStorage.getItem(BATTERY_TIP_KEY)
+      .then((value) => {
+        if (!cancelled && !value) setVisible(true);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
+
+  const dismiss = useCallback(() => {
+    setVisible(false);
+    void AsyncStorage.setItem(BATTERY_TIP_KEY, '1').catch(() => undefined);
+  }, []);
+
+  return { visible, dismiss };
+}
+
 const TWO_COLUMN_MIN_WIDTH = 480;
 
 export function RiderHomeScreen({ navigation }: Props) {
   const styles = useStyles();
-  const { colors } = useTheme();
   const openDrawer = useOpenDrawer();
   const { width } = useWindowDimensions();
 
@@ -67,6 +105,8 @@ export function RiderHomeScreen({ navigation }: Props) {
   } = useDriverShift();
   const { reserveOrder } = ReserveOrderManager();
   const { skipOrder } = SkipOrderManager();
+  const { releaseOrder } = ReleaseOrderManager();
+  const [releasing, setReleasing] = useState<string | null>(null);
   const { updateOrderStatus, isLoading: advancing } = UpdateOrderStatusManager();
 
   const {
@@ -78,9 +118,13 @@ export function RiderHomeScreen({ navigation }: Props) {
     enableBackground,
   } = useDriverLocation(online);
 
+  const batteryTip = useBatteryTip(online && backgroundGranted);
+
   const [tab, setTab] = useState<Tab>('available');
   const [reserving, setReserving] = useState<string | null>(null);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [celebrating, setCelebrating] = useState<number | null>(null);
+  const closeCelebration = useCallback(() => setCelebrating(null), []);
 
   const { data: active, refetch: refetchActive } = useGetActiveOrdersManager();
 
@@ -101,7 +145,14 @@ export function RiderHomeScreen({ navigation }: Props) {
     [grid, hidden],
   );
 
-  useRideEvent('REQUEST_NEW', () => void refetchGrid(), online && !atCapacity);
+  useRideEvent(
+    'REQUEST_NEW',
+    () => {
+      haptics.alert();
+      void refetchGrid();
+    },
+    online && !atCapacity,
+  );
 
   useRideEvents(['REQUEST_LOST', 'REQUEST_CLOSED'], (payload, code, message) => {
     setHidden((current) => new Set(current).add(payload.orderId));
@@ -112,7 +163,37 @@ export function RiderHomeScreen({ navigation }: Props) {
     setHidden((current) => new Set(current).add(payload.order.id));
     void refetchActive();
     void refetchGrid();
+
+    if (!payload.assignedByAdmin) {
+      haptics.success();
+    } else {
+      haptics.alert();
+      setTab('active');
+      const order = payload.order as { pickupLocation?: string; dropoffLocation?: string };
+      Alert.alert(
+        'Aiko assigned you a delivery',
+        [order.pickupLocation, order.dropoffLocation].filter(Boolean).join(' → ') ||
+          'Open your active orders to see it.',
+        [{ text: 'OK' }],
+      );
+    }
   });
+
+  const handleRelease = useCallback(
+    async (orderId: string) => {
+      setReleasing(orderId);
+      try {
+        await releaseOrder({ orderId });
+        showToast.info("Handed back. We'll find another rider.");
+      } catch (e: any) {
+        showToast.error(e?.message || 'Could not hand that order back.');
+      } finally {
+        setReleasing(null);
+        void refetchActive();
+      }
+    },
+    [releaseOrder, refetchActive],
+  );
 
   useRideEvent('ORDER_STATUS', () => {
     void refetchActive();
@@ -137,7 +218,7 @@ export function RiderHomeScreen({ navigation }: Props) {
       if (activeOrders.length > 0 && !value) {
         Alert.alert(
           'Finish your orders first',
-          `You are still holding ${activeOrders.length} order${activeOrders.length > 1 ? 's' : ''}.`,
+          `You still have ${activeOrders.length} order${activeOrders.length > 1 ? 's' : ''} to deliver.`,
         );
         return;
       }
@@ -145,7 +226,7 @@ export function RiderHomeScreen({ navigation }: Props) {
       if (value) {
         const ok = await requestLocation();
         if (!ok) {
-          Alert.alert('Location needed', 'Aiko needs your location to send you orders nearby.');
+          Alert.alert('Turn on location', 'Aiko needs your location to send you orders nearby.');
           return;
         }
       }
@@ -167,7 +248,7 @@ export function RiderHomeScreen({ navigation }: Props) {
 
       try {
         const result = await reserveOrder({ orderId: order.id });
-        showToast.success(`Order reserved · ${result.held}/${result.capacity}`);
+        showToast.success(`It's yours! You're holding ${result.held} of ${result.capacity}.`);
 
         setHidden((current) => new Set(current).add(order.id));
         await Promise.all([refetchActive(), refetchGrid()]);
@@ -176,13 +257,13 @@ export function RiderHomeScreen({ navigation }: Props) {
         const message: string = e?.message ?? '';
 
         if (message.includes(ORDER_ALREADY_RESERVED)) {
-          showToast.error('Another driver got there first.');
+          showToast.error('Another rider got there first.');
           setHidden((current) => new Set(current).add(order.id));
         } else if (message.includes(MAX_ORDER_CAPACITY_REACHED)) {
-          showToast.error(`You are already holding ${capacity} orders.`);
+          showToast.error(`You're already holding ${capacity} orders. Deliver one first.`);
           await refetchActive();
         } else {
-          showToast.error(message || 'Could not reserve that order.');
+          showToast.error(message || "Couldn't take that order. Try again.");
         }
 
         await refetchGrid();
@@ -207,15 +288,18 @@ export function RiderHomeScreen({ navigation }: Props) {
 
   const advanceOrder = useCallback(
     async (orderId: string, status: OrderStatus) => {
+      const earnings = activeOrders.find((o) => o.id === orderId)?.driverEarnings ?? null;
       try {
         await updateOrderStatus({ id: orderId, status });
+        if (status === 'DELIVERED') setCelebrating(earnings ?? 0);
         await Promise.all([refetchActive(), refetchAnalytics()]);
         if (status === 'DELIVERED') void refetchGrid();
       } catch (e: any) {
-        showToast.error(e?.message ?? 'Could not update the order.');
+        haptics.error();
+        showToast.error(e?.message ?? "Couldn't update the order. Try again.");
       }
     },
-    [updateOrderStatus, refetchActive, refetchAnalytics, refetchGrid],
+    [activeOrders, updateOrderStatus, refetchActive, refetchAnalytics, refetchGrid],
   );
 
   const navigateTo = useCallback((lat: number, lng: number, label: string) => {
@@ -255,45 +339,35 @@ export function RiderHomeScreen({ navigation }: Props) {
         />
       </View>
 
-      <Card style={styles.statusCard}>
-        <View style={styles.statusBody}>
-          <Text style={styles.statusTitle}>
-            {online ? 'Accepting orders' : 'You are offline'}
-          </Text>
-          <Text style={styles.statusHint}>
-            {!online
-              ? 'Go online to start receiving orders.'
-              : vehicle
-                ? `${vehicle.emoji} ${vehicle.label} · ${vehicle.localName}`
-                : 'Waiting for orders nearby…'}
-          </Text>
-        </View>
-        <Switch
-          value={online}
-          onValueChange={toggleOnline}
-          disabled={togglingAvailability || !driver}
-          trackColor={{ true: colors.green[300], false: colors.border }}
-          thumbColor={online ? colors.primary : colors.neutral[400]}
-        />
-      </Card>
+      <ShiftToggle
+        online={online}
+        busy={togglingAvailability}
+        disabled={!driver}
+        hint={
+          online
+            ? `Orders near you will pop up here${vehicle ? ` · ${vehicle.emoji} ${vehicle.label}` : ''}.`
+            : 'Go online to start earning.'
+        }
+        onToggle={(next) => void toggleOnline(next)}
+      />
 
       {debt?.locked ? (
         <Card style={styles.warning}>
           <Text style={styles.warningTitle}>Commission limit reached</Text>
           <Text style={styles.warningText}>
-            {`You owe ₦${debt.current.toLocaleString()} in commission from cash trips (limit ₦${debt.limit.toLocaleString()}). Pay it to Aiko to start taking new orders again.`}
+            {`You owe Aiko ₦${debt.current.toLocaleString()} commission from cash trips — your limit is ₦${debt.limit.toLocaleString()}. Pay it to take new orders again.`}
           </Text>
         </Card>
       ) : debt && debt.limit > 0 && debt.current > 0 ? (
         <Text style={styles.statusHint}>
-          {`Commission owed: ₦${debt.current.toLocaleString()} of ₦${debt.limit.toLocaleString()} limit`}
+          {`Commission owed: ₦${debt.current.toLocaleString()} of your ₦${debt.limit.toLocaleString()} limit`}
         </Text>
       ) : null}
 
       {presenceLapsed ? (
         <Card style={styles.warning}>
           <Text style={styles.warningText}>
-            Reconnecting you to the dispatch pool…
+            Reconnecting you so orders can reach you…
           </Text>
         </Card>
       ) : null}
@@ -301,9 +375,9 @@ export function RiderHomeScreen({ navigation }: Props) {
       {online && granted === false ? (
         <Card style={styles.warning}>
           <Text style={styles.warningText}>
-            {locationError ?? 'Location access is off, so no orders can reach you.'}
+            {locationError ?? "Location is off, so orders can't reach you."}
           </Text>
-          <Button label="Grant access" size="sm" onPress={() => void requestLocation()} />
+          <Button label="Turn on location" size="sm" onPress={() => void requestLocation()} />
         </Card>
       ) : null}
 
@@ -325,12 +399,28 @@ export function RiderHomeScreen({ navigation }: Props) {
         </Card>
       ) : null}
 
+      {batteryTip.visible ? (
+        <Card style={styles.warning}>
+          <Text style={styles.warningTitle}>Stay online with the app minimised</Text>
+          <Text style={styles.warningText}>
+            Some phones close apps in the background to save battery, and you stop getting
+            orders. Open Aiko's settings, tap Battery, and choose “Unrestricted” or “No
+            restrictions”.
+          </Text>
+          <Button
+            label="Open Aiko settings"
+            size="sm"
+            onPress={() => {
+              void Linking.openSettings();
+              batteryTip.dismiss();
+            }}
+          />
+          <Button label="I've done this" size="sm" variant="ghost" onPress={batteryTip.dismiss} />
+        </Card>
+      ) : null}
+
       <View style={styles.stats}>
-        <StatTile
-          label="Today's earnings"
-          value={`₦${(analytics?.todayEarnings ?? 0).toLocaleString()}`}
-          highlight
-        />
+        <StatTile label="Today's earnings" amount={analytics?.todayEarnings ?? 0} highlight />
         <StatTile label="Orders held" value={`${held} / ${capacity}`} />
       </View>
 
@@ -368,8 +458,13 @@ export function RiderHomeScreen({ navigation }: Props) {
           onNavigate={navigateTo}
           onChat={(orderId, title) => navigation.navigate(ROUTES.ORDER_CHAT, { orderId, title })}
           unreadByOrder={unread?.counts ?? {}}
+          declineMinutes={config?.assignmentDeclineMinutes}
+          releasing={releasing}
+          onRelease={(orderId) => void handleRelease(orderId)}
         />
       )}
+
+      <DeliveredCelebration earnings={celebrating} onClose={closeCelebration} />
     </Screen>
   );
 }
@@ -402,7 +497,7 @@ function AvailableTab({
       <EmptyState
         icon="💤"
         title="You're offline"
-        body="Turn on the switch above to start receiving orders."
+        body="Tap the card above to go online and start earning."
       />
     );
   }
@@ -421,17 +516,20 @@ function AvailableTab({
     return (
       <EmptyState
         icon="📡"
-        title={loading ? 'Looking for orders nearby' : 'No open orders right now'}
-        body="New orders appear here automatically — no need to refresh."
+        title={loading ? 'Looking for orders near you…' : 'No orders nearby yet'}
+        body="Stay online — new orders pop up here by themselves."
       />
     );
   }
 
   return (
     <View style={styles.grid}>
-      {offers.map((order) => (
-        <View
+      {offers.map((order, index) => (
+        <Animated.View
           key={order.id}
+          entering={FadeInDown.springify().damping(16).delay(Math.min(index, 5) * 60)}
+          exiting={FadeOutLeft.duration(220)}
+          layout={LinearTransition.springify().damping(18)}
           style={[styles.gridCell, columns === 1 ? styles.gridCellFull : styles.gridCellHalf]}>
           <OrderCard
             order={order}
@@ -440,7 +538,7 @@ function AvailableTab({
             onAccept={() => onAccept(order)}
             onSkip={() => onSkip(order)}
           />
-        </View>
+        </Animated.View>
       ))}
     </View>
   );
@@ -454,6 +552,9 @@ function ActiveTab({
   onNavigate,
   onChat,
   unreadByOrder,
+  declineMinutes,
+  releasing,
+  onRelease,
 }: {
   orders: ActiveOrder[];
   route: RoutePlan | null | undefined;
@@ -462,6 +563,9 @@ function ActiveTab({
   onNavigate: (lat: number, lng: number, label: string) => void;
   onChat: (orderId: string, title: string) => void;
   unreadByOrder: Record<string, number>;
+  declineMinutes?: number;
+  releasing: string | null;
+  onRelease: (orderId: string) => void;
 }) {
   const styles = useStyles();
 
@@ -470,7 +574,7 @@ function ActiveTab({
       <EmptyState
         icon="🗂️"
         title="No active orders"
-        body="Orders you accept show up here with your route."
+        body="Orders you take show up here, with the best route to deliver them."
       />
     );
   }
@@ -482,20 +586,28 @@ function ActiveTab({
         onStopPress={(stop) => onNavigate(stop.lat, stop.lng, stop.address)}
       />
 
-      {orders.map((order) => (
-        <ActiveOrderCard
+      {orders.map((order, index) => (
+        <Animated.View
           key={order.id}
-          order={order}
-          advancing={advancing}
-          onAdvance={(status) => onAdvance(order.id, status)}
-          onNavigate={() =>
-            order.pickedUpAt
-              ? onNavigate(order.dropoffLat, order.dropoffLng, order.dropoffLocation)
-              : onNavigate(order.pickupLat, order.pickupLng, order.pickupLocation)
-          }
-          onChat={() => onChat(order.id, order.user?.name ?? 'Customer')}
-          unread={unreadByOrder[order.id] ?? 0}
-        />
+          entering={FadeInDown.springify().damping(16).delay(Math.min(index, 3) * 70)}
+          exiting={FadeOutRight.duration(240)}
+          layout={LinearTransition.springify().damping(18)}>
+          <ActiveOrderCard
+            order={order}
+            advancing={advancing}
+            onAdvance={(status) => onAdvance(order.id, status)}
+            onNavigate={() =>
+              order.pickedUpAt
+                ? onNavigate(order.dropoffLat, order.dropoffLng, order.dropoffLocation)
+                : onNavigate(order.pickupLat, order.pickupLng, order.pickupLocation)
+            }
+            onChat={() => onChat(order.id, order.user?.name ?? 'Customer')}
+            unread={unreadByOrder[order.id] ?? 0}
+            declineMinutes={declineMinutes}
+            releasing={releasing === order.id}
+            onRelease={() => onRelease(order.id)}
+          />
+        </Animated.View>
       ))}
     </View>
   );
@@ -513,7 +625,10 @@ function TabButton({
   const styles = useStyles();
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        if (!active) haptics.select();
+        onPress();
+      }}
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
       style={({ pressed }) => [styles.tab, active && styles.tabActive, pressed && styles.tabPressed]}>
@@ -525,17 +640,25 @@ function TabButton({
 function StatTile({
   label,
   value,
+  amount,
   highlight,
 }: {
   label: string;
-  value: string;
+  value?: string;
+  /** Naira amount; rolls up when it changes. */
+  amount?: number;
   highlight?: boolean;
 }) {
   const styles = useStyles();
+  const style = [styles.statValue, highlight && styles.statValueHighlight];
   return (
     <Card style={styles.statTile}>
       <Text style={styles.statLabel}>{label}</Text>
-      <Text style={[styles.statValue, highlight && styles.statValueHighlight]}>{value}</Text>
+      {amount != null ? (
+        <CountUpText value={amount} format={(n) => `₦${Math.round(n).toLocaleString()}`} style={style} />
+      ) : (
+        <Text style={style}>{value}</Text>
+      )}
     </Card>
   );
 }
@@ -550,9 +673,6 @@ const useStyles = makeStyles(({ colors, type }) => ({
   },
   greeting: { ...type.title },
 
-  statusCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  statusBody: { flex: 1, gap: 2 },
-  statusTitle: { ...type.subheading },
   statusHint: { ...type.caption },
 
   warning: {

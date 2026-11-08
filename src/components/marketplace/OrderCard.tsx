@@ -1,8 +1,24 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
+import { PressableScale, PulseDot } from '@/components/motion';
 import { Button, Card, Chip } from '@/components/ui';
 import type { MarketplaceOrder, RouteMatch } from '@/modules/marketplace/marketplaceTypes';
-import { makeStyles, spacing, useTheme } from '@/theme';
+import { makeStyles, radius, shadows, spacing, useTheme } from '@/theme';
+
+/** Offers younger than this get the pulsing "New" tag. */
+const FRESH_SECONDS = 60;
+
+/** The card's age keeps counting while it sits on screen. */
+function useLiveAge(ageSeconds: number): number {
+  const [mountedAt] = useState(() => Date.now());
+  const [now, setNow] = useState(mountedAt);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 5_000);
+    return () => clearInterval(timer);
+  }, []);
+  return ageSeconds + Math.round((now - mountedAt) / 1000);
+}
 
 export function OrderCard({
   order,
@@ -18,7 +34,11 @@ export function OrderCard({
   disabled?: boolean;
 }) {
   const styles = useStyles();
+  const { colors } = useTheme();
   const { compatibility: fit } = order;
+  const age = useLiveAge(order.ageSeconds);
+  const fresh = age < FRESH_SECONDS;
+  const canAccept = !disabled && !busy && fit.compatible;
 
   return (
     <Card
@@ -28,8 +48,19 @@ export function OrderCard({
         fit.compatible ? styles.cardFits : styles.cardPoor,
       ])}>
       <View style={styles.header}>
-        <Text style={styles.price}>₦{order.earnings.toLocaleString()}</Text>
-        <MatchBadge match={fit.match} />
+        <View style={styles.priceBlock}>
+          <Text style={styles.priceLabel}>You earn</Text>
+          <Text style={styles.price}>₦{order.earnings.toLocaleString()}</Text>
+        </View>
+        <View style={styles.headerRight}>
+          {fresh ? (
+            <View style={styles.newTag}>
+              <PulseDot color={colors.primary} size={7} />
+              <Text style={styles.newText}>New</Text>
+            </View>
+          ) : null}
+          <MatchBadge match={fit.match} />
+        </View>
       </View>
 
       {order.description ? (
@@ -43,8 +74,9 @@ export function OrderCard({
 
       <View style={styles.metrics}>
         <Metric label="Trip" value={`${order.distanceKm.toFixed(1)} km`} />
-        <Metric label="From you" value={`${fit.pickupDistanceKm.toFixed(1)} km`} />
-        <Metric label="Age" value={formatAge(order.ageSeconds)} />
+        <Metric label="To pickup" value={`${fit.pickupDistanceKm.toFixed(1)} km`} />
+        <Metric label="Posted" value={`${formatAge(age)} ago`} />
+        <Metric label="Pay" value={order.paymentMethod === 'CASH' ? 'Cash' : 'Transfer'} />
       </View>
 
       {fit.additionalDistanceKm > 0 ? (
@@ -65,14 +97,20 @@ export function OrderCard({
           disabled={busy}
           style={styles.action}
         />
-        <Button
-          label="Accept"
-          size="md"
+        <PressableScale
           onPress={onAccept}
-          loading={busy}
-          disabled={disabled || busy || !fit.compatible}
-          style={styles.action}
-        />
+          disabled={!canAccept}
+          haptic="commit"
+          accessibilityRole="button"
+          accessibilityLabel={`Accept order, earn ₦${order.earnings.toLocaleString()}`}
+          accessibilityState={{ disabled: !canAccept, busy }}
+          style={[styles.action, styles.accept, canAccept && shadows.md, !canAccept && !busy && styles.acceptInert]}>
+          {busy ? (
+            <ActivityIndicator color={colors.onPrimary} />
+          ) : (
+            <Text style={styles.acceptLabel} numberOfLines={1}>{fit.compatible ? 'Accept' : "Doesn't fit your route"}</Text>
+          )}
+        </PressableScale>
       </View>
     </Card>
   );
@@ -141,8 +179,21 @@ const useStyles = makeStyles(({ colors, type }) => ({
   cardFits: { borderColor: colors.primary },
   cardPoor: { borderColor: colors.border, opacity: 0.75 },
 
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  price: { ...type.title, fontSize: 24, color: colors.primary },
+  header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  priceBlock: { gap: 0 },
+  priceLabel: { ...type.caption, fontSize: 11 },
+  price: { ...type.title, fontSize: 26, color: colors.primary, fontVariant: ['tabular-nums'] },
+  headerRight: { alignItems: 'flex-end', gap: spacing.xs },
+  newTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySubtle,
+  },
+  newText: { ...type.caption, fontSize: 11, fontWeight: '700', color: colors.primary },
 
   leg: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
   dot: { width: 8, height: 8, borderRadius: 4, marginTop: 6 },
@@ -165,4 +216,14 @@ const useStyles = makeStyles(({ colors, type }) => ({
 
   actions: { flexDirection: 'row', gap: spacing.sm },
   action: { flex: 1 },
+  accept: {
+    minHeight: 44,
+    borderRadius: radius.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.md,
+  },
+  acceptInert: { opacity: 0.45 },
+  acceptLabel: { ...type.button, fontWeight: '700', color: colors.onPrimary },
 }));

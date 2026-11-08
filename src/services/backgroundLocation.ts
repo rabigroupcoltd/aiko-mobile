@@ -11,9 +11,20 @@ const log = createLogger('location:bg');
 
 export const DRIVER_LOCATION_TASK = 'aiko-driver-location';
 
+// A fix every 20 s whether or not the rider moves. Each fix also renews the
+// rider's presence on the server (DRIVER_HEARTBEAT_TTL), so a rider parked and
+// waiting for orders with the app minimised must still send — a distance filter
+// here would silence exactly them and they would drop to "disconnected".
 const INTERVAL_MS = 20_000;
 
-const DISTANCE_M = 50;
+const DISTANCE_M = 0;
+
+// Fail fast on a dead mobile network so a hung request never stalls the task.
+const PUBLISH_TIMEOUT_MS = 10_000;
+
+// Options changed in an update only apply when the task is started again, so the
+// first start in each app launch restarts a task left running by an older build.
+let configuredThisLaunch = false;
 
 interface PersistedAuth {
   state?: { accessToken?: string | null };
@@ -42,8 +53,12 @@ async function publish(location: Location.LocationObject): Promise<void> {
 
   const { coords, timestamp } = location;
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PUBLISH_TIMEOUT_MS);
+
   const response = await fetch(`${API_BASE_URL}/drivers/location`, {
     method: 'POST',
+    signal: controller.signal,
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
@@ -59,7 +74,7 @@ async function publish(location: Location.LocationObject): Promise<void> {
       accuracyMeters: coords.accuracy ?? undefined,
       recordedAt: new Date(timestamp).toISOString(),
     }),
-  });
+  }).finally(() => clearTimeout(timer));
 
   if (response.status === 401) {
     log.warn('Session rejected — stopping background updates');
@@ -124,7 +139,8 @@ export async function startBackgroundLocation({ prompt = false } = {}): Promise<
   if (Platform.OS === 'web') return false;
 
   try {
-    if (await isBackgroundLocationRunning()) return true;
+    const running = await isBackgroundLocationRunning();
+    if (running && configuredThisLaunch) return true;
 
     const granted = prompt
       ? await requestBackgroundLocationPermission()
@@ -135,10 +151,13 @@ export async function startBackgroundLocation({ prompt = false } = {}): Promise<
       return false;
     }
 
+    if (running) await Location.stopLocationUpdatesAsync(DRIVER_LOCATION_TASK);
+
     await Location.startLocationUpdatesAsync(DRIVER_LOCATION_TASK, {
       accuracy: Location.Accuracy.Balanced,
       timeInterval: INTERVAL_MS,
       distanceInterval: DISTANCE_M,
+      deferredUpdatesInterval: 0,
       foregroundService: {
         notificationTitle: 'Aiko — you are online',
         notificationBody: 'Receiving orders nearby. Tap to open, or go offline in the app.',
@@ -150,6 +169,7 @@ export async function startBackgroundLocation({ prompt = false } = {}): Promise<
       showsBackgroundLocationIndicator: true,
     });
 
+    configuredThisLaunch = true;
     log.info('Background location started');
     return true;
   } catch (error) {

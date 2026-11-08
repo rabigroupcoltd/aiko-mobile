@@ -1,12 +1,12 @@
 import {
   ActivityIndicator,
-  Pressable,
   StyleSheet,
   Text,
   View,
   type ViewStyle,
 } from 'react-native';
 
+import { PressableScale } from '@/components/motion/PressableScale';
 import { hitSize, makeStyles, radius, shadows, spacing, useTheme } from '@/theme';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -50,19 +50,20 @@ export function Button({
   const v = variants[variant];
 
   return (
-    <Pressable
+    <PressableScale
       testID={testID}
       onPress={onPress}
       disabled={isInert}
+      haptic={variant === 'ghost' ? 'select' : 'tap'}
+      scaleTo={size === 'sm' ? 0.95 : 0.97}
       accessibilityRole="button"
       accessibilityState={{ disabled: isInert, busy: loading }}
-      style={({ pressed }) => [
+      style={[
         styles.base,
         SIZES[size],
         { backgroundColor: v.bg, borderColor: v.border },
         variant === 'primary' && !isInert && shadows.md,
         fullWidth && styles.fullWidth,
-        pressed && !isInert && styles.pressed,
         isInert && styles.inert,
         style,
       ]}>
@@ -76,7 +77,7 @@ export function Button({
           </Text>
         </View>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -96,6 +97,5 @@ const useStyles = makeStyles(({ type }) => ({
   content: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   leading: { justifyContent: 'center' },
   label: { ...type.button, fontWeight: '700' },
-  pressed: { opacity: 0.85, transform: [{ scale: 0.985 }] },
   inert: { opacity: 0.45 },
 }));

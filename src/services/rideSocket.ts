@@ -63,7 +63,7 @@ export interface DriverPosition {
 
 export interface InfoPayloads {
   REQUEST_NEW: { order: OrderCard };
-  REQUEST_WON: { order: { id: string; [key: string]: unknown } };
+  REQUEST_WON: { order: { id: string; [key: string]: unknown }; assignedByAdmin?: boolean };
   REQUEST_LOST: { orderId: string; reason: RemovalReason };
   REQUEST_CLOSED: { orderId: string; reason: RemovalReason };
 

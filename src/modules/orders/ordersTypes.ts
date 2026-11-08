@@ -47,6 +47,9 @@ export interface Order extends TripRoute {
   cancelledAt: string | null;
   searchRadiusKm: number | null;
   dispatchAttempts: number;
+  /** Set when an admin assigned the order instead of a rider claiming it. */
+  assignedById?: string | null;
+  assignedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   user: ContactUser;

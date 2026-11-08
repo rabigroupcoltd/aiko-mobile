@@ -4,6 +4,7 @@ import {
   Platform,
   ScrollView,
   View,
+  type ScrollViewProps,
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
@@ -20,6 +21,8 @@ interface ScreenProps {
   style?: ViewStyle;
   contentStyle?: ViewStyle;
   footer?: ReactNode;
+  /** Pull-to-refresh, for scrolling screens. */
+  refreshControl?: ScrollViewProps['refreshControl'];
 }
 
 export function Screen({
@@ -32,6 +35,7 @@ export function Screen({
   style,
   contentStyle,
   footer,
+  refreshControl,
 }: ScreenProps) {
   const styles = useStyles();
   const { colors } = useTheme();
@@ -45,6 +49,7 @@ export function Screen({
         contentStyle,
       ]}
       keyboardShouldPersistTaps="handled"
+      refreshControl={refreshControl}
       showsVerticalScrollIndicator={false}>
       {children}
     </ScrollView>

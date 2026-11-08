@@ -42,3 +42,7 @@ yarn-error.*
 
 # local env files
 .env
+
+# Store API keys — never commit
+*service-account*.json
+google-play-*.json

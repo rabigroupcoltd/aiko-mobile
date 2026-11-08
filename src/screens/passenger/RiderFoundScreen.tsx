@@ -1,11 +1,14 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Linking, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeIn, FadeInDown, FadeInUp, LinearTransition } from 'react-native-reanimated';
 
 import { MatchingAnimation } from '@/components/booking/MatchingAnimation';
 import { MapPanel } from '@/components/booking/MapPanel';
-import { Avatar, Button, Card, Chip, Screen } from '@/components/ui';
-import { BOOKING_COPY } from '@/data/copy';
+import { MATCHING_LINES, useMatchingLine } from '@/components/booking/matchingCopy';
+import { RatingStars } from '@/components/booking/RatingStars';
+import { Confetti, PulseDot, SuccessBurst } from '@/components/motion';
+import { Avatar, Button, Card, Chip, Icon, Screen } from '@/components/ui';
 import { describeVehicle } from '@/data/vehicleTypes';
 import { useRideEvent } from '@/hooks/useRideSocket';
 import {
@@ -38,51 +41,63 @@ const CUSTOMER_CANCELLABLE: OrderStatus[] = [
 
 const RATEABLE: OrderStatus[] = ['COMPLETED', 'DELIVERED'];
 
-const STAGE_COPY: Record<OrderStatus, { title: string; body: string; tone: 'info' | 'success' }> = {
-  PENDING: { title: 'Waiting for a driver', body: 'Still looking.', tone: 'info' },
-  ACCEPTED: {
-    title: 'Driver on the way',
-    body: 'They are heading to your pickup point.',
-    tone: 'info',
-  },
-  ARRIVED: {
-    title: 'Your driver has arrived',
-    body: 'Look out for them at the pickup point.',
-    tone: 'success',
-  },
-  IN_PROGRESS: { title: 'On the way', body: 'Enjoy your trip.', tone: 'info' },
-  COMPLETED: { title: 'Trip completed', body: 'Thanks for riding with Aiko.', tone: 'success' },
+type StageCopy = { title: string; body: string; tone: 'info' | 'success' };
 
-  SEARCHING_FOR_DRIVER: {
-    title: 'Finding you a driver',
-    body: 'Your order is with drivers nearby.',
-    tone: 'info',
-  },
-  RESERVED: {
-    title: 'Driver found',
-    body: 'They have accepted your order and are on the way.',
-    tone: 'success',
-  },
-  DRIVER_ARRIVING_PICKUP: {
-    title: 'Driver arriving',
-    body: 'They are close to your pickup point.',
-    tone: 'info',
-  },
-  PICKED_UP: {
-    title: 'Order collected',
-    body: 'Your driver has it and is heading to the drop-off.',
-    tone: 'success',
-  },
-  IN_TRANSIT: { title: 'On the way', body: 'Your order is in transit.', tone: 'info' },
-  DELIVERED: { title: 'Delivered', body: 'Your order has arrived.', tone: 'success' },
-  NO_DRIVER_FOUND: {
-    title: 'No driver available',
-    body: 'Nobody took your order this time. Try again in a moment.',
-    tone: 'info',
-  },
+function stageCopy(status: OrderStatus, rider: string): StageCopy {
+  switch (status) {
+    case 'PENDING':
+    case 'SEARCHING_FOR_DRIVER':
+      return { title: 'Finding you a rider', body: 'Riders near your pickup can see your order.', tone: 'info' };
+    case 'RESERVED':
+    case 'ACCEPTED':
+      return { title: `${rider} is on the way`, body: 'Heading to your pickup point now.', tone: 'success' };
+    case 'DRIVER_ARRIVING_PICKUP':
+      return { title: `${rider} is almost there`, body: 'Get your package ready at the pickup point.', tone: 'info' };
+    case 'ARRIVED':
+      return { title: `${rider} has arrived`, body: 'Meet them at the pickup point.', tone: 'success' };
+    case 'PICKED_UP':
+      return { title: 'Package collected', body: `${rider} has it and is heading to the drop-off.`, tone: 'success' };
+    case 'IN_TRANSIT':
+    case 'IN_PROGRESS':
+      return { title: 'On the way to drop-off', body: 'Your package is moving.', tone: 'info' };
+    case 'DELIVERED':
+    case 'COMPLETED':
+      return { title: 'Delivered!', body: 'Your package has arrived safely.', tone: 'success' };
+    case 'NO_DRIVER_FOUND':
+      return {
+        title: 'No rider was free',
+        body: 'Nobody could take your order this time. Riders come online all the time, so try again shortly.',
+        tone: 'info',
+      };
+    case 'CANCELLED':
+      return { title: 'Order cancelled', body: 'This order is no longer active.', tone: 'info' };
+  }
+}
 
-  CANCELLED: { title: 'Order cancelled', body: 'This order is no longer active.', tone: 'info' },
-};
+const LIVE: OrderStatus[] = [
+  'RESERVED',
+  'ACCEPTED',
+  'DRIVER_ARRIVING_PICKUP',
+  'ARRIVED',
+  'PICKED_UP',
+  'IN_TRANSIT',
+  'IN_PROGRESS',
+];
+
+// Celebrations play once per order, even if the customer leaves and comes back.
+const celebrated = new Set<string>();
+
+function useCelebrateOnce(key: string, when: boolean): boolean {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (!when || celebrated.has(key)) return;
+    celebrated.add(key);
+    setShow(true);
+    const t = setTimeout(() => setShow(false), 2600);
+    return () => clearTimeout(t);
+  }, [key, when]);
+  return show;
+}
 
 function useNow(intervalMs: number): number {
   const [now, setNow] = useState(Date.now());
@@ -136,7 +151,22 @@ export function RiderFoundScreen({ navigation, route }: Props) {
   const status = order?.status ?? 'PENDING';
   const searching = status === 'SEARCHING_FOR_DRIVER' || status === 'PENDING';
   const finished = CLOSED_ORDER_STATUSES.includes(status);
-  const copy = STAGE_COPY[status];
+  const riderFirstName = order?.driver?.user?.name?.trim().split(/\s+/)[0] ?? 'Your rider';
+  const copy = stageCopy(status, riderFirstName);
+  const matchingLine = useMatchingLine(searching);
+
+  // "Rider found" celebrates when we watched the search end, or when the
+  // customer opens the order within a minute of a rider taking it.
+  const sawSearch = useRef(false);
+  if (searching) sawSearch.current = true;
+  const reservedAt = order?.reservedAt ? Date.parse(order.reservedAt) : null;
+  const freshlyReserved = reservedAt != null && Date.now() - reservedAt < 60_000;
+  const riderJustFound = useCelebrateOnce(
+    `found:${orderId}`,
+    status === 'RESERVED' && (sawSearch.current || freshlyReserved),
+  );
+  const delivered = RATEABLE.includes(status);
+  const deliveredParty = useCelebrateOnce(`delivered:${orderId}`, delivered);
 
   const { data: polledPosition } = useGetDriverLocationManager({
     id: orderId,
@@ -168,6 +198,8 @@ export function RiderFoundScreen({ navigation, route }: Props) {
     refetchInterval: 30_000,
   });
 
+  const [refreshing, setRefreshing] = useState(false);
+
   useRideEvent('ORDER_STATUS', () => void refetch(), Boolean(orderId));
   useRideEvent('ORDER_CANCELLED', () => void refetch(), Boolean(orderId));
 
@@ -194,27 +226,31 @@ export function RiderFoundScreen({ navigation, route }: Props) {
   }, [reset, navigation]);
 
   const handleCancel = useCallback(() => {
-    Alert.alert('Cancel this trip?', 'Your driver is already on the way.', [
-      { text: 'Keep trip', style: 'cancel' },
+    Alert.alert(
+      'Cancel this order?',
+      searching ? 'Riders will stop seeing your order.' : `${riderFirstName} is already on the way.`,
+      [
+      { text: 'Keep order', style: 'cancel' },
       {
-        text: 'Cancel trip',
+        text: 'Cancel order',
         style: 'destructive',
         onPress: async () => {
           try {
             await cancelOrder({ id: orderId, reason: 'Cancelled by passenger' });
             goHome();
           } catch (e: any) {
-            showToast.error(e?.message ?? 'Could not cancel the trip.');
+            showToast.error(e?.message ?? 'We could not cancel your order. Please try again.');
           }
         },
       },
-    ]);
-  }, [cancelOrder, orderId, goHome]);
+      ],
+    );
+  }, [cancelOrder, orderId, goHome, searching, riderFirstName]);
 
   const handleCall = useCallback(() => {
     const phone = order?.driver?.user?.phone;
     if (!phone) {
-      showToast.error('No phone number on file for this driver.');
+      showToast.error('We do not have a phone number for this rider. Try the chat.');
       return;
     }
     void Linking.openURL(`tel:${phone}`);
@@ -224,9 +260,10 @@ export function RiderFoundScreen({ navigation, route }: Props) {
     async (score: number) => {
       try {
         await rateOrder({ id: orderId, score });
+        showToast.success('Thanks for rating your rider!');
         goHome();
       } catch (e: any) {
-        showToast.error(e?.message ?? 'Could not submit your rating.');
+        showToast.error(e?.message ?? 'We could not save your rating. Please try again.');
       }
     },
     [rateOrder, orderId, goHome],
@@ -254,12 +291,13 @@ export function RiderFoundScreen({ navigation, route }: Props) {
           />
         }>
         <View style={styles.searching}>
-          <MatchingAnimation stages={BOOKING_COPY.matchingStages} stageIndex={0} />
-          <Text style={styles.searchTitle}>{copy.title}</Text>
-          <Text style={styles.searchBody} numberOfLines={2}>
+          <MatchingAnimation stages={MATCHING_LINES} stageIndex={matchingLine} />
+          <Animated.Text entering={FadeInUp.delay(150)} style={styles.searchBody} numberOfLines={2}>
             {order.pickupLocation} → {order.dropoffLocation}
-          </Text>
-          <Text style={styles.searchFare}>₦{order.fare.toLocaleString()}</Text>
+          </Animated.Text>
+          <Animated.Text entering={FadeInUp.delay(250)} style={styles.searchFare}>
+            ₦{order.fare.toLocaleString()}
+          </Animated.Text>
         </View>
       </Screen>
     );
@@ -268,42 +306,40 @@ export function RiderFoundScreen({ navigation, route }: Props) {
   if (status === 'NO_DRIVER_FOUND') {
     return (
       <Screen footer={<Button label="Try again" onPress={goHome} />}>
-        <View style={styles.empty}>
+        <Animated.View entering={FadeInDown.springify().damping(16)} style={styles.empty}>
           <Text style={styles.emptyTitle}>{copy.title}</Text>
           <Text style={styles.emptyText}>{copy.body}</Text>
-        </View>
+        </Animated.View>
       </Screen>
     );
   }
 
   const driver = order.driver;
   const vehicle = describeVehicle(order.vehicleType);
-  const driverName = driver?.user?.name ?? 'Your driver';
+  const driverName = driver?.user?.name ?? 'Your rider';
 
   return (
     <Screen
       scroll
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => {
+            setRefreshing(true);
+            void Promise.all([refetch(), refetchEta()]).finally(() => setRefreshing(false));
+          }}
+          tintColor={colors.primary}
+          colors={[colors.primary]}
+        />
+      }
       footer={
         <View style={styles.actions}>
-          {RATEABLE.includes(status) ? (
-            <>
-              <Text style={styles.rateLabel}>Rate {driverName.split(' ')[0]}</Text>
-              <View style={styles.stars}>
-                {[1, 2, 3, 4, 5].map((score) => (
-                  <Pressable
-                    key={score}
-                    onPress={() => handleRate(score)}
-                    disabled={rating}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Rate ${score} out of 5`}
-                    hitSlop={6}
-                    style={({ pressed }) => [styles.star, pressed && styles.starPressed]}>
-                    <Text style={styles.starGlyph}>★</Text>
-                  </Pressable>
-                ))}
-              </View>
-              <Button label="Skip" variant="ghost" onPress={goHome} />
-            </>
+          {delivered ? (
+            <Animated.View entering={FadeInDown.delay(400).springify().damping(16)} style={styles.actions}>
+              <Text style={styles.rateLabel}>How was {riderFirstName}?</Text>
+              <RatingStars onRate={handleRate} disabled={rating} />
+              <Button label="Not now" variant="ghost" onPress={goHome} />
+            </Animated.View>
           ) : finished ? (
             <Button label="Place another order" onPress={goHome} />
           ) : (
@@ -315,14 +351,16 @@ export function RiderFoundScreen({ navigation, route }: Props) {
                   onPress={() =>
                     navigation.navigate(ROUTES.ORDER_CHAT, { orderId, title: driverName })
                   }
-                  leading={<Text>💬</Text>}
+                  leading={
+                    <Icon name="message" size={18} color={unreadHere > 0 ? colors.onPrimary : colors.primary} />
+                  }
                   style={styles.contactButton}
                 />
                 <Button
                   label="Call"
                   variant="secondary"
                   onPress={handleCall}
-                  leading={<Text>📞</Text>}
+                  leading={<Icon name="phone" size={18} color={colors.primary} />}
                   style={styles.contactButton}
                 />
               </View>
@@ -338,25 +376,53 @@ export function RiderFoundScreen({ navigation, route }: Props) {
           )}
         </View>
       }>
-      <View style={[styles.banner, copy.tone === 'info' && styles.bannerInfo]}>
-        <Text style={[styles.bannerIcon, copy.tone === 'info' && styles.bannerIconInfo]}>
-          {copy.tone === 'success' ? '✓' : vehicle.emoji}
-        </Text>
-        <View style={styles.bannerText}>
-          <Text style={[styles.bannerTitle, copy.tone === 'info' && styles.bannerTitleInfo]}>
-            {copy.title}
-          </Text>
-          <Text style={[styles.bannerBody, copy.tone === 'info' && styles.bannerBodyInfo]}>
-            {copy.body}
-          </Text>
-        </View>
-      </View>
+      {riderJustFound || delivered ? (
+        <Animated.View entering={FadeIn.duration(300)} style={styles.hero}>
+          <SuccessBurst size={84} haptic={riderJustFound || deliveredParty} />
+          <Animated.Text entering={FadeInUp.delay(250).springify().damping(15)} style={styles.heroTitle}>
+            {delivered ? 'Delivered!' : `${riderFirstName} is on the way!`}
+          </Animated.Text>
+          <Animated.Text entering={FadeInUp.delay(350)} style={styles.heroBody}>
+            {delivered
+              ? `Your package reached ${order.dropoffLocation}. Thanks for sending with Aiko.`
+              : 'Your rider has accepted and is heading to your pickup.'}
+          </Animated.Text>
+        </Animated.View>
+      ) : (
+        <Animated.View
+          key={status}
+          entering={FadeInDown.springify().damping(16)}
+          layout={LinearTransition}
+          style={[styles.banner, copy.tone === 'info' && styles.bannerInfo]}>
+          <View style={[styles.bannerIcon, copy.tone === 'info' && styles.bannerIconInfo]}>
+            {LIVE.includes(status) && copy.tone === 'info' ? (
+              <PulseDot color={colors.info} size={10} />
+            ) : (
+              <Icon
+                name={copy.tone === 'success' ? 'check' : 'bike'}
+                size={16}
+                color={copy.tone === 'success' ? colors.onPrimary : colors.info}
+                strokeWidth={2.8}
+              />
+            )}
+          </View>
+          <View style={styles.bannerText}>
+            <Text style={[styles.bannerTitle, copy.tone === 'info' && styles.bannerTitleInfo]}>
+              {copy.title}
+            </Text>
+            <Text style={[styles.bannerBody, copy.tone === 'info' && styles.bannerBodyInfo]}>
+              {copy.body}
+            </Text>
+          </View>
+        </Animated.View>
+      )}
 
       {eta && !finished ? (
+        <Animated.View entering={FadeInDown.delay(80).springify().damping(16)}>
         <Card style={styles.etaCard}>
           <View style={styles.etaRow}>
             <Text style={styles.etaLabel}>
-              {order.pickedUpAt ? 'Arriving at drop-off' : 'Estimated pickup'}
+              {order.pickedUpAt ? 'Arrives at drop-off in' : 'Reaches your pickup in'}
             </Text>
             <Text style={styles.etaValue}>
               {(order.pickedUpAt ? eta.deliveryMinutes : eta.pickupMinutes) ?? '—'} min
@@ -364,11 +430,11 @@ export function RiderFoundScreen({ navigation, route }: Props) {
           </View>
           {eta.driverHandlingOtherOrders ? (
             <Text style={styles.etaNote}>
-              Your driver is handling another nearby order — this time already
-              accounts for it.
+              {riderFirstName} is also delivering a nearby order. This time already includes it.
             </Text>
           ) : null}
         </Card>
+        </Animated.View>
       ) : null}
 
       <MapPanel
@@ -387,35 +453,42 @@ export function RiderFoundScreen({ navigation, route }: Props) {
         <Text style={styles.mapCaption}>
           {driverPosition
             ? `Rider location updated ${sinceLabel(now - driverPosition.at)}`
-            : 'Waiting for the rider’s location…'}
+            : `Waiting for ${riderFirstName}’s location…`}
         </Text>
       ) : null}
 
       {driver ? (
-        <Card elevation="md" style={styles.driverCard}>
-          <View style={styles.driverHeader}>
-            <Avatar name={driverName} size={52} />
-            <View style={styles.driverIdentity}>
-              <Text style={styles.driverName}>{driverName}</Text>
-              <View style={styles.ratingRow}>
-                <Text style={styles.rating}>★ {driver.rating.toFixed(1)}</Text>
-                <Text style={styles.trips}>· {driver.totalTrips.toLocaleString()} trips</Text>
+        <Animated.View entering={FadeInDown.delay(riderJustFound ? 500 : 120).springify().damping(14)}>
+          <Card elevation="md" style={styles.driverCard}>
+            <View style={styles.driverHeader}>
+              <Avatar name={driverName} size={56} />
+              <View style={styles.driverIdentity}>
+                <Text style={styles.driverName}>{driverName}</Text>
+                <Animated.View entering={FadeIn.delay(riderJustFound ? 750 : 250)} style={styles.ratingRow}>
+                  <Icon name="star" size={14} color={colors.warning} strokeWidth={2.6} />
+                  <Text style={styles.rating}>{driver.rating.toFixed(1)}</Text>
+                  <Text style={styles.trips}>· {driver.totalTrips.toLocaleString()} deliveries</Text>
+                </Animated.View>
+                <Animated.View entering={FadeIn.delay(riderJustFound ? 850 : 300)}>
+                  <Chip label={`${vehicle.emoji} ${vehicle.label}`} tone="brand" />
+                </Animated.View>
               </View>
-              <Chip label={`${vehicle.emoji} ${vehicle.label}`} tone="brand" />
+              <Animated.View entering={FadeInDown.delay(riderJustFound ? 900 : 320)} style={styles.plateBox}>
+                <Text style={styles.plateCaption}>PLATE</Text>
+                <Text style={styles.plate}>{driver.vehiclePlate}</Text>
+                <Text style={styles.vehicleModel}>
+                  {[driver.vehicleColor, driver.vehicleModel].filter(Boolean).join(' ')}
+                </Text>
+              </Animated.View>
             </View>
-            <View style={styles.plateBox}>
-              <Text style={styles.plate}>{driver.vehiclePlate}</Text>
-              <Text style={styles.vehicleModel}>
-                {[driver.vehicleColor, driver.vehicleModel].filter(Boolean).join(' ')}
-              </Text>
-            </View>
-          </View>
-        </Card>
+          </Card>
+        </Animated.View>
       ) : null}
 
+      <Animated.View entering={FadeInDown.delay(200).springify().damping(16)}>
       <Card style={styles.trip}>
         <View style={styles.tripHeader}>
-          <Text style={styles.tripTitle}>Your trip</Text>
+          <Text style={styles.tripTitle}>Your delivery</Text>
           <Text style={styles.tripFare}>
             {order.currency === 'NGN' ? '₦' : `${order.currency} `}
             {order.fare.toLocaleString()}
@@ -440,10 +513,13 @@ export function RiderFoundScreen({ navigation, route }: Props) {
           <Text style={styles.tripMetaText}>{Math.round(order.durationMins)} min</Text>
           <Text style={styles.tripMetaText}>·</Text>
           <Text style={styles.tripMetaText}>
-            {order.paymentMethod === 'CASH' ? 'Cash' : 'Transfer'}
+            {order.paymentMethod === 'CASH' ? 'Pay cash' : 'Transfer'}
           </Text>
         </View>
       </Card>
+      </Animated.View>
+
+      {riderJustFound || deliveredParty ? <Confetti /> : null}
     </Screen>
   );
 }
@@ -495,22 +571,22 @@ const useStyles = makeStyles(({ colors, type }) => ({
     marginBottom: spacing.base,
   },
   bannerIcon: {
-    fontSize: 16,
-    color: colors.onPrimary,
     backgroundColor: colors.primary,
     width: 30,
     height: 30,
     borderRadius: 15,
-    textAlign: 'center',
-    lineHeight: 30,
-    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bannerText: { flex: 1, gap: 1 },
   bannerTitle: { ...type.subheading, color: colors.primaryDarker },
   bannerBody: { ...type.caption, color: colors.primaryDark },
 
   bannerInfo: { backgroundColor: colors.infoBg },
-  bannerIconInfo: { backgroundColor: 'transparent', color: colors.info, fontSize: 20 },
+  bannerIconInfo: { backgroundColor: colors.surface },
+  hero: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.lg, marginBottom: spacing.sm },
+  heroTitle: { ...type.title, textAlign: 'center' },
+  heroBody: { ...type.bodySmall, textAlign: 'center', maxWidth: 300 },
   bannerTitleInfo: { color: colors.text },
   bannerBodyInfo: { color: colors.textMuted },
 
@@ -525,7 +601,18 @@ const useStyles = makeStyles(({ colors, type }) => ({
   rating: { ...type.bodySmall, color: colors.warning, fontWeight: '600' },
   trips: type.caption,
   plateBox: { alignItems: 'flex-end', gap: 2 },
-  plate: { ...type.subheading, fontSize: 15 },
+  plateCaption: { ...type.caption, fontSize: 10, letterSpacing: 0.6 },
+  plate: {
+    ...type.subheading,
+    fontSize: 15,
+    letterSpacing: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surfaceAlt,
+  },
   vehicleModel: { ...type.caption },
 
   trip: { marginTop: spacing.base, gap: spacing.sm },
@@ -554,7 +641,6 @@ const useStyles = makeStyles(({ colors, type }) => ({
   etaNote: { ...type.caption },
 
   searching: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.sm },
-  searchTitle: { ...type.title, textAlign: 'center' },
   searchBody: { ...type.bodySmall, textAlign: 'center', maxWidth: 300 },
   searchFare: { ...type.heading, fontSize: 22, color: colors.primary },
 
@@ -563,10 +649,6 @@ const useStyles = makeStyles(({ colors, type }) => ({
 
   actions: { gap: spacing.sm },
   rateLabel: { ...type.subheading, textAlign: 'center' },
-  stars: { flexDirection: 'row', gap: spacing.md, justifyContent: 'center' },
-  star: { paddingHorizontal: spacing.xs, paddingVertical: spacing.xxs },
-  starPressed: { opacity: 0.5 },
-  starGlyph: { fontSize: 34, color: colors.warning },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.base },
   emptyTitle: { ...type.title, textAlign: 'center' },
   emptyText: { ...type.body, textAlign: 'center' },

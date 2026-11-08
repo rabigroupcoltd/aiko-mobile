@@ -1,0 +1,52 @@
+name: Build & submit to stores
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Which store
+        type: choice
+        options: [android, ios, all]
+        default: android
+      submit:
+        description: Upload to the store when the build finishes
+        type: boolean
+        default: true
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: eas-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - run: npm ci
+
+      - run: npx tsc --noEmit
+
+      - run: npx jest --ci
+
+      - name: Build on EAS${{ (github.event_name == 'push' || inputs.submit) && ' and submit' || '' }}
+        run: >
+          eas build
+          --platform ${{ github.event_name == 'push' && 'android' || inputs.platform }}
+          --profile production
+          --non-interactive
+          --no-wait
+          ${{ (github.event_name == 'push' || inputs.submit) && '--auto-submit' || '' }}
