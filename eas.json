@@ -24,7 +24,8 @@
     "production": {
       "extends": "base",
       "environment": "production",
-      "autoIncrement": true
+      "autoIncrement": true,
+      "android": { "credentialsSource": "local" }
     }
   },
   "submit": {

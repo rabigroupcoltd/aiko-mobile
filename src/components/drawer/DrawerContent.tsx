@@ -4,7 +4,9 @@ import {
 } from '@react-navigation/drawer';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 
-import { Avatar, Chip, ListRow } from '@/components/ui';
+import { PressableScale } from '@/components/motion';
+import { Avatar, Chip, Icon, ListRow, LoadingOverlay } from '@/components/ui';
+import { useSwitchMode } from '@/hooks/useSwitchMode';
 import { useLogoutManager } from '@/modules/auth/authController';
 import { useOnboardingState } from '@/modules/onboarding/onboardingController';
 import { ROUTES } from '@/navigation/routes';
@@ -25,14 +27,15 @@ export function DrawerContent(props: DrawerContentComponentProps) {
   const openCamera = useOpenCamera();
 
   const isRider = onboarding?.accountType === 'RIDER';
+  const { target, requestSwitch, switching } = useSwitchMode();
   const activeRoute = state.routeNames[state.index];
   const fullName = user ? `${user.firstName} ${user.lastName}`.trim() : 'Guest';
 
   const roleChip = isRider
     ? onboarding?.driver.status === 'APPROVED'
-      ? { label: 'Rider · Approved', tone: 'success' as const }
+      ? { label: 'Rider mode', tone: 'success' as const }
       : { label: 'Rider · Pending', tone: 'pending' as const }
-    : { label: 'Passenger', tone: 'brand' as const };
+    : { label: 'Ordering mode', tone: 'brand' as const };
 
   const handleLogout = () => {
     Alert.alert('Log out?', 'You will need to sign in again to continue.', [
@@ -48,7 +51,12 @@ export function DrawerContent(props: DrawerContentComponentProps) {
     ]);
   };
 
-  const go = (route: string) => () => navigation.navigate(route as never);
+  // Close explicitly: the drawer only closes itself when the target is a
+  // different screen, so picking the current one would leave it open.
+  const go = (route: string) => () => {
+    navigation.closeDrawer();
+    navigation.navigate(route as never);
+  };
 
   return (
     <View style={styles.container}>
@@ -65,6 +73,32 @@ export function DrawerContent(props: DrawerContentComponentProps) {
           </View>
           <Chip label={roleChip.label} tone={roleChip.tone} dot />
         </View>
+
+        <PressableScale
+          haptic="select"
+          onPress={() => {
+            navigation.closeDrawer();
+            setTimeout(requestSwitch, 220);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`${target.title}. ${target.subtitle}`}
+          style={styles.modeCard}>
+          <View style={styles.modeIcon}>
+            <Icon
+              name={target.accountType === 'RIDER' ? 'bike' : 'package'}
+              size={20}
+              color={styles.modeIconGlyph.color}
+              strokeWidth={2.4}
+            />
+          </View>
+          <View style={styles.modeText}>
+            <Text style={styles.modeTitle}>{target.title}</Text>
+            <Text style={styles.modeSubtitle} numberOfLines={1}>
+              {target.subtitle}
+            </Text>
+          </View>
+          <Icon name="chevron-right" size={18} color={styles.modeSubtitle.color} />
+        </PressableScale>
 
         <View style={styles.divider} />
 
@@ -125,6 +159,8 @@ export function DrawerContent(props: DrawerContentComponentProps) {
         </View>
       </DrawerContentScrollView>
 
+      <LoadingOverlay visible={switching} message="Switching…" />
+
       <View style={styles.footer}>
         <Text style={styles.footerText}>Aiko · Minna, Niger State</Text>
         <Text style={styles.footerVersion}>v1.0.0</Text>
@@ -146,6 +182,30 @@ const useStyles = makeStyles(({ colors, type }) => ({
   headerText: { gap: 2 },
   name: type.heading,
   phone: type.bodySmall,
+  modeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginHorizontal: spacing.base,
+    marginBottom: spacing.base,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primarySubtle,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+  },
+  modeIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+  },
+  modeIconGlyph: { color: colors.onPrimary },
+  modeText: { flex: 1, gap: 1 },
+  modeTitle: { ...type.subheading, fontSize: 15 },
+  modeSubtitle: { ...type.caption, color: colors.textSecondary },
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.divider,

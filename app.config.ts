@@ -16,7 +16,7 @@ const config: ExpoConfig = {
 
   ios: {
     supportsTablet: false,
-    bundleIdentifier: 'com.aiko.app',
+    bundleIdentifier: 'com.nuriq.aiko',
     googleServicesFile: './GoogleService-Info.plist',
     config: { usesNonExemptEncryption: false },
     entitlements: { 'aps-environment': 'development' },
@@ -30,7 +30,7 @@ const config: ExpoConfig = {
   },
 
   android: {
-    package: 'com.aiko.app',
+    package: 'com.nuriq.aiko',
     googleServicesFile: './google-services.json',
     predictiveBackGestureEnabled: false,
     adaptiveIcon: {

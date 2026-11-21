@@ -46,3 +46,7 @@ yarn-error.*
 # Store API keys — never commit
 *service-account*.json
 google-play-*.json
+
+# local signing credentials (EAS)
+credentials.json
+credentials/

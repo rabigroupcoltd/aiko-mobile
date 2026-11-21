@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "113661454849-e0fji2dkvifao09b9t9pmv336f2q132u.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aiko.app",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "113661454849-e1nrmi9jqkc4rqa277l1boosfu79icef.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aiko.app",
+            "certificate_hash": "62c24b8e15c36e7f296d853923135caecf708198"
+          }
+        },
+        {
           "client_id": "113661454849-r76lo6hr54f75f5mkufkeg0o7arnn9ns.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
@@ -21,6 +37,50 @@
             "certificate_hash": "376ab0d592fbce5a6e65403ce52c11960d77fa20"
           }
         },
+        {
+          "client_id": "113661454849-t04oon7en0bf2u27i0vsj9rpk3sb739t.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aiko.app",
+            "certificate_hash": "e88c6e8f922585514d9e45b219e557231f361d66"
+          }
+        },
+        {
+          "client_id": "113661454849-lq6eu8ntutu60uev8ohvq6ssam0oq7a6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDdA1szqHRIMEHDi-SPnsO2E2av-EAZZ0E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "113661454849-lq6eu8ntutu60uev8ohvq6ssam0oq7a6.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "113661454849-i6s26ap7323ut9es91iv8j3dpvum2sqh.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.aiko.app"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:113661454849:android:ee7070e6ec2dae622a6e00",
+        "android_client_info": {
+          "package_name": "com.nuriq.aiko"
+        }
+      },
+      "oauth_client": [
         {
           "client_id": "113661454849-lq6eu8ntutu60uev8ohvq6ssam0oq7a6.apps.googleusercontent.com",
           "client_type": 3

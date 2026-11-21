@@ -2,6 +2,7 @@ import { Linking, Text, View } from 'react-native';
 
 import { AppHeader, Button, Card, Chip, Screen } from '@/components/ui';
 import { SUPPORT_EMAIL } from '@/config/env';
+import { useSwitchMode } from '@/hooks/useSwitchMode';
 import { useOpenDrawer } from '@/navigation/useAppNavigation';
 import { useAppStore } from '@/store/appStore';
 import { makeStyles, radius, spacing } from '@/theme';
@@ -16,9 +17,19 @@ export function PendingApprovalScreen() {
   const styles = useStyles();
   const openDrawer = useOpenDrawer();
   const documents = useAppStore((s) => s.documents);
+  const { switchTo, switching } = useSwitchMode();
 
   return (
-    <Screen scroll>
+    <Screen
+      scroll
+      footer={
+        <Button
+          label="Keep ordering while you wait"
+          variant="secondary"
+          loading={switching}
+          onPress={() => void switchTo('PASSENGER')}
+        />
+      }>
       <AppHeader onMenu={openDrawer} />
 
       <View style={styles.hero}>
@@ -28,7 +39,7 @@ export function PendingApprovalScreen() {
         <Text style={styles.title}>Your application is under review</Text>
         <Text style={styles.subtitle}>
           We&apos;re checking your documents. You&apos;ll get a notification as soon as
-          you&apos;re approved.
+          you&apos;re approved. You can still send packages in the meantime.
         </Text>
         <Chip label="Pending approval" tone="pending" dot />
       </View>

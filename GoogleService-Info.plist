@@ -3,9 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>113661454849-i6s26ap7323ut9es91iv8j3dpvum2sqh.apps.googleusercontent.com</string>
+	<string>113661454849-d82pcan5s5tj3gpt92pc825mhi3p2upa.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.113661454849-i6s26ap7323ut9es91iv8j3dpvum2sqh</string>
+	<string>com.googleusercontent.apps.113661454849-d82pcan5s5tj3gpt92pc825mhi3p2upa</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>113661454849-e0fji2dkvifao09b9t9pmv336f2q132u.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
 	<string>AIzaSyAaMj6xWnAzluniEZPJQpktLgcSU1WYEi4</string>
 	<key>GCM_SENDER_ID</key>
@@ -13,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.aiko.app</string>
+	<string>com.nuriq.aiko</string>
 	<key>PROJECT_ID</key>
 	<string>aiko-7874b</string>
 	<key>STORAGE_BUCKET</key>
@@ -29,6 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:113661454849:ios:aaf4bd13c80ea61a2a6e00</string>
+	<string>1:113661454849:ios:d0b3a5b5a60983832a6e00</string>
 </dict>
 </plist>

@@ -5,6 +5,7 @@ import useApiManager from '@/constants/mainController';
 import type { ApiResponse, QueryOptions } from '@/modules/shared/apiTypes';
 import { useAuthStore } from '@/store/authStore';
 import { parseApiError } from '@/utils/parseApiError';
+import type { AccountType } from '@/modules/shared/apiTypes';
 import type { OnboardingState, UpdateOnboardingPayload } from './onboardingTypes';
 
 export const ONBOARDING_QUERY_KEY = 'onboarding';
@@ -82,6 +83,26 @@ export const UploadOnboardingPhotoManager = () => {
   };
 
   return { uploadPhoto, data, response, isLoading, isSuccess, isError, error, reset };
+};
+
+/** Move between ordering (PASSENGER) and riding (RIDER) after onboarding. */
+export const SwitchModeManager = () => {
+  const setOnboarding = useAuthStore((state) => state.setOnboarding);
+
+  const { callApi, isLoading } = useApiManager<OnboardingState, Error, { accountType: AccountType }>({
+    endpoint: '/onboarding/mode',
+    queryKey: [ONBOARDING_QUERY_KEY],
+    method: 'POST',
+    showErrorToast: false,
+  });
+
+  const switchMode = async (accountType: AccountType) => {
+    const result = await callApi({ accountType });
+    setOnboarding(result.data);
+    return result.data;
+  };
+
+  return { switchMode, isLoading };
 };
 
 export const useOnboardingState = (): OnboardingState | null =>
