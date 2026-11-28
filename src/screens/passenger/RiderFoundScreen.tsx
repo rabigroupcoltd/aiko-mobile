@@ -9,6 +9,7 @@ import { MATCHING_LINES, useMatchingLine } from '@/components/booking/matchingCo
 import { RatingStars } from '@/components/booking/RatingStars';
 import { Confetti, PulseDot, SuccessBurst } from '@/components/motion';
 import { Avatar, Button, Card, Chip, Icon, Screen } from '@/components/ui';
+import { OrderCodeCard } from '@/components/booking/OrderCodeCard';
 import { describeVehicle } from '@/data/vehicleTypes';
 import { useRideEvent } from '@/hooks/useRideSocket';
 import {
@@ -481,6 +482,14 @@ export function RiderFoundScreen({ navigation, route }: Props) {
                 </Text>
               </Animated.View>
             </View>
+            {order.code && !finished ? (
+              <OrderCodeCard
+                code={order.code}
+                riderName={riderFirstName}
+                collected={Boolean(order.pickedUpAt)}
+                isPackage
+              />
+            ) : null}
           </Card>
         </Animated.View>
       ) : null}

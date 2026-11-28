@@ -48,11 +48,11 @@ describe('parseApiError', () => {
     const error = new AxiosError('Network Error');
     error.code = 'ERR_NETWORK';
 
-    expect(parseApiError(error)).toBe('Connection error, please try again');
+    expect(parseApiError(error)).toBe('Your network is slow or off. Check your data and try again.');
   });
 
   it('treats a response-less error as a network failure', () => {
-    expect(parseApiError(new AxiosError('boom'))).toBe('Connection error, please try again');
+    expect(parseApiError(new AxiosError('boom'))).toBe('Your network is slow or off. Check your data and try again.');
   });
 
   it('handles a plain Error and an unknown throw', () => {

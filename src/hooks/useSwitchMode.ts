@@ -79,7 +79,7 @@ export function useSwitchMode() {
     if (status === 'NOT_APPLICABLE' || status === 'NOT_SUBMITTED') {
       Alert.alert(
         'Become an Aiko rider',
-        "You'll add your licence, ID and vehicle details. Our team reviews them and lets you know when you can start riding. You can keep ordering while you wait.",
+        "You'll scan your national ID and vehicle plate, and add your driver's licence if you have one. Our team reviews them and lets you know when you can start riding. You can keep ordering while you wait.",
         [
           { text: 'Not now', style: 'cancel' },
           { text: "Let's go", onPress: () => void perform('RIDER') },

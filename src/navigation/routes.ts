@@ -34,6 +34,7 @@ export const ROUTES = {
   ORDER_HISTORY: 'OrderHistory',
 
   CAMERA_CAPTURE: 'CameraCapture',
+  PROFILE_PHOTO: 'ProfilePhoto',
 } as const;
 
 export type RouteName = (typeof ROUTES)[keyof typeof ROUTES];

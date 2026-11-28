@@ -72,7 +72,7 @@ function describeFirebaseError(error: { code?: string; message?: string }): stri
     case 'auth/user-disabled':
       return 'This account has been disabled.';
     case 'auth/network-request-failed':
-      return 'Connection error, please try again';
+      return 'Your network is slow or off. Check your data and try again.';
     case 'auth/operation-not-allowed':
       return 'Google sign-in is not enabled for this project.';
     default:

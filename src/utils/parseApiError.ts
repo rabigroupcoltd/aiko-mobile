@@ -1,6 +1,6 @@
 import { AxiosError } from 'axios';
 
-const NETWORK_ERROR_MESSAGE = 'Connection error, please try again';
+const NETWORK_ERROR_MESSAGE = 'Your network is slow or off. Check your data and try again.';
 const DEFAULT_ERROR_MESSAGE = 'Something went wrong, please try again';
 
 interface ApiErrorBody {

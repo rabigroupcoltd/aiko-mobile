@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient, UseMutationResult } from '@tanstack/react-query';
 import type { AxiosInstance, AxiosResponse } from 'axios';
 
+import { UPLOAD_TIMEOUT_MS } from '@/config/env';
 import type { ApiResponse } from '@/modules/shared/apiTypes';
 import { extractSoftErrorMessage, parseApiError } from '@/utils/parseApiError';
 import showToast from '@/utils/toast';
@@ -67,6 +68,7 @@ const useApiManager = <TData = unknown, TError = Error, TVariables = unknown>({
       ? {
           headers: { 'Content-Type': 'multipart/form-data' },
           transformRequest: (data: unknown) => data,
+          timeout: UPLOAD_TIMEOUT_MS,
         }
       : { headers: contentType ? { 'Content-Type': contentType } : undefined };
 

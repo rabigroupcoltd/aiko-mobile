@@ -6,6 +6,7 @@ import { StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AppUpdatePrompt } from '@/components/AppUpdatePrompt';
 import { queryClient } from '@/constants/queryClient';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useRideSocketConnection } from '@/hooks/useRideSocket';
@@ -64,6 +65,7 @@ function ThemedApp() {
         <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
         <RootNavigator />
       </NavigationContainer>
+      <AppUpdatePrompt />
     </View>
   );
 }

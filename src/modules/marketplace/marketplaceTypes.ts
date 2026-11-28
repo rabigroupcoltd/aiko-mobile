@@ -46,6 +46,7 @@ export type StopKind = 'PICKUP' | 'DROPOFF';
 
 export interface PlannedStop {
   orderId: string;
+  code?: string | null;
   kind: StopKind;
   lat: number;
   lng: number;

@@ -1,6 +1,16 @@
 import { Text, View } from 'react-native';
 
-import { AppHeader, Avatar, Button, Card, Chip, Screen } from '@/components/ui';
+import {
+  AppHeader,
+  Avatar,
+  Button,
+  Card,
+  Chip,
+  ListRow,
+  LoadingOverlay,
+  Screen,
+} from '@/components/ui';
+import { useSwitchMode } from '@/hooks/useSwitchMode';
 import { useOnboardingState } from '@/modules/onboarding/onboardingController';
 import { useOpenCamera, useOpenDrawer } from '@/navigation/useAppNavigation';
 import { useAppStore } from '@/store/appStore';
@@ -17,8 +27,13 @@ export function ProfileScreen() {
   const onboarding = useOnboardingState();
   const localPhoto = useAppStore((s) => s.photos.profile);
 
+  // One account, two modes: the same switch as the drawer — apply to ride,
+  // follow the application, or move between ordering and riding once approved.
+  const { target, requestSwitch, switching } = useSwitchMode();
+
   const isRider = onboarding?.accountType === 'RIDER';
   const approved = onboarding?.driver.status === 'APPROVED';
+  const hasRiderProfile = Boolean(onboarding?.driver.driverId);
   const livenessPassed = onboarding?.requirements.liveness ?? false;
   const fullName = user ? `${user.firstName} ${user.lastName}`.trim() : '—';
 
@@ -54,6 +69,18 @@ export function ProfileScreen() {
           leading={<Text>📷</Text>}
         />
       </View>
+
+      <Card style={styles.modeCard}>
+        <Text style={styles.modeTitle}>
+          {hasRiderProfile ? 'Ordering & riding' : 'Earn with Aiko'}
+        </Text>
+        <ListRow
+          icon={target.accountType === 'RIDER' ? '🏍️' : '📦'}
+          title={target.title}
+          subtitle={target.subtitle}
+          onPress={switching ? undefined : requestSwitch}
+        />
+      </Card>
 
       <Card style={styles.details}>
         <Text style={styles.sectionTitle}>Account details</Text>
@@ -94,6 +121,8 @@ export function ProfileScreen() {
           />
         ) : null}
       </Card>
+
+      <LoadingOverlay visible={switching} message="Switching…" />
     </Screen>
   );
 }
@@ -129,6 +158,8 @@ const useStyles = makeStyles(({ colors, type }) => ({
   name: { ...type.title },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center' },
   details: { marginTop: spacing.base, gap: spacing.md },
+  modeCard: { marginTop: spacing.base, padding: 0, paddingTop: spacing.md },
+  modeTitle: { ...type.label, paddingHorizontal: spacing.base },
   sectionTitle: { ...type.label },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.base },
   rowLabel: { ...type.bodySmall },

@@ -11,6 +11,7 @@ import { useOnboardingState } from '@/modules/onboarding/onboardingController';
 import { ROUTES } from '@/navigation/routes';
 import { useOpenCamera } from '@/navigation/useAppNavigation';
 import type { RiderStackParamList } from '@/navigation/types';
+import { isPlausiblePlate, normalisePlate } from '@/services/plateRecognition';
 import { useAppStore } from '@/store/appStore';
 import { makeStyles, radius, spacing } from '@/theme';
 import type { DocumentAsset, RiderDocumentTarget } from '@/types/models';
@@ -20,7 +21,9 @@ type Props = NativeStackScreenProps<
   typeof ROUTES.DOCUMENTS_REVIEW
 >;
 
-const DOCS: RiderDocumentTarget[] = ['license', 'nationalId', 'vehicle', 'plate'];
+const DOCS: RiderDocumentTarget[] = ['nationalId', 'license', 'vehicle', 'plate'];
+/** The driver's licence is optional; sent when captured, never required. */
+const OPTIONAL_DOCS: RiderDocumentTarget[] = ['license'];
 
 const PHOTO_TYPE: Record<RiderDocumentTarget, string> = {
   license: 'DRIVER_LICENSE',
@@ -61,20 +64,27 @@ export function DocumentsReviewScreen({ navigation }: Props) {
 
   const vehicle = documents.vehicleType ? getVehicle(documents.vehicleType) : null;
   const details = documents.vehicleDetails;
-  const missingDocs = DOCS.filter((target) => !documents[target]);
-  const detailsMissing = !details?.brand?.trim() || (details?.plate?.trim().length ?? 0) < 3;
-  const ready = missingDocs.length === 0 && Boolean(vehicle) && !detailsMissing;
+  const missingDocs = DOCS.filter(
+    (target) => !documents[target] && !OPTIONAL_DOCS.includes(target),
+  );
+  const brandMissing = !details?.brand?.trim();
+  const plateNumberMissing = !isPlausiblePlate(details?.plate ?? '');
+  const ready =
+    missingDocs.length === 0 && Boolean(vehicle) && !brandMissing && !plateNumberMissing;
 
   const handleSubmit = async () => {
     setTouched(true);
     if (!ready || !documents.vehicleType || !details) return;
 
-    const captured = DOCS.map((target) => [target, documents[target]!] as const);
+    const captured = DOCS.flatMap((target) => {
+      const asset = documents[target];
+      return asset ? [[target, asset] as const] : [];
+    });
 
     try {
       await registerDriver({
         vehicleType: toApiVehicleType(documents.vehicleType),
-        vehiclePlate: details.plate.trim().toUpperCase(),
+        vehiclePlate: normalisePlate(details.plate),
         vehicleBrand: details.brand.trim(),
         ...(details.model.trim() ? { vehicleModel: details.model.trim() } : {}),
         ...(details.color.trim() ? { vehicleColor: details.color.trim() } : {}),
@@ -128,8 +138,8 @@ export function DocumentsReviewScreen({ navigation }: Props) {
               <View style={styles.rowBody}>
                 <Text style={styles.rowTitle}>{config.shortLabel}</Text>
                 <Chip
-                  label={asset ? 'Captured' : 'Missing'}
-                  tone={asset ? 'success' : 'danger'}
+                  label={asset ? 'Captured' : OPTIONAL_DOCS.includes(target) ? 'Optional' : 'Missing'}
+                  tone={asset ? 'success' : OPTIONAL_DOCS.includes(target) ? 'neutral' : 'danger'}
                   dot
                 />
               </View>
@@ -152,8 +162,17 @@ export function DocumentsReviewScreen({ navigation }: Props) {
         <Detail label="Type" value={vehicle ? `${vehicle.label} · ${vehicle.localName}` : null} />
         <Detail label="Brand" value={details?.brand} />
         <Detail label="Model" value={details?.model} optional />
-        <Detail label="Plate number" value={details?.plate} />
         <Detail label="Colour" value={details?.color} optional last />
+      </Card>
+
+      <View style={styles.sectionRow}>
+        <Text style={styles.section}>Registration number</Text>
+        <Pressable onPress={() => navigation.navigate(ROUTES.PLATE_PHOTO)} hitSlop={8}>
+          <Text style={styles.retake}>Edit</Text>
+        </Pressable>
+      </View>
+      <Card>
+        <Detail label="Plate number" value={details?.plate} last />
       </Card>
 
       {touched && !ready ? (
@@ -162,7 +181,15 @@ export function DocumentsReviewScreen({ navigation }: Props) {
             ? `Add your ${missingDocs.map((t) => CAPTURE_CONFIG[t].shortLabel.toLowerCase()).join(', ')} before submitting.`
             : !vehicle
               ? 'Choose your vehicle type before submitting.'
-              : 'Add your vehicle brand and plate number before submitting.'}
+              : brandMissing
+                ? 'Add your vehicle brand before submitting.'
+                : 'Check the registration number against your plate scan before submitting.'}
+        </Text>
+      ) : null}
+
+      {isLoading ? (
+        <Text style={styles.uploading}>
+          Uploading your photos… On a slow network this can take a minute. Please keep Aiko open.
         </Text>
       ) : null}
 
@@ -235,4 +262,5 @@ const useStyles = makeStyles(({ colors, type }) => ({
   rejectedText: { ...type.bodySmall, color: colors.text },
   missing: { ...type.bodySmall, color: colors.danger, marginTop: spacing.md },
   note: { ...type.caption, marginTop: spacing.base, lineHeight: 18 },
+  uploading: { ...type.bodySmall, color: colors.primary, marginTop: spacing.md, fontWeight: '600' },
 }));

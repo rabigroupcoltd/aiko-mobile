@@ -72,8 +72,9 @@ export function UserTypeScreen({ navigation }: Props) {
         <View style={styles.note}>
           <Text style={styles.noteTitle}>What you&apos;ll need</Text>
           <Text style={styles.noteBody}>
-            A valid driver&apos;s licence, your national ID, and a photo of your vehicle
-            plate number. It takes about two minutes.
+            Your NIN slip or National ID card, your bike or keke, and its plate number. A
+            driver&apos;s licence helps but is optional. It takes about five minutes, and you can
+            keep booking rides while we review it.
           </Text>
         </View>
       ) : null}

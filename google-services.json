@@ -30,6 +30,14 @@
           }
         },
         {
+          "client_id": "113661454849-m8sisk9j9j1vtsrpihmu2m3nl52ppdme.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aiko.app",
+            "certificate_hash": "1dea275ae3f62aa7b6fd528dd21349a454127a0e"
+          }
+        },
+        {
           "client_id": "113661454849-r76lo6hr54f75f5mkufkeg0o7arnn9ns.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
@@ -46,6 +54,14 @@
           }
         },
         {
+          "client_id": "113661454849-thsf7gdg5gkedf16v451bg48kpsvr3o8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aiko.app",
+            "certificate_hash": "f76aef080295102ff3f165bff3c6b88e87c1f715"
+          }
+        },
+        {
           "client_id": "113661454849-lq6eu8ntutu60uev8ohvq6ssam0oq7a6.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -63,10 +79,10 @@
               "client_type": 3
             },
             {
-              "client_id": "113661454849-i6s26ap7323ut9es91iv8j3dpvum2sqh.apps.googleusercontent.com",
+              "client_id": "113661454849-d82pcan5s5tj3gpt92pc825mhi3p2upa.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.aiko.app"
+                "bundle_id": "com.nuriq.aiko"
               }
             }
           ]
@@ -82,6 +98,46 @@
       },
       "oauth_client": [
         {
+          "client_id": "113661454849-8lduv64oc9bc1dlbo87kprq6conm1hla.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.nuriq.aiko",
+            "certificate_hash": "376ab0d592fbce5a6e65403ce52c11960d77fa20"
+          }
+        },
+        {
+          "client_id": "113661454849-bcvflt41p04h1ea02so8j5m8b0tlpvsq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.nuriq.aiko",
+            "certificate_hash": "1dea275ae3f62aa7b6fd528dd21349a454127a0e"
+          }
+        },
+        {
+          "client_id": "113661454849-hkbku2m21j1kkr2fasr2jqht0hf0rnk5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.nuriq.aiko",
+            "certificate_hash": "e88c6e8f922585514d9e45b219e557231f361d66"
+          }
+        },
+        {
+          "client_id": "113661454849-n6p22hh16s25svf0jfqqdfuhpdts6b8c.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.nuriq.aiko",
+            "certificate_hash": "f76aef080295102ff3f165bff3c6b88e87c1f715"
+          }
+        },
+        {
+          "client_id": "113661454849-o1phqo7gj7cm60ck5tqtr3murlsha911.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.nuriq.aiko",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
           "client_id": "113661454849-lq6eu8ntutu60uev8ohvq6ssam0oq7a6.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -99,10 +155,10 @@
               "client_type": 3
             },
             {
-              "client_id": "113661454849-i6s26ap7323ut9es91iv8j3dpvum2sqh.apps.googleusercontent.com",
+              "client_id": "113661454849-d82pcan5s5tj3gpt92pc825mhi3p2upa.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.aiko.app"
+                "bundle_id": "com.nuriq.aiko"
               }
             }
           ]

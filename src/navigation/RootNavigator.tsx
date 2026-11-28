@@ -4,6 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 
 import { useGetOnboardingManager, useOnboardingState } from '@/modules/onboarding/onboardingController';
 import { CameraCaptureScreen } from '@/screens/common/CameraCaptureScreen';
+import { ProfilePhotoScreen } from '@/screens/common/ProfilePhotoScreen';
 import { SplashScreen as BrandSplash } from '@/screens/SplashScreen';
 import { useAuthStore } from '@/store/authStore';
 import { AppDrawer } from './AppDrawer';
@@ -50,6 +51,12 @@ export function RootNavigator() {
       <RootStack.Screen
         name={ROUTES.CAMERA_CAPTURE}
         component={CameraCaptureScreen}
+        options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }}
+      />
+
+      <RootStack.Screen
+        name={ROUTES.PROFILE_PHOTO}
+        component={ProfilePhotoScreen}
         options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }}
       />
     </RootStack.Navigator>

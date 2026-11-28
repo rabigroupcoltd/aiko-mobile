@@ -32,7 +32,7 @@ export function PermissionGate({ children, onCancel }: PermissionGateProps) {
       <Text style={styles.body}>
         {permanentlyDenied
           ? 'Camera access is turned off for Aiko. Enable it in Settings to continue.'
-          : 'Aiko needs your camera to take your photo and capture documents. Nothing is uploaded — this demo keeps everything on your device.'}
+          : 'Aiko uses your camera to take your profile photo and scan your documents. Photos are only taken with the camera — never picked from your gallery.'}
       </Text>
 
       <View style={styles.actions}>

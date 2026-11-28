@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Animated, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AikoMark } from '@/components/brand/AikoMark';
 import { BrandBackdrop } from '@/components/brand/BrandBackdrop';
@@ -7,6 +8,7 @@ import { green, spacing, typographyFor, lightColors } from '@/theme';
 
 export function SplashScreen() {
   const enter = useRef(new Animated.Value(0)).current;
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     Animated.spring(enter, { toValue: 1, useNativeDriver: true, friction: 7 }).start();
@@ -27,7 +29,14 @@ export function SplashScreen() {
         <Text style={styles.wordmark}>aiko</Text>
         <Text style={styles.tagline}>Send anything. We deliver fast.</Text>
       </Animated.View>
-      <ActivityIndicator color="#FFFFFF" style={styles.spinner} />
+      <ActivityIndicator color="#FFFFFF" style={[styles.spinner, { bottom: insets.bottom + spacing.huge * 1.5 }]} />
+      <Animated.View
+        style={[styles.credit, { bottom: insets.bottom + spacing.xl, opacity: enter }]}
+        accessible
+        accessibilityLabel="Aiko by NurIQ">
+        <Text style={styles.creditBy}>by</Text>
+        <Text style={styles.creditName}>NurIQ</Text>
+      </Animated.View>
     </View>
   );
 }
@@ -51,5 +60,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   tagline: { ...type.bodySmall, color: green[100] },
-  spinner: { position: 'absolute', bottom: spacing.huge * 1.5 },
+  spinner: { position: 'absolute' },
+  credit: { position: 'absolute', flexDirection: 'row', alignItems: 'baseline', gap: 5 },
+  creditBy: { fontSize: 13, color: green[100], opacity: 0.85 },
+  creditName: { fontSize: 15, fontWeight: '700', letterSpacing: 0.5, color: '#FFFFFF' },
 });

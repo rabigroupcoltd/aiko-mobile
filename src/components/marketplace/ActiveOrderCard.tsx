@@ -7,6 +7,7 @@ import { Button, Card, Chip } from '@/components/ui';
 import type { ActiveOrder } from '@/modules/marketplace/marketplaceTypes';
 import type { OrderStatus } from '@/modules/shared/apiTypes';
 import { makeStyles, spacing, useTheme } from '@/theme';
+import { orderReference, spellCode } from '@/utils/orderCode';
 import showToast from '@/utils/toast';
 
 const NEXT_STAGE: Partial<Record<OrderStatus, { label: string; status: OrderStatus }>> = {
@@ -79,6 +80,23 @@ export function ActiveOrderCard({
   const phone = collected ? order.dropoffPhone : order.pickupPhone;
   const eta = collected ? order.deliveryEtaMinutes : order.pickupEtaMinutes;
 
+  // Before collecting, the rider checks the code the customer reads out
+  // against this screen, so they never leave with the wrong order.
+  const advance = (status: OrderStatus) => {
+    if (status !== 'PICKED_UP' || !order.code) {
+      onAdvance(status);
+      return;
+    }
+    Alert.alert(
+      `Did they say ${order.code}?`,
+      "Only collect the order if the code the customer told you matches. If it doesn't, call them before you go.",
+      [
+        { text: 'Not yet', style: 'cancel' },
+        { text: 'Yes, it matches', onPress: () => onAdvance(status) },
+      ],
+    );
+  };
+
   const call = () => {
     if (!phone) {
       showToast.error('No phone number on file for this stop.');
@@ -96,7 +114,18 @@ export function ActiveOrderCard({
         <Text style={styles.earnings}>₦{order.driverEarnings.toLocaleString()}</Text>
       </View>
 
-      <Text style={styles.reference}>Order #{order.id.slice(0, 8).toUpperCase()}</Text>
+      {order.code && !collected ? (
+        <View
+          style={styles.codeBox}
+          accessible
+          accessibilityLabel={`Ask the customer for their order code. It should be ${spellCode(order.code)}.`}>
+          <Text style={styles.codeLabel}>Ask the customer for their order code</Text>
+          <Text style={styles.code}>{order.code}</Text>
+          <Text style={styles.codeHint}>Collect only if it matches.</Text>
+        </View>
+      ) : (
+        <Text style={styles.reference}>Order {orderReference(order)}</Text>
+      )}
 
       {order.assignedById ? (
         <Animated.View entering={ZoomIn.springify()} style={styles.assigned}>
@@ -137,7 +166,7 @@ export function ActiveOrderCard({
         <Animated.View key={next.status} entering={FadeIn.duration(250)}>
           <SwipeToConfirm
             label={next.label}
-            onConfirm={() => onAdvance(next.status)}
+            onConfirm={() => advance(next.status)}
             loading={advancing}
             tone={next.status === 'DELIVERED' ? 'accent' : 'primary'}
           />
@@ -187,6 +216,20 @@ const useStyles = makeStyles(({ colors, type }) => ({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   earnings: { ...type.heading, fontSize: 18, color: colors.primary },
   reference: { ...type.caption, letterSpacing: 0.5 },
+  codeBox: {
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 14,
+    backgroundColor: colors.primarySubtle,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+  },
+  codeLabel: { ...type.caption, color: colors.primaryDarker, fontWeight: '700' },
+  code: { fontSize: 30, lineHeight: 36, fontWeight: '800', letterSpacing: 4, color: colors.text },
+  codeHint: { ...type.caption },
   assigned: {
     alignSelf: 'flex-start',
     backgroundColor: colors.primaryLight,

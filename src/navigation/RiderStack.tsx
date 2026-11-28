@@ -22,8 +22,9 @@ export function RiderStack() {
   if (status === 'NOT_SUBMITTED' || status === 'REJECTED') {
     return (
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name={ROUTES.LICENSE_CAPTURE} component={LicenseCaptureScreen} />
+        {/* The required ID comes first; the optional licence follows it. */}
         <Stack.Screen name={ROUTES.NATIONAL_ID} component={NationalIdScreen} />
+        <Stack.Screen name={ROUTES.LICENSE_CAPTURE} component={LicenseCaptureScreen} />
         <Stack.Screen name={ROUTES.VEHICLE_TYPE} component={VehicleTypeScreen} />
         <Stack.Screen name={ROUTES.VEHICLE_DETAILS} component={VehicleDetailsScreen} />
         <Stack.Screen name={ROUTES.PLATE_PHOTO} component={PlatePhotoScreen} />

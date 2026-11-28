@@ -25,6 +25,7 @@ import type { OrderStatus } from '@/modules/shared/apiTypes';
 import { ROUTES } from '@/navigation/routes';
 import type { PassengerStackParamList } from '@/navigation/types';
 import { green, makeStyles, radius, shadows, spacing, useTheme } from '@/theme';
+import { spellCode } from '@/utils/orderCode';
 
 type Props = NativeStackScreenProps<PassengerStackParamList, typeof ROUTES.TRACK_ORDERS>;
 
@@ -419,6 +420,13 @@ function OrderCard({
         </View>
       ) : null}
 
+      {driver && order.code && !toDropoff ? (
+        <View style={styles.codeRow} accessible accessibilityLabel={`Order code ${spellCode(order.code)}. Tell it to your rider.`}>
+          <Text style={styles.codeLabel}>Tell your rider</Text>
+          <Text style={styles.codeValue}>{order.code}</Text>
+        </View>
+      ) : null}
+
       <View style={styles.cardBottom}>
         <Chip label={status.label} tone={status.tone} dot />
         <Text style={styles.cardSince}>
@@ -503,6 +511,18 @@ const useStyles = makeStyles(({ colors, type }) => ({
   cardRoute: { ...type.bodySmall, color: colors.textSecondary },
   cardLink: { ...type.subheading, fontSize: 14, color: colors.primary },
   detailsLink: { flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-start' },
+  codeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.base,
+    backgroundColor: colors.primarySubtle,
+  },
+  codeLabel: { ...type.caption, color: colors.primaryDarker, fontWeight: '600' },
+  codeValue: { ...type.subheading, fontSize: 16, letterSpacing: 2 },
   etaRow: {
     flexDirection: 'row',
     alignItems: 'center',

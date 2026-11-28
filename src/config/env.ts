@@ -5,6 +5,12 @@ export const API_BASE_URL =
 
 export const API_TIMEOUT_MS = 30000;
 
+/**
+ * Photo uploads get longer: several images over a slow 3G connection can take
+ * well over 30 s, and timing out mid-upload wastes the user's data.
+ */
+export const UPLOAD_TIMEOUT_MS = 120000;
+
 export const WEBSOCKET_URL = `${API_BASE_URL.replace(/\/api\/?$/, '')}/ride`;
 
 export const MINNA_CENTER = {

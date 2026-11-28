@@ -121,7 +121,9 @@ export function MyDocumentsScreen() {
 
       <View style={styles.notice}>
         <Text style={styles.noticeText}>
-          Documents are stored only on this device in the demo — nothing is uploaded.
+          Documents are sent securely to Aiko for verification and are only visible to you and
+          our review team. A retake here updates your copy on this phone; resubmit from your
+          rider application to send it for review.
         </Text>
       </View>
     </Screen>

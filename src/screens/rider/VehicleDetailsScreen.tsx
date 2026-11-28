@@ -32,15 +32,15 @@ export function VehicleDetailsScreen({ navigation }: Props) {
 
   const brand = details?.brand ?? '';
   const model = details?.model ?? '';
-  const plate = details?.plate ?? '';
   const color = details?.color ?? '';
 
+  // The plate number is entered on the next step, beside the scanned plate,
+  // so it is checked against the image rather than typed from memory.
   const errors = {
     photo: photo ? undefined : 'Take a photo of your vehicle',
     brand: brand.trim().length >= 2 ? undefined : 'Choose or type your vehicle brand',
-    plate: plate.trim().length >= 3 ? undefined : 'Enter the number on your plate',
   };
-  const ready = !errors.photo && !errors.brand && !errors.plate;
+  const ready = !errors.photo && !errors.brand;
 
   const handleContinue = () => {
     setTouched(true);
@@ -92,16 +92,6 @@ export function VehicleDetailsScreen({ navigation }: Props) {
           placeholder={vehicleType === 'tricycle' ? 'e.g. RE' : 'e.g. Boxer'}
           autoCapitalize="words"
           maxLength={100}
-        />
-        <TextField
-          label="Plate number"
-          value={plate}
-          onChangeText={(value) => setDetails({ plate: value.toUpperCase() })}
-          placeholder="e.g. MNA-123-XY"
-          autoCapitalize="characters"
-          autoCorrect={false}
-          maxLength={20}
-          error={touched ? errors.plate : undefined}
         />
         <TextField
           label="Colour (optional)"

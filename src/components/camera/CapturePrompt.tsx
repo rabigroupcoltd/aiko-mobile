@@ -2,7 +2,7 @@ import { Image, Pressable, Text, View } from 'react-native';
 
 import { Button, Card } from '@/components/ui';
 import { CAPTURE_CONFIG } from '@/data/copy';
-import { useOpenCamera } from '@/navigation/useAppNavigation';
+import { isScannedTarget, useOpenCamera } from '@/navigation/useAppNavigation';
 import { makeStyles, radius, spacing } from '@/theme';
 import type { CaptureTarget, DocumentAsset } from '@/types/models';
 
@@ -16,7 +16,7 @@ export function CapturePrompt({ target, asset, tips }: CapturePromptProps) {
   const styles = useStyles();
   const config = CAPTURE_CONFIG[target];
   const isProfile = target === 'profile';
-  const isDocument = target === 'license' || target === 'nationalId';
+  const isDocument = isScannedTarget(target);
 
   const open = useOpenCamera();
   const openCamera = () => open(target);
@@ -64,7 +64,7 @@ export function CapturePrompt({ target, asset, tips }: CapturePromptProps) {
 
       {!asset ? (
         <Button
-          label={`Take ${config.shortLabel.toLowerCase()}`}
+          label={`${isDocument ? 'Scan' : 'Take'} ${config.shortLabel.toLowerCase()}`}
           variant="secondary"
           onPress={openCamera}
           leading={<Text>📷</Text>}

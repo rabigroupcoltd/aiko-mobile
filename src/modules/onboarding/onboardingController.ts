@@ -74,6 +74,8 @@ export const UploadOnboardingPhotoManager = () => {
     contentType: null,
     queryKey: [ONBOARDING_QUERY_KEY, 'auth'],
     method: 'POST',
+    // The selfie screen shows the error beside the photo, with a retry.
+    showErrorToast: false,
   });
 
   const uploadPhoto = async (photo: OnboardingPhotoFile) => {

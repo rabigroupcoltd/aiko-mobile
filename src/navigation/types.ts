@@ -53,6 +53,7 @@ export type DrawerParamList = {
 export type RootStackParamList = {
   Main: undefined;
   [ROUTES.CAMERA_CAPTURE]: { target: CaptureTarget };
+  [ROUTES.PROFILE_PHOTO]: undefined;
 };
 
 declare global {

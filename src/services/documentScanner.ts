@@ -1,6 +1,6 @@
 import { Camera } from 'expo-camera';
-import { Image } from 'react-native';
 
+import { shrinkImage, UPLOAD_SIZES } from '@/services/imageCompression';
 import { createLogger } from '@/utils/logger';
 
 const log = createLogger('docScanner');
@@ -23,16 +23,14 @@ function loadScanner(): ScannerModule | null {
   }
 }
 
-function sizeOf(uri: string): Promise<{ width: number; height: number }> {
-  return new Promise((resolve) => {
-    Image.getSize(
-      uri,
-      (width, height) => resolve({ width, height }),
-      () => resolve({ width: 0, height: 0 }),
-    );
-  });
-}
-
+/**
+ * Opens the platform document scanner — ML Kit on Android, VisionKit on iOS.
+ * Both find the document's edges live, crop away the background, correct the
+ * perspective and enhance the page, and let the user retake or adjust the
+ * corners before confirming. Camera only: gallery import is switched off on
+ * Android by `patches/react-native-document-scanner-plugin+2.0.4.patch`, and
+ * VisionKit has no gallery option.
+ */
 export async function scanDocument(): Promise<ScanResult> {
   const scanner = loadScanner();
   if (!scanner) return { status: 'unavailable' };
@@ -43,14 +41,15 @@ export async function scanDocument(): Promise<ScanResult> {
   try {
     const { scannedImages, status } = await scanner.scanDocument({
       maxNumDocuments: 1,
-      croppedImageQuality: 85,
+      croppedImageQuality: 90,
     });
 
     const uri = scannedImages?.[0];
     if (status === 'cancel' || !uri) return { status: 'cancelled' };
 
     const fileUri = uri.startsWith('file://') || uri.startsWith('content://') ? uri : `file://${uri}`;
-    return { status: 'scanned', uri: fileUri, ...(await sizeOf(fileUri)) };
+    // Shrunk for mobile data, and copied into app storage as a JPEG.
+    return { status: 'scanned', ...(await shrinkImage(fileUri, UPLOAD_SIZES.document)) };
   } catch (error) {
     log.warn('document scan failed', error);
     return { status: 'unavailable' };

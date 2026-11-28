@@ -143,7 +143,7 @@ export function DrawerContent(props: DrawerContentComponentProps) {
               <ListRow
                 icon="📄"
                 title="My documents"
-                subtitle="Licence, ID and vehicle"
+                subtitle="ID, licence and vehicle"
                 onPress={go(ROUTES.MY_DOCUMENTS)}
                 style={activeRoute === ROUTES.MY_DOCUMENTS ? styles.activeRow : undefined}
               />

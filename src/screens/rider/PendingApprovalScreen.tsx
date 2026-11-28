@@ -79,6 +79,7 @@ export function PendingApprovalScreen() {
         <Text style={styles.summaryTitle}>What we received</Text>
         <Text style={styles.summaryItem}>
           {documents.license ? '✓' : '—'} Driver&apos;s licence
+          {documents.license ? '' : ' (optional, not added)'}
         </Text>
         <Text style={styles.summaryItem}>
           {documents.nationalId ? '✓' : '—'} National ID

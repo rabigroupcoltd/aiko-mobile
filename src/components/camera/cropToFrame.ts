@@ -19,6 +19,9 @@ export interface Size {
 /** Breathing room around the guide, so edges of the card or plate are never clipped. */
 const MARGIN = 0.06;
 
+/** Longest edge kept: enough to read a document or plate, small enough for mobile data. */
+const MAX_EDGE = 2000;
+
 /**
  * Maps a rectangle drawn over the camera preview onto the captured photo.
  *
@@ -61,8 +64,15 @@ export async function cropToFrame(
     const rect = frameToPhotoRect(frame, view, photo);
     if (rect.width < 50 || rect.height < 50) return { uri, ...photo };
 
-    const image = await ImageManipulator.manipulate(uri).crop(rect).renderAsync();
-    const saved = await image.saveAsync({ compress: 0.85, format: SaveFormat.JPEG });
+    const context = ImageManipulator.manipulate(uri).crop(rect);
+    // Shrunk in the same pass: a full-resolution camera photo is several MB,
+    // slow and costly to upload on mobile data.
+    const longest = Math.max(rect.width, rect.height);
+    if (longest > MAX_EDGE) {
+      context.resize(rect.width >= rect.height ? { width: MAX_EDGE } : { height: MAX_EDGE });
+    }
+    const image = await context.renderAsync();
+    const saved = await image.saveAsync({ compress: 0.82, format: SaveFormat.JPEG });
     return { uri: saved.uri, width: saved.width, height: saved.height };
   } catch (error) {
     log.warn('crop failed, keeping the full photo', error);

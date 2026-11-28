@@ -1,6 +1,9 @@
 import googleServices from '../../google-services.json';
 
-const client = googleServices.client[0];
+const ANDROID_PACKAGE = 'com.nuriq.aiko';
+const client =
+  googleServices.client.find((c) => c.client_info.android_client_info.package_name === ANDROID_PACKAGE) ??
+  googleServices.client[0];
 const projectId = process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID ?? googleServices.project_info.project_id;
 
 export const FIREBASE_CONFIG = {

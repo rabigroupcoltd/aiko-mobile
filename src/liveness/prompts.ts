@@ -20,40 +20,45 @@ export function promptFor(state: LivenessState): Prompt {
           return { id: 'tooFar', ...p.tooFar };
         case 'too-close':
           return { id: 'tooClose', ...p.tooClose };
-        case 'off-centre':
-          return { id: 'offCentre', ...p.offCentre };
         case 'not-frontal':
           return { id: 'notFrontal', ...p.notFrontal };
         case 'multiple-faces':
           return { id: 'multipleFaces', ...p.multipleFaces };
         case 'none':
-          return { id: 'holdStill', ...p.holdStill };
+          return { id: 'faceFound', ...p.faceFound };
         default:
           return { id: 'searching', ...p.searching };
       }
 
-    case 'NOD':
-      return state.nodStage === 'AWAIT_RETURN'
+    case 'CHALLENGE':
+      if (state.challenge === 'BLINK') {
+        return state.stage === 'ACTING'
+          ? { id: 'blinkOpen', ...p.blinkOpen }
+          : { id: 'blink', ...p.blink };
+      }
+      return state.stage === 'ACTING'
         ? { id: 'nodBack', ...p.nodBack }
         : { id: 'nod', ...p.nod };
+
+    case 'SETTLE':
+      return { id: 'settle', ...p.settle };
 
     case 'PASSED':
       return { id: 'passed', ...p.passed };
 
     case 'FAILED': {
       const reason = state.failReason ?? 'TIMEOUT_FACE';
-      const copy = LIVENESS_COPY.failures[reason];
-      return { id: `fail-${reason}`, ...copy };
+      return { id: `fail-${reason}`, ...LIVENESS_COPY.failures[reason] };
     }
   }
 }
 
+/** 0: find your face, 1: the challenge, 2: the photo. */
 export function stepIndexFor(state: LivenessState): number {
   switch (state.phase) {
-    case 'FACE_SEARCH':
-      return 0;
-    case 'NOD':
+    case 'CHALLENGE':
       return 1;
+    case 'SETTLE':
     case 'PASSED':
       return 2;
     default:

@@ -28,7 +28,7 @@ export const CAPTURE_CONFIG: Record<CaptureTarget, CaptureConfig> = {
   },
   nationalId: {
     title: 'National ID',
-    instruction: 'Place your NIN slip or national ID card inside the frame.',
+    instruction: 'Place your NIN slip or National ID card inside the frame.',
     facing: 'back',
     overlay: 'card',
     confirmLabel: 'Use this photo',
@@ -44,10 +44,10 @@ export const CAPTURE_CONFIG: Record<CaptureTarget, CaptureConfig> = {
   },
   plate: {
     title: 'Vehicle plate number',
-    instruction: 'Take a clear photo of your plate number. Get close enough to read it.',
+    instruction: 'Fit the plate inside the frame, edge to edge. Get close enough to read every character.',
     facing: 'back',
     overlay: 'plate',
-    confirmLabel: 'Use this photo',
+    confirmLabel: 'Use this scan',
     shortLabel: 'Vehicle plate',
   },
 };
@@ -55,7 +55,16 @@ export const CAPTURE_CONFIG: Record<CaptureTarget, CaptureConfig> = {
 export const LIVENESS_COPY = {
   screenTitle: 'Selfie check',
   screenSubtitle:
-    'Look at the camera, then nod once. This takes your profile photo and confirms you are a real person.',
+    "We'll ask you to blink or nod — it shows us it's really you. Then we take your profile photo. It takes about 10 seconds.",
+
+  /** Shown before the check starts. Written for real conditions: harsh sun, dim rooms at night. */
+  tips: [
+    "Face the light. Don't stand with the sun or a bright window behind you.",
+    'Hijab or cap is fine, as long as your whole face shows.',
+    'Take off sunglasses. Only you in the picture.',
+  ],
+  exhausted:
+    'Still not working? Move somewhere brighter — outside in the shade is best — then start over.',
 
   prompts: {
     idle: {
@@ -63,56 +72,65 @@ export const LIVENESS_COPY = {
       subtitle: 'We need to check that you are really here.',
     },
     searching: {
-      title: 'Position your face',
-      subtitle: 'Fit your face inside the oval.',
+      title: 'Show us your face',
+      subtitle: 'Hold the phone at eye level so your face is in view.',
     },
     tooFar: {
       title: 'Move a little closer',
-      subtitle: 'Your face is too small in the frame.',
+      subtitle: 'Your face is too small in the picture.',
     },
     tooClose: {
       title: 'Move back slightly',
       subtitle: 'Your face is too close to the camera.',
     },
-    offCentre: {
-      title: 'Centre your face',
-      subtitle: 'Line your face up with the oval.',
-    },
     notFrontal: {
-      title: 'Look straight ahead',
-      subtitle: 'Face the camera directly to begin.',
+      title: 'Look at the camera',
+      subtitle: 'Face the phone directly to begin.',
     },
     multipleFaces: {
       title: 'More than one face',
-      subtitle: 'Make sure you are the only person in the frame.',
+      subtitle: 'Make sure you are the only person in the picture.',
     },
-    holdStill: {
-      title: 'Hold still',
-      subtitle: 'Taking your photo…',
+    faceFound: {
+      title: 'Got you',
+      subtitle: 'Stay in view…',
+    },
+    blink: {
+      title: 'Now blink',
+      subtitle: 'Close both eyes, then open them again.',
+    },
+    blinkOpen: {
+      title: 'Open your eyes',
+      subtitle: 'Look back at the camera.',
     },
     nod: {
       title: 'Now nod your head',
-      subtitle: 'Slowly nod down, then look back up.',
+      subtitle: 'Like saying "yes" — down, then back up.',
     },
     nodBack: {
       title: 'Look back up',
-      subtitle: 'Bring your head back to the centre.',
+      subtitle: 'Bring your head back to face the camera.',
+    },
+    settle: {
+      title: 'Look at the camera',
+      subtitle: 'Eyes open — taking your photo…',
     },
     passed: {
       title: 'All done!',
-      subtitle: "You're verified, and we've saved your profile photo.",
+      subtitle: 'Check your photo, then use it or retake it.',
     },
   },
 
   failures: {
     TIMEOUT_FACE: {
-      title: 'That took too long',
+      title: "We couldn't see your face",
       subtitle:
-        'Hold the phone steady at eye level, centre your face in the oval, and try again.',
+        'It may be too dark. Move near a light or a window, hold the phone at eye level and try again.',
     },
-    TIMEOUT_NOD: {
-      title: "We didn't see a nod",
-      subtitle: 'Nod a little further down, then look back up. Good light helps.',
+    TIMEOUT_CHALLENGE: {
+      title: "We didn't catch that",
+      subtitle:
+        "No problem — try again. Do it slowly and clearly. You may get a different action this time.",
     },
   },
 } as const;

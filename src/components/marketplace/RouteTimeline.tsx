@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import { Card } from '@/components/ui';
 import type { PlannedStop, RoutePlan } from '@/modules/marketplace/marketplaceTypes';
 import { makeStyles, spacing, useTheme } from '@/theme';
+import { orderReference } from '@/utils/orderCode';
 
 export function RouteTimeline({
   route,
@@ -70,7 +71,7 @@ function Stop({
 
       <View style={styles.body}>
         <Text style={styles.kind}>
-          {isPickup ? 'Pick up' : 'Drop off'} · #{stop.orderId.slice(0, 8).toUpperCase()}
+          {isPickup ? 'Pick up' : 'Drop off'} · {orderReference({ id: stop.orderId, code: stop.code })}
         </Text>
         <Text style={styles.address} numberOfLines={2}>
           {stop.address}

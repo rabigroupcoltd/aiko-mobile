@@ -21,6 +21,8 @@ export interface OrderDriver extends DriverProfile {
 
 export interface Order extends TripRoute {
   id: string;
+  /** Pickup code the customer reads aloud, e.g. "KMX-472". Null on older orders. */
+  code?: string | null;
   userId: string;
   driverId: string | null;
   vehicleType: VehicleType;
@@ -142,6 +144,7 @@ export interface DriverLocation {
 
 export interface TrackedOrder {
   orderId: string;
+  code?: string | null;
   status: import('@/modules/shared/apiTypes').OrderStatus;
   description: string | null;
   vehicleType: string;
